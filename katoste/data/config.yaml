@@ -1,0 +1,16 @@
+barcode_flavors:
+  openst:                                                                                                                                                                                                                                                                                                                                                                                                     
+    bam_tags: CB:{cell}
+    cell: r1[2:27]
+  seq_scope_v1:
+    bam_tags: CB:{cell}
+    cell: r1[0:20]
+  stereo_seq:
+    bam_tags: CB:{cell}
+    cell: r1[0:25]
+  visium:
+    bam_tags: CB:{cell}
+    cell: r1[0:16]
+  slide_seq:
+    bam_tags: CB:{cell}
+    cell: r1[0:14]

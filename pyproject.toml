@@ -1,0 +1,64 @@
+[build-system]
+requires = ["poetry", "Cython", "setuptools", "wheel"]
+build-backend = "poetry.masonry.api"
+
+[tool.poetry]
+name = "katoste"
+version = "0.1.0"
+description = "katoste: fast indexing and querying of genomic sequences from spatial transcriptomics data"
+license = "GPL-2.0"
+authors = [
+    "Daniel León-Periñán <daniel.leonperinan@mdc-berlin.de>",
+    "Nikolaos Karaiskos <nikolaos.karaiskos@mdc-berlin.de>",
+]
+maintainers = [
+    "Daniel León-Periñán <daniel.leonperinan@mdc-berlin.de>",
+    "Nikolaos Karaiskos <nikolaos.karaiskos@mdc-berlin.de>",
+]
+readme = "README.md"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Natural Language :: English",
+    "Operating System :: MacOS :: MacOS X",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Scientific/Engineering :: Bio-Informatics",
+    "Topic :: Scientific/Engineering :: Visualization",
+]
+include = ["katoste/data/*.yaml"]
+
+[tool.poetry.build]
+script = "build.py"
+generate-setup-file = true
+
+[tool.poetry.dependencies]
+python = ">3.8,<3.12"
+numpy = ">=1.17.0"
+pandas = ">=1.0"
+tqdm = "*"
+dnaio = ">1.0.0"
+h5py = ">=3"
+sortedcontainers = ">1.0.0"
+rich = ">13.0"
+pysam = ">0.20.0"
+setproctitle = ">1.0"
+tifffile = ">2022.4.8"
+
+[tool.poetry.dev-dependencies]
+Cython = "^0.29.21"  # Latest version at time of publishing
+
+[tool.poetry.urls]
+"Documentation" = "https://rajewsky-lab.github.io/katoste"
+"Source" = "https://github.com/rajewsky-lab/katoste"
+"Home-page" = "https://rajewsky-lab.github.io/katoste"
+
+[tool.poetry.scripts]
+katoste = 'katoste.__main__:run_katoste'
