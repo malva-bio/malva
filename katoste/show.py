@@ -48,6 +48,7 @@ class KatostePlot:
 
         xy = self.xy[locations]
         im, _, _ = np.histogram2d(xy[:, 0], xy[:, 1],
+                                  range=[[0, self.xmax], [0, self.ymax]],
                                   bins=tuple((_im_shape * render_scale).astype(int)))
 
         if render_scale != 1 or render_smoothing != 1:
