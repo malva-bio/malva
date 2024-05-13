@@ -34,11 +34,23 @@ katoste index \
 This will create a spatial index in the folder `example_index`
 
 ### 3. Visualize data
+to create one spatial visualization per query sequence in a `queries.fasta` file
+
 ```bash
 katoste show \
-   --reads-in R1.fastq.gz R2.fastq.gz \
-   --spatial-bc-in spatial_barcodes.tsv \
-   --index-out example_index
+   --index-in example_index \
+   --query queries.fasta \
+   --image-out example_output # output folder
+```
+
+or, if you want a single image file for all query sequences
+
+```bash
+katoste show \
+   --index-in example_index \
+   --query queries.fasta \
+   --image-out example_output \
+   --multichannel
 ```
 
 ## Documentation
