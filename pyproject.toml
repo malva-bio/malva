@@ -51,6 +51,7 @@ rich = ">13.0"
 pysam = ">0.20.0"
 setproctitle = ">1.0"
 tifffile = ">2022.4.8"
+pyyaml = ">5.4"
 
 [tool.poetry.dev-dependencies]
 Cython = "^0.29.21"  # Latest version at time of publishing

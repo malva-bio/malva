@@ -17,6 +17,11 @@ class KatostePlot:
             raise ValueError("argument `index` has to be of type `KatosteIndex`")
 
         self.index = index
+
+        # load the metadata from the index file
+        self.index.open()
+        self.index.close()
+
         self.xmax = self.index.coord_lims[1]+1
         self.ymax = self.index.coord_lims[3]+1
         self.n_spatial = self.index.n_spatial
@@ -52,6 +57,7 @@ class KatostePlot:
             im = gaussian(im, render_smoothing)
             im = resize(im, tuple(_im_shape))
 
+        im = ((im / im.max()) * 255).astype(np.uint8)
         return im.T
 
 
@@ -62,7 +68,7 @@ def _run_show(args):
     outdir_exists = check_directory_exists(args.image_out)
     if not outdir_exists:
         logging.warn("The specified output directory did not exist. Creating...")
-        os.mkdir(outdir_exists)
+        os.mkdir(args.image_out)
 
     multi_out = {}
 
@@ -86,9 +92,10 @@ def _run_show(args):
             _multi_out_file = os.path.join(args.image_out, "katoste_multichannel.tif")
             logging.info(f"Saving multichannel file into {_multi_out_file}")
 
-            multi_out_np = np.vstack(multi_out.values())
+            multi_out_np = np.vstack([l[np.newaxis] for l in list(multi_out.values())])
+            print(multi_out_np.shape)
 
-            tifffile.imwrite(_multi_out_file, multi_out_np, metadata={"axes": "CYX", "Labels": multi_out.keys()}, imagej=True, bigtiff=True)
+            tifffile.imwrite(_multi_out_file, multi_out_np, metadata={"axes": "CYX", "Labels": list(multi_out.keys())}, imagej=True, bigtiff=True)
     
 
 if __name__ == "__main__":

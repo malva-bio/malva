@@ -121,11 +121,8 @@ def get_show_parser():
     )
     parser.add_argument(
         "--multichannel",
-        type=str,
-        nargs="+",
-        default=None,
-        help="""A single image is generated with at most 3 merged channels,
-        with the name `katoste_query_merge.tiff`, under the directory specified in `--image-out`"""
+        action="store_true",
+        help="""Will save a single image where channels are the individual query sequences (named)"""
     )
     parser.add_argument(
         "--save-npy",
@@ -137,7 +134,7 @@ def get_show_parser():
         "--scalebar",
         action="store_true",
         help="""A scalebar is automatically displayed.
-        The size is by default 25% of the image width.""",
+        The size is by default 25/100 of the image width.""",
     )
     return parser
 
