@@ -71,6 +71,8 @@ class KatosteIndex:
     def initialize(self, kmer_size=8):
         if kmer_size < 8 or kmer_size > 32:
             raise ValueError("`kmer_size` must be between 8 and 32 (inclusive)")
+        if kmer_size < 24:
+            logging.warn(f"For accuracy and speed, we recommend using > 24-mers (currently using {kmer_size}-mers)")
 
         self.kmer_size = kmer_size
 
