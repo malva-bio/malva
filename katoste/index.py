@@ -27,7 +27,7 @@ N_REPORT = 1_000_000
 # TODO: when visualizing, give an option to store which of the subsequences is giving the result
 # so we can localize where in the gene body the spatial mapping is happening
 class KatosteIndex:
-    def __init__(self, index_dir, rewrite=False):
+    def __init__(self, index_dir, rewrite=False, kmer_size_initialize=8):
         self.rewrite = rewrite
         self.index_dir = index_dir
         self.index_file = os.path.join(self.index_dir, 'katoste_index.h5')
@@ -57,8 +57,8 @@ class KatosteIndex:
                 logging.info("The index exists already!")
         
         if not exists:
-            logging.info(f"Will create katoste index at `{self.index_file}`")
-            self.initialize()
+            logging.info(f"Will create katoste index at `{self.index_file}` with {kmer_size_initialize}-mers")
+            self.initialize(kmer_size=kmer_size_initialize)
 
     @staticmethod
     def index_exists(self):
@@ -365,7 +365,7 @@ def _run_index(args):
     _n_locations = len(sindex)
 
     logging.info(f"Configuring the katoste index")
-    kmer_index = KatosteIndex(args.index_out)
+    kmer_index = KatosteIndex(args.index_out, kmer_size_initialize=args.kmer_length)
     
     logging.info("Adding spatial index to katoste index")
     kmer_index.append_spatial(sindex)
