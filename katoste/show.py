@@ -1,6 +1,5 @@
 import dnaio
 import numpy as np
-import matplotlib.pyplot as plt
 import logging
 import os
 import re
@@ -30,6 +29,10 @@ class KatostePlot:
         self.xy = np.vstack(xy).T
 
     def scatter(self, locations, intensities):
+        try:
+            import matplotlib.pyplot as plt
+        except ImportError:
+            raise ImportError("Please install matplotlib: `pip install matplotlib`")
         plt.figure(figsize=(10, 10))
         plt.scatter(self.index_coords[0][locations],
                     -self.index_coords[1][intensities],
