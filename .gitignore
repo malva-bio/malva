@@ -10,6 +10,14 @@
 # C files
 *.c
 
+# genome sequences
+*.fa
+*.fastq*
+*.bam
+*.tsv
+*.csv
+*.pickle
+
 # Distribution / packaging
 .Python
 build/
