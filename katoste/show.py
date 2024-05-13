@@ -80,7 +80,7 @@ def _run_show(args):
         logging.info(f"Opened FASTA file {args.query}")
         for i, record in enumerate(f):
             logging.info(f"[{i}/n] Querying sequence {record.name}")
-            locs, ints = kmer_index.where(record.sequence)
+            locs, ints = kmer_index.where(record.sequence, lazy_index=False)
 
             logging.info(f"[{i}/n] Plotting")
             im = plotter.image(locs, ints)
