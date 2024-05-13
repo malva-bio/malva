@@ -249,7 +249,7 @@ class KatosteIndex:
         if len(all_oc) > 0:
             kmer_locations, kmer_count = np.unique(np.concatenate(all_oc), return_counts=True)
         else:
-            kmer_locations, kmer_count = 0, 0
+            kmer_locations, kmer_count = np.array([0]), np.array([0])
         
         self.close()
 
