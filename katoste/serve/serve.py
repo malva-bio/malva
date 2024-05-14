@@ -1,4 +1,23 @@
-# TODO: implement web server. To generate images from sequence, will use the logic from the `show` submodule
+import io
+import os
+import logging
+import numpy as np
+
+from netCDF4 import Dataset
+import xarray as xr
+import datashader as ds
+import colorcet
+
+from datashader import transfer_functions as tf
+
+from flask import Flask, render_template, send_file
+from katoste.index import KatosteIndex
+from katoste.utils import get_module_path
+
+app = Flask(__name__)
+
+# TODO: this must be fast! (e.g., do not use flask for visualization but use Dash or datashader or sth else?)
+# TODO: implement web server. To generate images from sequence, will use the logic from the `serve` submodule
 # TODO: this is an interactive flask application displaying an image
 # that can be dynamically updated depending on the query sequence
 # TODO: the image viewport has a default image, which is replaced as soon as the user enters a sequence
@@ -16,12 +35,124 @@
 # next to the 'find' button that can be used to download the image and sequence (as a zip file of the TIFF file and
 # the text as txt).
 
-# TODO: this will use microfilm to display the images
+def interactive_query(sequence):
+    global kmer_index, xy, x_sarray, y_sarray, data
+
+    logging.info(f"Querying sequence '{sequence}'")
+    locs, ints = kmer_index.where(sequence, lazy_index=False)
+    
+    create_netcdf_image(kmer_index, xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
+
+    data = xr.open_dataset("test.nc")
+    
+    x_sarray = data['x']
+    y_sarray = data['y']
+
+    return locs, ints
 
 def _run_serve(args):
-    pass
+    global app
+    global kmer_index
+    global xy
 
+    logging.info("Loading katoste index and metadata")
+    kmer_index = KatosteIndex(args.index_in)
+    kmer_index.open() # TODO: when loading, if the index exists, instead of this
+    kmer_index.close()
+
+    logging.info("Loading pointers into memory")
+    kmer_index.where("A"*kmer_index.kmer_size, lazy_index=False)
+
+    xmax = kmer_index.coord_lims[1]+1
+    ymax = kmer_index.coord_lims[3]+1
+    n_spatial = kmer_index.n_spatial
+
+    xy = np.unravel_index(np.arange(n_spatial), (xmax, ymax), order='C')
+    xy = np.vstack(xy).T
+
+    logging.info(f"Setting up web server at {args.address}:{args.port}")
+    app.run(debug=True, host=args.address, port=args.port)
+
+def tile_zoomed_coords(xtile, ytile, zoom):
+    n = 2.0 ** zoom
+    xtile_zoom = xtile / n
+    ytile_zoom = ytile / n
+
+    return (xtile_zoom, ytile_zoom)
+
+def generateatile(zoom, x, y):
+    """
+    The function takes the zoom and tile path from the web request,
+    and determines the top left and bottom right coordinates of the tile.
+    This information is used to query against the dataframe.
+    """
+    global data, x_sarray, y_sarray
+    
+    print(x, y, zoom)
+    xleft, yleft = tile_zoomed_coords(int(x), int(y), int(zoom))
+    xright, yright = tile_zoomed_coords(int(x)+1, int(y)+1, int(zoom))
+    print(xleft, yleft)
+
+    xleft, yleft = 0, 0
+    xright, yright = 100, 100
+
+    # # ensuring no gaps are left between tiles due to partitioning occurring between coordinates.
+    # xleft_snapped = x_sarray.sel(x=xleft, method="nearest").values
+    # yleft_snapped = y_sarray.sel(y=yleft, method="nearest").values
+    # xright_snapped = x_sarray.sel(x=xright, method="nearest").values
+    # yright_snapped = y_sarray.sel(y=yright, method="nearest").values
+
+    # The dataframe query gets passed to Datashader to construct the graphic.
+    xcondition = f"x >= {xleft} and x <= {xright}"
+    ycondition = f"y <= {yleft} and y >= {yright}"
+
+    xcondition = "x > 0"
+    ycondition = "y > 1"
+
+    print(xcondition)
+    frame = data.query(x=xcondition, y=ycondition)
+
+    # First the graphic is created, then the dataframe is passed to the Datashader aggregator.
+    csv = ds.Canvas(plot_width=256, plot_height=256, x_range=(min(xleft-10, xright), max(
+        xleft, xright)), y_range=(min(yleft, yright), max(yleft, yright)))
+    agg = csv.quadmesh(frame, x='x', y='y', agg=ds.sum('ints'))
+
+    # The image is created from the aggregate object, a color map and aggregation function.
+    img = tf.shade(agg, cmap=colorcet.coolwarm, how="linear")
+    return img.to_pil()
+
+@app.route("/")
+def index():
+    global ncfile
+    interactive_query("TCTGTCTCCCCTACCCTCTCATGGTGGTAGGCTAATAAAGCTTTTTGGTTGATGCAAA")
+    return render_template("index.html")
+
+@app.route("/tiles/<int:zoom>/<int:x>/<int:y>.png")
+def tile(x, y, zoom):
+    results = generateatile(zoom, x, y)
+    # image passed off to bytestream
+    results_bytes = io.BytesIO()
+    results.save(results_bytes, 'PNG')
+    results_bytes.seek(0)
+    return send_file(results_bytes, mimetype='image/png')
+
+def create_netcdf_image(kmer_index, xloc, yloc, ints):
+    ncfile = Dataset("test.nc", "w", format="NETCDF4")
+
+    x_dim = ncfile.createDimension('x', kmer_index.coord_lims[1]+1)
+    y_dim = ncfile.createDimension('y', kmer_index.coord_lims[3]+1)
+    nc_ints = ncfile.createDimension("ints", None)
+    x = ncfile.createVariable('x', np.int32, ('x',))
+    y = ncfile.createVariable('y', np.int32, ('y',))
+    ints_s = ncfile.createVariable("ints",np.int32,("x","y",))
+
+    x[:] = np.arange(kmer_index.coord_lims[1]+1)
+    y[:] = np.arange(kmer_index.coord_lims[3]+1)
+    ints_s[xloc, yloc] = ints
+
+    ncfile.close()
+    
 if __name__ == "__main__":
     from katoste.cli import get_serve_parser
     args = get_serve_parser().parse_args()
-    _run_serve()
+    _run_serve(args)

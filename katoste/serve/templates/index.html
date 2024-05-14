@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en-US">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>katoste server</title>
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
+
+     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/site.css')}}">
+
+     <script src="https://d3js.org/d3.v7.min.js"></script>
+  </head>
+  <body>
+    <div id="map"></div>
+    <div id="sidebar">
+        <p>
+            Coordinates: (<span id="lat-update">N/A</span>, <span id="lon-update">N/A</span>)
+        </p>
+        <p>
+            katoste index: <span id="temp-update">N/A</span>
+        </p>
+        <svg id="time-series-chart" height="350" width="350"></svg>
+    </div>
+
+    <script>
+        var map = new L.map('map', {
+            center: [50,50], 
+            minZoom: 1,
+            zoom: 2,
+            zoomSnap: 0,
+            maxBounds: [[0, 0],[100, 100]],
+            maxBoundsViscosity: 1.0,
+            attributionControl:false
+        })
+
+        var mapdata = L.tileLayer('/tiles/{z}/{x}/{y}.png', {
+            maxZoom: 6,
+            opacity: 0.75,
+            noWrap: true
+        }).addTo(map);
+
+        L.control.scale().addTo(map);
+
+        // handling hover functionalities
+        map.on('mousemove', function(e) {
+            let currentLat = e.latlng.lat
+            let currentLon = e.latlng.lng
+
+            document.getElementById('lat-update').innerHTML = (Math.abs(currentLat).toFixed(2)) + "µm";
+            document.getElementById('lon-update').innerHTML = (Math.abs(currentLon).toFixed(2)) + "µm";
+        });
+    </script>
+  </body>
+</html>
