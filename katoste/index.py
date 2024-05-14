@@ -21,7 +21,7 @@ from katoste.kmer_processing import get_kmers_numeric, encode_kmer
 # pyximport.install(reload_support=True)
 # import kmer_processing
 
-N_CHUNK = 10_000_000
+N_CHUNK = 100_000_000
 N_REPORT = 1_000_000
 
 # TODO: when visualizing, give an option to store which of the subsequences is giving the result
@@ -110,7 +110,8 @@ class KatosteIndex:
 
     def open(self, mode='r'):
         self.index = h5py.File(self.index_file, mode)
-        self._index_backed = self.index
+        if self._index_backed is None:
+            self._index_backed = self.index
 
         if 'kmer_size' in self.index.attrs:
             self.kmer_size = self.index.attrs['kmer_size']
@@ -179,14 +180,21 @@ class KatosteIndex:
 
         for i in (range(self.n_chunks)):
             _idx_ptr = self._index_backed[f'index_{i}_indices']
-            _len = _idx_ptr.shape[0]
-            _loc = binary_search(_idx_ptr, 0, _len-1, kmer)
+            # _len = _idx_ptr.shape[0]
+            # _loc = binary_search(_idx_ptr, 0, _len-1, kmer)
+            _loc = np.searchsorted(_idx_ptr, kmer)
 
-            if _loc == -1:
+            if _idx_ptr[_loc] != kmer:
                 continue
             
-            _indptr = self.index[f'index_{i}_indptr'][_loc:_loc+2]
-            _values += [self.index[f'index_{i}_data'][_indptr[0]:_indptr[1]]]
+            _indptr = self._index_backed[f'index_{i}_indptr'][_loc:_loc+2]
+            _data = self.index[f'index_{i}_data']
+
+            if (_indptr[1]-_indptr[0])/len(_data) > 0.01 or (_indptr[1]-_indptr[0]) <= 10:
+                logging.debug(f"Did not process kmer `{kmer}`")
+                continue
+
+            _values += [_data[_indptr[0]:_indptr[1]]]
 
         return _values
 
@@ -202,6 +210,8 @@ class KatosteIndex:
         # only load from memory when a file or None; skip if already a dict (assumes proper format)
         if isinstance(self._index_backed, h5py.File) or self._index_backed is None:
             self._index_backed = {f'index_{i}_indices': self.index[f'index_{i}_indices'][:] for i in range(self.n_chunks)}
+            self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
+        
 
     def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True):
         if len(sequence) < self.kmer_size:
