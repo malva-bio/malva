@@ -190,7 +190,10 @@ class KatosteIndex:
             _indptr = self._index_backed[f'index_{i}_indptr'][_loc:_loc+2]
             _data = self.index[f'index_{i}_data']
 
-            if (_indptr[1]-_indptr[0])/len(_data) > 0.01 or (_indptr[1]-_indptr[0]) <= 10:
+            if (len(_indptr) !=2):
+                _indptr = [_indptr[0], len(_data)]
+
+            if ((_indptr[1]-_indptr[0])/len(_data) > 0.01) or ((_indptr[1]-_indptr[0]) <= 10):
                 logging.debug(f"Did not process kmer `{kmer}`")
                 continue
 
