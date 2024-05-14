@@ -79,6 +79,10 @@ def _run_show(args):
     with dnaio.open(args.query) as f:
         logging.info(f"Opened FASTA file {args.query}")
         for i, record in enumerate(f):
+            if len(record.sequence) < kmer_index.kmer_size:
+                logging.warn(f"[{i}/n] Skipping sequence {record.name} - too short")
+                continue
+
             logging.info(f"[{i}/n] Querying sequence {record.name}")
             locs, ints = kmer_index.where(record.sequence, lazy_index=False)
 
