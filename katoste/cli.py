@@ -198,7 +198,7 @@ def setup_serve_parser(parent_parser):
 
 
 def cmd_run_serve(args):
-    from katoste.serve import _run_serve
+    from katoste.serve.serve import _run_serve
 
     _run_serve(args)
 
