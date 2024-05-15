@@ -22,7 +22,7 @@
     <script src='https://unpkg.com/leaflet.tilelayer.gl@latest/src/Leaflet.TileLayer.GL'></script>
 
 
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/site.css')}}">
+    <link rel="stylesheet" type="text/css" href="site.css">
 
      <script src="https://d3js.org/d3.v7.min.js"></script>
   </head>
@@ -32,22 +32,107 @@
         <div id="omnibox-container" class="id-omnibox-container">
             <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
                 <div id="search" class="searchbox searchbox-position nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b searchbox-empty expanded">
-                    <form id="sequence-select" method="post" enctype="multipart/form-data">
+                    <form id="sequence-select" method="post" enctype="multipart/form-data" data-toggle="tooltip" data-placement="botton" title="<b>Example usage</b>:<br/><br/>'gene:GENEID' for genes<br/>'ensembl:ENSG123456' for ensembl queries<br/>'>seq<br/>ATTGGTCA'<br/>for fasta queries<br/>'ATTCGAT' for gene queries" >
                         <div class="searchboxlabeldiv"> 
                             <label for="selectsequence" class="searchboxlabel fontBodyMedium">Search Katoste</label>
                         </div>
-                        <textarea name="selectsequence" id="selectsequence" class="searchboxinput" form="sequence-select" aria-label="Search Katoste" data-toggle="tooltip" data-placement="botton" title="Example usage:<br/>;'gene:GENEID' for genes<br/>;'ensembl:ENSG123456' for ensembl queries<br/>;'>seq<br/>;ATTGGTCA'<br/>;for fasta queries<br/>;'ATTCGAT' for gene queries" spellcheck="false"></textarea>
+                        <textarea name="selectsequence" id="selectsequence" class="searchboxinput" form="sequence-select" aria-label="Search Katoste" spellcheck="false"></textarea>
+                        <div id="highlightedText" class='searchboxinput' aria-hidden="true"></div>
                         <div jstcache="34" class="pzfvzf"> 
                             <button type="submit" aria-label="Search" id="btn-submit" class="searchbutton mL3xi" data-toggle="tooltip" data-placement="botton" title="Search">
                                 <span aria-hidden="true" class="google-symbols"></span>
                             </button>
                         </div>
                     </form>
-                    <label class='slider-label' for="total_counts_range"><b style='color:rgb(0, 107, 107) !important;'>Total counts</b> | Range:</label>
-                    <div id="total_counts_range_slider"></div>
+                </div>
+            </div>
+        </div>
 
-                    <label class='slider-label' for="query_range"><b style='color:rgb(134, 0, 134) !important;'>Query</b> | Range:</label>
-                    <div id="query_range_slider"></div>
+        <div id="omnibox-container" class="id-omnibox-container">
+            <div id="buttonbox-container" class="buttonbox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                <div class="dryRY ">
+                    <div class="KNfEk Rqu0ae ">
+                        <button class="e2moi " aria-label="general">
+                            <div id="settingsButton" class="tXNTee L6Bbsd T7HQDc ">
+                                <div class="OyjIsf"></div>
+                                <span class="k48Abe google-symbols" aria-hidden="true">&#xe429;</span>
+                                <span class="uEubGf fontTitleSmall">Settings</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="KNfEk Rqu0ae ">
+                        <button class="e2moi " aria-label="query">
+                            <div id="queryButton" class="tXNTee L6Bbsd T7HQDc ">
+                                <div class="OyjIsf"></div>
+                                <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe4fc;</span>
+                                <span class="uEubGf fontTitleSmall">Query</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+
+
+        <div id="control-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="infobox-control-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b"><b style='color:rgb(134, 0, 134) !important;'><b style='color:rgb(0, 107, 107) !important;'>Total counts</b></b></h1>
+                        </div>
+                    </div>
+                    <hr/>
+                    <label class='slider-label' for="total_counts_range">Brightness limits</label>
+                    <div id="total_counts_range_slider" class="range-slider-custom"></div>
+                </div>
+            </div>
+        </div>
+        <div id="card-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="infobox-control-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b"><b style='color:rgb(134, 0, 134) !important;'>Query</b></h1>
+                        </div>
+                    </div>
+                    <hr/>
+                    <label class='slider-label' for="query_range">Brightness limits</label>
+                    <div id="query_range_slider" class="range-slider-custom"></div>
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b">Query details</h1>
+                        </div>
+                    </div>
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b">Sequence occurrence</h1>
+                        </div>
+                        <textarea id="inputText" spellcheck="false" class='searchboxinput' placeholder="Type your text here..."></textarea>
+                        <div id="heatmapText" class='searchboxinput' aria-hidden="true"></div>
+                    </div>
+                    <div class="dryRY ufjIR">
+                        <div class="KNfEk Rqu0ae ">
+                            <button class="e2moi " aria-label="query">
+                                <div class="tXNTee L6Bbsd T7HQDc ">
+                                    <div class="OyjIsf"></div>
+                                    <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe161;</span>
+                                    <span class="uEubGf fontTitleSmall">Save</span>
+                                </div>
+                            </button>
+                        </div>
+                        <div class="KNfEk Rqu0ae ">
+                            <button class="e2moi " aria-label="query">
+                                <div class="tXNTee L6Bbsd T7HQDc ">
+                                    <div class="OyjIsf"></div>
+                                    <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe872;</span>
+                                    <span class="uEubGf fontTitleSmall">Remove</span>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                    
                 </div>
             </div>
         </div>
@@ -196,11 +281,15 @@
         })
 
         $(function () {
-            $('[data-toggle="tooltip"]').tooltip()
+            $('[data-toggle="tooltip"]').tooltip({
+                html: true
+            })
         })
 
         // Get the input element
         var textArea = document.getElementById("selectsequence");
+        var textAreaHighlight = document.getElementById("highlightedText");
+        var searchArea = document.getElementById("sequence-select");
         
         $(document).on('input', '#selectsequence', function(){
             if ($("#selectsequence").val()) {
@@ -210,15 +299,121 @@
             }
             if (textArea.scrollHeight > 1 && textArea.scrollHeight <= 480) {
                 textArea.style.height = 'auto';
+                textAreaHighlight.style.height = 'auto';
                 textArea.style.height = textArea.scrollHeight + "px";
+                textAreaHighlight.style.height = textArea.scrollHeight + "px";
+                textAreaHighlight.style.top = -textArea.scrollHeight + "px";
                 searchArea.style.height = textArea.scrollHeight + "px";
             } else if (textArea.scrollHeight > 480) {
                 textArea.style.height = '480px';
+                textAreaHighlight.style.height = '480px';
+                textAreaHighlight.style.top = '-480px';
             } else {
                 textArea.style.height = '24px';
+                textAreaHighlight.style.height = '24px';
                 searchArea.style.height = '24px';
+                textAreaHighlight.style.top = '-24px';
             }
             console.log(textArea.scrollHeight);
+        });
+        
+        // syntax highlighting
+        document.addEventListener('DOMContentLoaded', () => {
+            const textarea = document.getElementById('selectsequence');
+            const highlightedText = document.getElementById('highlightedText');
+
+            textarea.addEventListener('input', () => {
+                const text = textarea.value;
+                highlightedText.innerHTML = applySyntaxHighlighting(text);
+            });
+
+            textarea.addEventListener('scroll', () => {
+                highlightedText.scrollTop = textarea.scrollTop;
+                highlightedText.scrollLeft = textarea.scrollLeft;
+            });
+
+            function applySyntaxHighlighting(text) {
+                const keywordPatterns = {
+                    'gene:': 'keyword-gene',
+                    'species:': 'keyword-species',
+                    'split:': 'keyword-split'
+                };
+
+                let highlighted = text.replace(/(gene:|species:|split:|ensembl:)([^;]*)/g, (match, p1, p2) => {
+                    const keywordClass = keywordPatterns[p1];
+                    const argumentClass = 'argument';
+                    return `<span class="${keywordClass}">${p1}</span><span class="${argumentClass}">${p2}</span>`;
+                });
+
+                return highlighted.replace(/\n/g, '<br>');
+            }
+
+            // To display and hide the cards
+            const settingsButton = document.getElementById('settingsButton');
+            const queryButton = document.getElementById('queryButton');
+            const controlContainer = document.getElementById('control-container');
+            const queryContainer = document.getElementById('card-container');
+
+            function toggleControlContainer(button) {
+                if (controlContainer.classList.contains('visible')) {
+                    controlContainer.classList.remove('visible');
+                    settingsButton.classList.remove('active');
+                } else {
+                    controlContainer.classList.add('visible');
+                    settingsButton.classList.add('active');
+                }
+            }
+
+            function toggleQueryContainer(button) {
+                if (queryContainer.classList.contains('visible')) {
+                    queryContainer.classList.remove('visible');
+                    queryButton.classList.remove('active');
+                } else {
+                    queryContainer.classList.add('visible');
+                    queryButton.classList.add('active');
+                }
+            }
+
+            // Add event listeners to buttons
+            settingsButton.addEventListener('click', toggleControlContainer);
+            queryButton.addEventListener('click', toggleQueryContainer);
+        });
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const textarea = document.getElementById('inputText');
+            const heatmapText = document.getElementById('heatmapText');
+
+            textarea.addEventListener('input', () => {
+                const text = textarea.value;
+                const scores = getScoresForText(text); // This function generates or fetches scores for the text
+                heatmapText.innerHTML = applyHeatmapHighlighting(text, scores);
+            });
+
+            textarea.addEventListener('scroll', () => {
+                heatmapText.scrollTop = textarea.scrollTop;
+                heatmapText.scrollLeft = textarea.scrollLeft;
+            });
+
+            function getScoresForText(text) {
+                // Example: Generate random scores for each character in the text
+                return Array.from(text).map(() => Math.random());
+            }
+
+            function applyHeatmapHighlighting(text, scores) {
+                return text.split('').map((char, index) => {
+                    const score = scores[index];
+                    const color = getColorForScore(score);
+                    return `<span style="background-color: ${color}">${char}</span>`;
+                }).join('').replace(/\n/g, '<br>');
+            }
+
+            function getColorForScore(score) {
+                // Convert the score (0 to 1) to a color from white to light red
+                const r = Math.round(255 * score);
+                const g = Math.round(255 * (1 - score));
+                const b = g; // Make the color white to red by adjusting green and blue channels
+                return `rgb(${r}, ${g}, ${b})`;
+            }
         });
 
     </script>
