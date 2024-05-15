@@ -48,7 +48,7 @@ def handle_sequence(input_string):
 
     if input_string.startswith('gene:'):
         _input = process_gene_string(input_string)
-        seq_out = get_from_gene(_input['gene_id'], _input['species'])
+        seq_out = get_from_gene(_input['gene_id'], _input['species'])[_input['split'][0]:_input['split'][1]]
     
     elif input_string.startswith('ensembl:'):
         _input = process_ensembl_string(input_string)
@@ -66,13 +66,13 @@ def handle_sequence(input_string):
     
 def process_gene_string(gene_string):
     """
-    Processes a string that starts with 'gene:' and extracts the gene ID and species.
+    Processes a string that starts with 'gene:' and extracts the gene ID, species, and split parameter.
     
     Parameters:
     gene_string (str): The input string starting with 'gene:'.
     
     Returns:
-    dict: A dictionary with keys 'gene_id' and 'species'.
+    dict: A dictionary with keys 'gene_id', 'species', and 'split'.
     """
     # Remove leading and trailing whitespace
     gene_string = gene_string.strip()
@@ -84,21 +84,37 @@ def process_gene_string(gene_string):
     # Remove the 'gene:' prefix
     gene_info = gene_string[len('gene:'):].strip()
     
-    # Initialize default species
+    # Initialize default values
     species = 'homo sapiens'
+    split = [0, None]
     
-    # Check if the species is specified
-    if ';species:' in gene_info:
-        gene_id, species = gene_info.split(';species:', 1)
-    else:
-        gene_id = gene_info
+    # Split the gene_info by ';' and process each part
+    parts = gene_info.split(';')
     
-    # Strip any additional whitespace
-    gene_id = gene_id.strip()
-    species = species.strip()
+    gene_id = None
+    for part in parts:
+        if part.startswith('species:'):
+            species = part[len('species:'):].strip()
+        elif part.startswith('split:'):
+            split_str = part[len('split:'):].strip()
+            split = split_str.split(',')
+            if len(split) != 2:
+                raise ValueError("The 'split' parameter must have exactly two elements")
+            try:
+                split = [int(s.strip()) for s in split]
+            except ValueError:
+                raise ValueError("Both elements of the 'split' parameter must be integers")
+        else:
+            # The remaining part should be the gene_id
+            if gene_id is not None:
+                raise ValueError("Multiple gene IDs found in input string")
+            gene_id = part.strip()
     
-    # Return the parsed gene ID and species as a dictionary
-    return {'gene_id': gene_id, 'species': species}
+    if gene_id is None:
+        raise ValueError("Gene ID is missing in the input string")
+    
+    # Return the parsed gene ID, species, and split as a dictionary
+    return {'gene_id': gene_id, 'species': species, 'split': split}
 
 
 def process_ensembl_string(ensembl_string):

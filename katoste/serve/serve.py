@@ -37,7 +37,14 @@ def _run_serve(args):
     kmer_index = KatosteIndex(args.index_in)
     kmer_index.open() # TODO: when loading, if the index exists, instead of this
 
+    # _all_kmers = kmer_index._index_backed['index_0_indptr']
+    # _kmer_abundance = np.diff(np.concatenate([_all_kmers, np.array(kmer_index.index[f'index_0_data'].shape[0])]))
+    # _kmer_filtered = _kmer_abundance
     _loc_all, _abu_all = np.unique(kmer_index.index[f'index_0_data'][:], return_counts=True)
+    # _ix_ab = np.argsort(_abu_all)[::-1][100:]
+
+    # _loc_all = _loc_all[_ix_ab]
+    # _abu_all = _abu_all[_ix_ab]
 
     kmer_index.close()
 
