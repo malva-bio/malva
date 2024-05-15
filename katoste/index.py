@@ -38,6 +38,7 @@ class KatosteIndex:
         self.coord_lims = None
         self.n_chunks = 0
         self.n_spatial = None
+        self.binary_search = self._binary_search_np
 
         self._n_kmers_processed = 0
         self._iter_seqs = []
@@ -110,7 +111,7 @@ class KatosteIndex:
 
     def open(self, mode='r'):
         self.index = h5py.File(self.index_file, mode)
-        if self._index_backed is None:
+        if self._index_backed is None or isinstance(self._index_backed, h5py.File):
             self._index_backed = self.index
 
         if 'kmer_size' in self.index.attrs:
@@ -175,14 +176,19 @@ class KatosteIndex:
         self._iter_seqs = []
         self._iter_coords = []
 
+    def _binary_search_np(self, arr, start, end, v):
+        return np.searchsorted(arr, v)
+
+    def _binary_search_katoste(self, arr, start, end, v):
+        return binary_search(arr, start, end, v)
+
     def query(self, kmer):
         _values = []
 
         for i in (range(self.n_chunks)):
             _idx_ptr = self._index_backed[f'index_{i}_indices']
-            # _len = _idx_ptr.shape[0]
-            # _loc = binary_search(_idx_ptr, 0, _len-1, kmer)
-            _loc = np.searchsorted(_idx_ptr, kmer)
+            _len = _idx_ptr.shape[0]
+            _loc = self.binary_search(_idx_ptr, 0, _len-1, kmer)
 
             if _idx_ptr[_loc] != kmer:
                 continue
@@ -214,6 +220,7 @@ class KatosteIndex:
         if isinstance(self._index_backed, h5py.File) or self._index_backed is None:
             self._index_backed = {f'index_{i}_indices': self.index[f'index_{i}_indices'][:] for i in range(self.n_chunks)}
             self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
+            self.binary_search = self._binary_search_katoste
         
 
     def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True):
@@ -301,8 +308,8 @@ def create_spatial_index(spatial_barcode_file, rescale_coords=1, index_resolutio
     sindex = SortedDict()
 
     for row in track(spatial_index.itertuples(), total=len(spatial_index), description='Spatial indexing'):
-        i = np.ravel_multi_index([row.xcoord, row.ycoord], (xmax+1, ymax+1), order='C')
-        sindex[encode_kmer(row.cell_bc)] = (i, row.xcoord, row.ycoord)
+        i = np.ravel_multi_index([int(row.xcoord), int(row.ycoord)], (int(xmax)+1, int(ymax)+1), order='C')
+        sindex[encode_kmer(row.cell_bc)] = (i, int(row.xcoord), int(row.ycoord))
 
     return sindex
 
