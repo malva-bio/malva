@@ -348,6 +348,7 @@ textarea {
     color: transparent;
     caret-color: black;
     z-index: 1;
+	resize: none;
 }
 
 #highlightedText {
