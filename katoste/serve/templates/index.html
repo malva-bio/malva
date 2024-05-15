@@ -5,56 +5,234 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>katoste server</title>
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
-     crossorigin=""/>
-     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
-     crossorigin=""></script>
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.3/themes/base/jquery-ui.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2" crossorigin="anonymous"></script>
 
-     <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/site.css')}}">
+
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css"
+        integrity="sha512-07I2e+7D8p6he1SIM+1twR5TIrhUQn9+I6yjqD53JQjFiMf8EtC93ty0/5vJTZGF8aAocvHYNEDJajGdNx1IsQ=="
+        crossorigin=""/>
+    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet-src.js"
+        integrity="sha512-WXoSHqw/t26DszhdMhOXOkI7qCiv5QWXhH9R7CgvgZMHz1ImlkVQ3uNsiQKu5wwbbxtPzFXd1hK4tzno2VqhpA=="
+        crossorigin=""></script>
+    <script src='https://unpkg.com/leaflet.tilelayer.gl@latest/src/Leaflet.TileLayer.GL'></script>
+
+
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/site.css')}}">
 
      <script src="https://d3js.org/d3.v7.min.js"></script>
   </head>
   <body>
-    <div id="map"></div>
-    <div id="sidebar">
-        <p>
-            Coordinates: (<span id="lat-update">N/A</span>, <span id="lon-update">N/A</span>)
-        </p>
-        <p>
-            katoste index: <span id="temp-update">N/A</span>
-        </p>
-        <svg id="time-series-chart" height="350" width="350"></svg>
+    <div id="mapcontainer"></div>
+    <div id="" class="">
+        <div id="omnibox-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="search" class="searchbox searchbox-position nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b searchbox-empty expanded">
+                    <form id="sequence-select" method="post" enctype="multipart/form-data">
+                        <div class="searchboxlabeldiv"> 
+                            <label for="selectsequence" class="searchboxlabel fontBodyMedium">Search Katoste</label>
+                        </div>
+                        <textarea name="selectsequence" id="selectsequence" class="searchboxinput" form="sequence-select" aria-label="Search Katoste" data-toggle="tooltip" data-placement="botton" title="Example usage:<br/>;'gene:GENEID' for genes<br/>;'ensembl:ENSG123456' for ensembl queries<br/>;'>seq<br/>;ATTGGTCA'<br/>;for fasta queries<br/>;'ATTCGAT' for gene queries" spellcheck="false"></textarea>
+                        <div jstcache="34" class="pzfvzf"> 
+                            <button type="submit" aria-label="Search" id="btn-submit" class="searchbutton mL3xi" data-toggle="tooltip" data-placement="botton" title="Search">
+                                <span aria-hidden="true" class="google-symbols"></span>
+                            </button>
+                        </div>
+                    </form>
+                    <label class='slider-label' for="total_counts_range"><b style='color:rgb(0, 107, 107) !important;'>Total counts</b> | Range:</label>
+                    <div id="total_counts_range_slider"></div>
+
+                    <label class='slider-label' for="query_range"><b style='color:rgb(134, 0, 134) !important;'>Query</b> | Range:</label>
+                    <div id="query_range_slider"></div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
-        var map = new L.map('map', {
-            center: [50,50], 
-            minZoom: 1,
-            zoom: 2,
+        var fragmentShader = `
+        vec3 grays2rgb(vec3 c) {
+            vec3 rgb1 = vec3(0.0, c.x, c.x);
+            vec3 rgb2 = vec3(c.y, 0.0, c.y);
+            vec3 rgb3 = vec3(c.z, c.z, 0.0);
+
+            vec3 finalColor = vec3(
+                max(rgb1.r, max(rgb2.r, rgb3.r)),
+                max(rgb1.g, max(rgb2.g, rgb3.g)),
+                max(rgb1.b, max(rgb2.b, rgb3.b))
+            );
+            
+            return finalColor;
+        }
+        
+        void main(void) {                                                                       
+            vec4 texelColour = texture2D(uTexture0, vec2(vTextureCoords.s, vTextureCoords.t));
+            texelColour.r = (texelColour.r - min_total_count_range) / (max_total_count_range - min_total_count_range);
+            texelColour.g = (texelColour.g - min_query_range) / (max_query_range - min_query_range);
+            vec3 im = clamp(texelColour.rgb, 0.0, 1.0);
+            gl_FragColor = vec4(grays2rgb(im), texelColour.a);                                   
+        }                                 
+        `;
+
+        var map = new L.map('mapcontainer', {
+            crs: L.CRS.Simple,
+            center: [0, 0],
+            minZoom: 0,
+            zoom: 1,
             zoomSnap: 0,
-            maxBounds: [[0, 0],[100, 100]],
-            maxBoundsViscosity: 1.0,
-            attributionControl:false
+            maxBoundsViscosity: 0.5,
+            zoomControl: false
         })
 
-        var mapdata = L.tileLayer('/tiles/{z}/{x}/{y}.png', {
-            maxZoom: 6,
-            opacity: 0.75,
-            noWrap: true
+        map.attributionControl.setPrefix("Katoste ")
+
+        L.control.zoom({
+            position: 'bottomright'
         }).addTo(map);
+
+        var mapdata = L.tileLayer.gl({
+            uniforms: {
+                min_total_count_range: Number(0.0),
+                min_query_range: Number(0.0),
+                max_total_count_range: Number(1.0),
+                max_query_range: Number(1.0)
+            },
+            fragmentShader: fragmentShader,
+            maxZoom: 7,
+            minZoom: -1,
+            opacity: 0.75,
+            noWrap: true,
+            attribution: '&copy 2024 Rajewsky Lab',
+            tileUrls: ['/tiles/{z}/{x}/{y}.png'],
+            zIndex: -1
+        });
+
+        var mapdata_added = mapdata.addTo(map);
+
+        $( function() {
+            $( "#total_counts_range_slider" ).slider({
+            range: true,
+            min: 0,
+            max: 1000,
+            values: [ 0, 1000 ],
+            slide: function( event, ui ) {
+                mapdata.setUniform('min_total_count_range', ui.values[0]/1000);
+                mapdata.setUniform('max_total_count_range', ui.values[1]/1000);
+                mapdata.reRender();
+            }
+            });
+            $( "#total_counts_range_slider" ).slider().find('div').css({"background": "rgb(0, 107, 107)"})
+        } );
+
+        $( function() {
+            $( "#query_range_slider" ).slider({
+            range: true,
+            min: 0,
+            max: 1000,
+            values: [ 0, 1000 ],
+            slide: function( event, ui ) {
+                mapdata.setUniform('min_query_range', ui.values[0]/1000);
+                mapdata.setUniform('max_query_range', ui.values[1]/1000);
+                mapdata.reRender();
+            }
+            });
+            $( "#query_range_slider" ).slider().find('div').css({"background": "rgb(134, 0, 134)"})
+        } );
 
         L.control.scale().addTo(map);
 
-        // handling hover functionalities
-        map.on('mousemove', function(e) {
-            let currentLat = e.latlng.lat
-            let currentLon = e.latlng.lng
-
-            document.getElementById('lat-update').innerHTML = (Math.abs(currentLat).toFixed(2)) + "µm";
-            document.getElementById('lon-update').innerHTML = (Math.abs(currentLon).toFixed(2)) + "µm";
+        var bsAlert = function(message) {
+        if ($("#bs-alert").length == 0) {
+            $('body').append('<div class="modal tabindex="-1" id="bs-alert">'+
+                '<div class="modal-dialog">'+
+                    '<div class="modal-content">'+
+                    '<div class="modal-header">'+
+                        '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>'+
+                        '<h4 class="modal-title">Alert</h4>'+
+                    '</div>'+
+                    '<div class="modal-body">'+
+                        message+
+                    '</div>'+
+                    '<div class="modal-footer">'+
+                        '<button type="button" class="btn btn-default" data-dismiss="modal">Ok</button>'+
+                    '</div>'+
+                    '</div>'+
+                '</div>'+
+                '</div>')
+            } else {
+                $("#bs-alert .modal-body").text(message);
+            }    
+            $("#bs-alert").modal();
+        }
+    
+        $(document).ready(function() {
+            $('#btn-submit').click(function (event) {
+            $('#btn-submit').prop("disabled", true);
+            $('#modal-loading').modal('show');
+            $.ajax({
+                    data : { selectsequence : $('#selectsequence').val() }, //grab text between span tags
+                    type : 'POST',
+                    url : "{{ url_for('map.index') }}", //post grabbed text to flask endpoint for saving role
+                    success: function (data) {
+                        mapdata.initialize()
+                        mapdata.redraw()
+                        map.invalidateSize()
+                        mapdata.redraw()
+                        $('#btn-submit').prop("disabled", false);
+                        $('#modal-loading').modal('hide');
+                    },
+                    error: function (e) { 
+                        console.log('Submission failed...');
+                        $('#modal-loading').modal('hide'); // TODO: complain
+                        $('#btn-submit').prop("disabled", false);
+                        bsAlert('test')
+                    }
+            });
         });
+        })
+
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip()
+        })
+
+        // Get the input element
+        var textArea = document.getElementById("selectsequence");
+        
+        $(document).on('input', '#selectsequence', function(){
+            if ($("#selectsequence").val()) {
+                $('.searchboxlabel').hide();
+            } else {
+                $('.searchboxlabel').show();
+            }
+            if (textArea.scrollHeight > 1 && textArea.scrollHeight <= 480) {
+                textArea.style.height = 'auto';
+                textArea.style.height = textArea.scrollHeight + "px";
+                searchArea.style.height = textArea.scrollHeight + "px";
+            } else if (textArea.scrollHeight > 480) {
+                textArea.style.height = '480px';
+            } else {
+                textArea.style.height = '24px';
+                searchArea.style.height = '24px';
+            }
+            console.log(textArea.scrollHeight);
+        });
+
     </script>
+
+    <div class="modal" id="modal-loading" data-backdrop="static">
+        <div class="modal-dialog modal-sm modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-body text-center">
+                <div class="loading-spinner mb-2"></div>
+                <div>Loading</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
   </body>
 </html>
