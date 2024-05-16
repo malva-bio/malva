@@ -32,7 +32,7 @@
         <div id="omnibox-container" class="id-omnibox-container">
             <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
                 <div id="search" class="searchbox searchbox-position nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b searchbox-empty expanded">
-                    <form id="sequence-select" method="post" enctype="multipart/form-data" data-toggle="tooltip" data-placement="botton" title="<b>Example usage</b>:<br/><br/>'gene:GENEID' for genes<br/>'ensembl:ENSG123456' for ensembl queries<br/>'>seq<br/>ATTGGTCA'<br/>for fasta queries<br/>'ATTCGAT' for gene queries" >
+                    <form id="sequence-select" method="post" enctype="multipart/form-data">
                         <div class="searchboxlabeldiv"> 
                             <label for="selectsequence" class="searchboxlabel fontBodyMedium">Search Katoste</label>
                         </div>
@@ -132,22 +132,24 @@ ATATTTACTACCTA
                             <pre>ATATTTTCATTGCA</pre>
                         </div>
                     </div>
-                    <div id="cardPopulated" class="hidden">
+                    <div id="cardPopulated">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0c">Search term</h1>
+                            <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                                <pre>gene:IGKC</pre>
+                            </div>
+                        </div>
                         <div class="VOhV7b">
                             <h1 class="MMkI0c">Brightness limits</h1>
                         </div>
                         <div id="query_range_slider" class="range-slider-custom"></div>
-                        <div class="u6EGFf">
-                            <div class="VOhV7b">
-                                <h1 class="MMkI0c">Query details</h1>
-                            </div>
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0c">Secuence occurrence</h1>
+                            <h1 class="MMkI0c"><small>In sense, 5'->3'</small></h1>
                         </div>
                         <div class="u6EGFf">
-                            <div class="VOhV7b">
-                                <h1 class="MMkI0c">Sequence occurrence</h1>
-                            </div>
-                            <textarea id="inputText" spellcheck="false" class='searchboxinput' placeholder="Type your text here..."></textarea>
-                            <div id="heatmapText" class='searchboxinput' aria-hidden="true"></div>
+                            <textarea id="heatmapTextText" spellcheck="false" class='heatmapinput' placeholder="Type your text here..."></textarea>
+                            <div id="heatmapText" class='heatmapinput' aria-hidden="true"></div>
                         </div>
                         <div class="dryRY ufjIR">
                             <div class="KNfEk Rqu0ae ">
@@ -156,15 +158,6 @@ ATATTTACTACCTA
                                         <div class="OyjIsf"></div>
                                         <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe161;</span>
                                         <span class="uEubGf fontTitleSmall">Save</span>
-                                    </div>
-                                </button>
-                            </div>
-                            <div class="KNfEk Rqu0ae ">
-                                <button class="e2moi " aria-label="query">
-                                    <div class="tXNTee L6Bbsd T7HQDc ">
-                                        <div class="OyjIsf"></div>
-                                        <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe872;</span>
-                                        <span class="uEubGf fontTitleSmall">Remove</span>
                                     </div>
                                 </button>
                             </div>
@@ -480,8 +473,12 @@ ATATTTACTACCTA
         document.getElementById("qr-code-img").src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + window.location.href;
 
         document.addEventListener('DOMContentLoaded', () => {
-            const textarea = document.getElementById('inputText');
+            const textarea = document.getElementById('heatmapTextText');
             const heatmapText = document.getElementById('heatmapText');
+
+            const text = textarea.value;
+            const scores = getScoresForText(text); // This function generates or fetches scores for the text
+            heatmapText.innerHTML = applyHeatmapHighlighting(text, scores);
 
             textarea.addEventListener('input', () => {
                 const text = textarea.value;

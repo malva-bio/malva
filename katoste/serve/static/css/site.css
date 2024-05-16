@@ -21,17 +21,6 @@ body {
     z-index: 4;
 }
 
-.searchboxinput {
-	font-size: 15px;
-	padding: 0 !important;
-	line-height: 24px;
-	vertical-align: top;
-	transition-property: color;
-	transition-duration: .3s;
-	width: 100%;
-	font-family: monospace, monospace;
-}
-
 .searchboxlabeldiv {
 	width: 0;
 	float: left;
@@ -334,10 +323,10 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
 }
 
 .range-slider-custom {
-	margin: 0px 5px 0px 5px;
+	margin: 0px 5px 10px 5px;
 }
 
-textarea, #highlightedText {
+textarea, #highlightedText, #heatmapText {
     box-sizing: border-box;
     font-size: 15px;
 	font-family: monospace, monospace;
@@ -488,6 +477,23 @@ textarea {
 	color: black;
 	overflow-wrap: break-word;
 	overflow: scroll;
+	max-height: 150px;
+}
+
+#heatmapTextText {
+	height: 150px;
+}
+
+.heatmapinput {
+	font-size: 15px;
+	padding: 0 !important;
+	line-height: 24px;
+	vertical-align: top;
+	transition-property: color;
+	transition-duration: .3s;
+	width: 100%;
+	position: relative;
+	font-family: monospace, monospace;
 }
 
 /* Heatmap styles */
