@@ -80,11 +80,13 @@
                 <div id="infobox-control-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
                     <div class="u6EGFf">
                         <div class="VOhV7b">
-                            <h1 class="MMkI0b"><b style='color:rgb(134, 0, 134) !important;'><b style='color:rgb(0, 107, 107) !important;'>Total counts</b></b></h1>
+                            <h1 class="MMkI0b">Settings</h1>
                         </div>
                     </div>
                     <hr/>
-                    <label class='slider-label' for="total_counts_range">Brightness limits</label>
+                    <div class="VOhV7b">
+                        <h1 class="MMkI0c">Brightness limits (<span style='color:rgb(0, 107, 107) !important;'>Total counts</span>)</h1>
+                    </div>
                     <div id="total_counts_range_slider" class="range-slider-custom"></div>
                 </div>
             </div>
@@ -94,45 +96,72 @@
                 <div id="infobox-control-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
                     <div class="u6EGFf">
                         <div class="VOhV7b">
-                            <h1 class="MMkI0b"><b style='color:rgb(134, 0, 134) !important;'>Query</b></h1>
+                            <h1 class="MMkI0b">Query</h1>
                         </div>
                     </div>
                     <hr/>
-                    <label class='slider-label' for="query_range">Brightness limits</label>
-                    <div id="query_range_slider" class="range-slider-custom"></div>
-                    <div class="u6EGFf">
+                    <div id="cardNoPopulated">
+                        
+                        <span>No query was processed; examples:</span><br><br>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>gene:IGKC</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>gene:Krt16;species:mus_musculus</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>gene:Acta2;species:mus_musculus;split:-256,-1</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>ensembl:ENSE00001507664</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>>sequence_1
+ATATTTACTACCTA
+                            </pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>ATATTTTCATTGCA</pre>
+                        </div>
+                    </div>
+                    <div id="cardPopulated" class="hidden">
                         <div class="VOhV7b">
-                            <h1 class="MMkI0b">Query details</h1>
+                            <h1 class="MMkI0c">Brightness limits</h1>
+                        </div>
+                        <div id="query_range_slider" class="range-slider-custom"></div>
+                        <div class="u6EGFf">
+                            <div class="VOhV7b">
+                                <h1 class="MMkI0c">Query details</h1>
+                            </div>
+                        </div>
+                        <div class="u6EGFf">
+                            <div class="VOhV7b">
+                                <h1 class="MMkI0c">Sequence occurrence</h1>
+                            </div>
+                            <textarea id="inputText" spellcheck="false" class='searchboxinput' placeholder="Type your text here..."></textarea>
+                            <div id="heatmapText" class='searchboxinput' aria-hidden="true"></div>
+                        </div>
+                        <div class="dryRY ufjIR">
+                            <div class="KNfEk Rqu0ae ">
+                                <button class="e2moi " aria-label="query">
+                                    <div class="tXNTee L6Bbsd T7HQDc ">
+                                        <div class="OyjIsf"></div>
+                                        <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe161;</span>
+                                        <span class="uEubGf fontTitleSmall">Save</span>
+                                    </div>
+                                </button>
+                            </div>
+                            <div class="KNfEk Rqu0ae ">
+                                <button class="e2moi " aria-label="query">
+                                    <div class="tXNTee L6Bbsd T7HQDc ">
+                                        <div class="OyjIsf"></div>
+                                        <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe872;</span>
+                                        <span class="uEubGf fontTitleSmall">Remove</span>
+                                    </div>
+                                </button>
+                            </div>
                         </div>
                     </div>
-                    <div class="u6EGFf">
-                        <div class="VOhV7b">
-                            <h1 class="MMkI0b">Sequence occurrence</h1>
-                        </div>
-                        <textarea id="inputText" spellcheck="false" class='searchboxinput' placeholder="Type your text here..."></textarea>
-                        <div id="heatmapText" class='searchboxinput' aria-hidden="true"></div>
-                    </div>
-                    <div class="dryRY ufjIR">
-                        <div class="KNfEk Rqu0ae ">
-                            <button class="e2moi " aria-label="query">
-                                <div class="tXNTee L6Bbsd T7HQDc ">
-                                    <div class="OyjIsf"></div>
-                                    <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe161;</span>
-                                    <span class="uEubGf fontTitleSmall">Save</span>
-                                </div>
-                            </button>
-                        </div>
-                        <div class="KNfEk Rqu0ae ">
-                            <button class="e2moi " aria-label="query">
-                                <div class="tXNTee L6Bbsd T7HQDc ">
-                                    <div class="OyjIsf"></div>
-                                    <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe872;</span>
-                                    <span class="uEubGf fontTitleSmall">Remove</span>
-                                </div>
-                            </button>
-                        </div>
-                    </div>
-                    
                 </div>
             </div>
         </div>
@@ -163,8 +192,19 @@
         }                                 
         `;
 
+        var customCRS = L.extend(L.CRS.Simple, {
+            projection: L.extend(L.Projection.LonLat, {
+                bounds: L.bounds([0, 0], [2160, 4096])
+            }),
+            transformation: new L.Transformation(1, 0, 1, 0),
+            scale: function(zoom) {
+                return Math.pow(2, zoom + 7);
+            },
+            infinite: false
+        });
+
         var map = new L.map('mapcontainer', {
-            crs: L.CRS.Simple,
+            crs: customCRS,
             center: [0, 0],
             minZoom: 0,
             zoom: 1,
@@ -228,6 +268,16 @@
             $( "#query_range_slider" ).slider().find('div').css({"background": "rgb(134, 0, 134)"})
         } );
 
+        L.Control.Scale.include({
+            _updateMetric: function(maxMeters) {
+                var maxMilliMeters = maxMeters * 1000,
+                    milliMeters = this._getRoundNum(maxMilliMeters),
+                    label = milliMeters < 1000 ? milliMeters + " mm" : milliMeters / 1000 + " m";
+
+                this._updateScale(this._mScale, label, milliMeters / maxMilliMeters);
+            }
+        });
+
         L.control.scale().addTo(map);
 
         var bsAlert = function(message) {
@@ -269,12 +319,18 @@
                         mapdata.redraw()
                         $('#btn-submit').prop("disabled", false);
                         $('#modal-loading').modal('hide');
+
+                        var queryCard = $('#card-container');
+                        $('#cardNoPopulated').addClass('hidden');
+                        $('#cardPopulated').removeClass('hidden');
+                        // queryCard.find('#inputText').val(response.queryDetails);
+                        // queryCard.find('#heatmapText').text(response.heatmapText);
                     },
                     error: function (e) { 
-                        console.log('Submission failed...');
                         $('#modal-loading').modal('hide'); // TODO: complain
                         $('#btn-submit').prop("disabled", false);
                         bsAlert('test')
+                        $("#bs-alert").modal('show');
                     }
             });
         });
@@ -408,11 +464,8 @@
             }
 
             function getColorForScore(score) {
-                // Convert the score (0 to 1) to a color from white to light red
-                const r = Math.round(255 * score);
-                const g = Math.round(255 * (1 - score));
-                const b = g; // Make the color white to red by adjusting green and blue channels
-                return `rgb(${r}, ${g}, ${b})`;
+                const s = 100 - Math.round(50 * score);
+                return `hsl(35, 88%, ${s}%)`;
             }
         });
 

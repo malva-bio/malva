@@ -127,6 +127,12 @@ body {
 	color: #202124;
 	font-weight: 500;
 }
+.MMkI0c {
+	font-size: 15px;
+	color: #5c5e63;
+	font-weight: 400;
+	padding-bottom: 10px;
+}
 .MMkI0b, .iWlQAc {
 	font-size: 15px;
 	overflow: hidden;
@@ -327,10 +333,6 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
     max-width:none;
 }
 
-.slider-label {
-	padding-bottom: 10px;
-}
-
 .range-slider-custom {
 	margin: 0px 5px 0px 5px;
 }
@@ -506,31 +508,39 @@ textarea {
 }
 
 #control-container {
-    display: none;
     opacity: 0;
-    max-height: 0;
+	max-height: 0;
     overflow: hidden;
-    transition: opacity 0.5s ease, max-height 0.5s ease;
+    transition: opacity 0.3s cubic-bezier(0.76, 0, 0.24, 1), all 0.3s cubic-bezier(0.76, 0, 0.24, 1);
 }
 
 #control-container.visible {
-    display: block;
     opacity: 1;
-    max-height: 1000px; /* Set a max-height larger than the expected content height */
+	max-height: 1000px;
 }
 
 #card-container {
-    display: none;
     opacity: 0;
-    max-height: 0;
+	max-height: 0;
     overflow: hidden;
-    transition: opacity 0.5s ease, max-height 0.5s ease;
+    transition: opacity 0.3s cubic-bezier(0.76, 0, 0.24, 1), all 0.3s cubic-bezier(0.76, 0, 0.24, 1);
 }
 
 #card-container.visible {
-    display: block;
     opacity: 1;
-    max-height: 1000px; /* Set a max-height larger than the expected content height */
+	max-height: 1000px;
+}
+
+#qr-container {
+    opacity: 0;
+	max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s cubic-bezier(0.76, 0, 0.24, 1), all 0.3s cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+#qr-container.visible {
+    opacity: 1;
+	max-height: 1000px;
 }
 
 /* Updated button styles for active state */
@@ -550,4 +560,35 @@ textarea {
 
 .tooltip-inner {
     text-align: left;
+}
+
+.hidden {
+	display: none;
+}
+
+.markdown-body .highlight pre, .markdown-body pre {
+	padding: 16px;
+	overflow: auto;
+	font-size: 85%;
+	line-height: 1.45;
+	color: #1f2328;
+	background-color: #f6f8fa;
+	border-radius: 6px;
+}
+
+pre {
+	padding: 16px;
+	overflow: auto;
+	font-size: 85%;
+	line-height: 1.45;
+	color: #1f2328;
+	background-color: #f6f8fa;
+	border-radius: 6px;
+}
+
+.js-snippet-clipboard-copy-unpositioned .markdown-body .snippet-clipboard-content, .js-snippet-clipboard-copy-unpositioned .markdown-body .highlight {
+	display: flex;
+	justify-content: space-between;
+	margin-bottom: 1rem;
+	background-color: #f6f8fa;
 }
