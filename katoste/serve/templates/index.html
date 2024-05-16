@@ -69,6 +69,14 @@
                             </div>
                         </button>
                     </div>
+                    <div class="KNfEk Rqu0ae ">
+                        <button class="e2moi " aria-label="qr">
+                            <div id="qrButton" class="tXNTee L6Bbsd T7HQDc ">
+                                <div class="OyjIsf"></div>
+                                <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true" style="margin-right: 0px;">&#xef6b;</span>
+                            </div>
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -162,6 +170,26 @@ ATATTTACTACCTA
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+        </div>
+        <div id="qr-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="infobox-control-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b">QR code</h1>
+                        </div>
+                    </div>
+                    <hr/>
+                    <div class="VOhV7b">
+                        <div style="display: flex; justify-content: center;">
+                            <h1 class="MMkI0c">Scan to access (e.g., from phone)</h1>
+                            <img id="qr-code-img" src="" alt="QR code to access katoste">
+                        </div>
+                        
+                    </div>
+                    <div id="total_counts_range_slider" class="range-slider-custom"></div>
                 </div>
             </div>
         </div>
@@ -404,11 +432,14 @@ ATATTTACTACCTA
                 return highlighted.replace(/\n/g, '<br>');
             }
 
+            // TODO: do iteratively
             // To display and hide the cards
             const settingsButton = document.getElementById('settingsButton');
             const queryButton = document.getElementById('queryButton');
+            const qrButton = document.getElementById('qrButton');
             const controlContainer = document.getElementById('control-container');
             const queryContainer = document.getElementById('card-container');
+            const qrContainer = document.getElementById('qr-container');
 
             function toggleControlContainer(button) {
                 if (controlContainer.classList.contains('visible')) {
@@ -430,10 +461,23 @@ ATATTTACTACCTA
                 }
             }
 
+            function toggleQrContainer(button) {
+                if (qrContainer.classList.contains('visible')) {
+                    qrContainer.classList.remove('visible');
+                    qrButton.classList.remove('active');
+                } else {
+                    qrContainer.classList.add('visible');
+                    qrButton.classList.add('active');
+                }
+            }
+
             // Add event listeners to buttons
             settingsButton.addEventListener('click', toggleControlContainer);
             queryButton.addEventListener('click', toggleQueryContainer);
+            qrButton.addEventListener('click', toggleQrContainer);
         });
+
+        document.getElementById("qr-code-img").src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + window.location.href;
 
         document.addEventListener('DOMContentLoaded', () => {
             const textarea = document.getElementById('inputText');
