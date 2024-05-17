@@ -183,6 +183,11 @@ def get_serve_parser():
         default="127.0.0.1",
         help="""Address where the webserver will be available at""",
     )
+    parser.add_argument(
+        "--lazy-index",
+        action="store_true",
+        help="""No part of the index will be loaded to main memory (full-disk queries)""",
+    )
     return parser
 
 

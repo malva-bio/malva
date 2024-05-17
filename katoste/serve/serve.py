@@ -51,7 +51,7 @@ def _run_serve(args):
     kmer_index.close()
 
     logging.info("Loading the pointers into memory. Might take a while.")
-    kmer_index.where("A"*kmer_index.kmer_size, lazy_index=False)
+    kmer_index.where("A"*kmer_index.kmer_size, lazy_index=args.lazy_index)
     where_abundant = []
     query_seq = ""
     query_term = ""
