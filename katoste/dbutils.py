@@ -61,7 +61,8 @@ def handle_sequence(input_string):
     if seq_out == "":
         raise ValueError("DNA sequence not valid or not found")
     
-    return seq_out
+    # we apply again in case ensembl is parsed as fasta
+    return process_dna_string(seq_out)['sequence']
     
     
 def process_gene_string(gene_string):
