@@ -48,7 +48,7 @@ def handle_sequence(input_string):
 
     if input_string.startswith('gene:'):
         _input = process_gene_string(input_string)
-        seq_out = get_from_gene(_input['gene_id'], _input['species'])[_input['split'][0]:_input['split'][1]]
+        seq_out = get_from_gene(_input['gene_id'], _input['species'], seqtype=_input['seqtype'])[_input['split'][0]:_input['split'][1]]
     
     elif input_string.startswith('ensembl:'):
         _input = process_ensembl_string(input_string)
@@ -83,15 +83,16 @@ def process_gene_string(gene_string):
     
     species = 'homo sapiens'
     split = [0, None]
-    
+    seqtype = 'genomic'
+
     parts = gene_info.split(';')
     
     gene_id = None
     for part in parts:
         if part.startswith('species:'):
             species = part[len('species:'):].strip()
-        if part.startswith('seqtype:'):
-            seqtype = part[len('seqtype:'):].strip()
+        if part.startswith('type:'):
+            seqtype = part[len('type:'):].strip()
         elif part.startswith('split:'):
             split_str = part[len('split:'):].strip()
             split = split_str.split(',')

@@ -473,7 +473,7 @@ ATATTTACTACCTA
                     'split:': 'keyword-split'
                 };
 
-                let highlighted = text.replace(/(gene:|species:|split:|ensembl:)([^;]*)/g, (match, p1, p2) => {
+                let highlighted = text.replace(/(gene:|species:|split:|ensembl:|type:)([^;]*)/g, (match, p1, p2) => {
                     const keywordClass = keywordPatterns[p1];
                     const argumentClass = 'argument';
                     return `<span class="${keywordClass}">${p1}</span><span class="${argumentClass}">${p2}</span>`;

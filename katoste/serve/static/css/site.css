@@ -369,6 +369,10 @@ textarea {
     color: rgb(255, 0, 89);
 }
 
+.keyword-seqtype {
+    color: #ad0dd1d2;
+}
+
 .argument {
     color: rgb(172, 172, 172);
 }
