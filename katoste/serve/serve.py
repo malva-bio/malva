@@ -2,6 +2,7 @@ import io
 import logging
 import numpy as np
 import json
+import pandas as pd
 
 from netCDF4 import Dataset
 import xarray as xr
@@ -18,6 +19,7 @@ from katoste.utils import check_file_exists
 from katoste.dbutils import handle_sequence
 
 SEQ_MAX_LEN = 1_000
+OUTFILE_NAME = "test.nc"
 
 app = Flask(__name__)
 map_bp = Blueprint('map', __name__)
@@ -27,12 +29,16 @@ def interactive_query(sequence):
 
     logging.info(f"Querying sequence '{sequence}'")
     locs, ints, where_abundant = kmer_index.where(sequence)
+    logging.info(f"Adding result to spatial file")
     add_kmer_to_netcdf_index(xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
 
     return locs, ints
 
 def _run_serve(args):
-    global app, kmer_index, xy, xmax, ymax, _loc_all, _abu_all, data, whole_max_ints, where_abundant, queried, query_seq, query_term
+    global app, kmer_index, xy, xmax, ymax, _loc_all, _abu_all, data, whole_max_ints, where_abundant, queried, query_seq, query_term, SEQ_MAX_LEN
+
+    SEQ_MAX_LEN = args.max_len
+
     whole_max_ints = []
 
     logging.info("Loading katoste index and metadata")
@@ -66,7 +72,7 @@ def _run_serve(args):
 
     logging.info(f"Create temporary spatial plotter index as netCDF")    
     generate_netcdf_index(kmer_index, xy, xmax, ymax)
-    data = xr.open_dataset("test.nc")
+    data = xr.open_dataset(OUTFILE_NAME)
     generate_tile(0, 0, 0) # run once to preload
 
     logging.info(f"Setting up web server at {args.address}:{args.port}")
@@ -74,7 +80,7 @@ def _run_serve(args):
     app.run(debug=True, host=args.address, port=args.port, use_reloader=False)
 
 def generate_netcdf_index(kmer_index, xy, xmax, ymax):
-    ncfile = Dataset("test.nc", "w", format="NETCDF4")
+    ncfile = Dataset(OUTFILE_NAME, "w", format="NETCDF4")
 
     x_dim = ncfile.createDimension('x', kmer_index.coord_lims[1]+1)
     y_dim = ncfile.createDimension('y', kmer_index.coord_lims[3]+1)
@@ -171,22 +177,17 @@ def parse_queried():
     if not queried:
         return json.dumps({'success':False}), 200, {'ContentType':'application/json'}
     
-    y_spline = [0]
+    scores = [0]
     if len(where_abundant) > 2:
-        _where_abundant = np.array(where_abundant)
-        x = _where_abundant[:, 0]
-        y = _where_abundant[:, 1]
-        x_new = np.arange(0, max(x))
-
-        tck = splrep(x, y, s=100_000, k=1)
-        y_spline = BSpline(*tck)(x_new)
-        y_spline = NormalizeData(y_spline).tolist()
+        data = np.array(where_abundant)
+        df = pd.DataFrame({"pos": data[:, 0], "val": data[:, 1]}).groupby("pos").mean().rolling(window=24).mean()
+        scores = NormalizeData(np.nan_to_num(df['val'].values)).tolist()
     
-    return json.dumps({'success':True, 'query_term': query_term, 'sequence': query_seq, 'scores': y_spline}), 200, {'ContentType':'application/json'} 
+    return json.dumps({'success':True, 'query_term': query_term, 'sequence': query_seq, 'scores': scores}), 200, {'ContentType':'application/json'} 
 
 @map_bp.route("/", methods=['GET', 'POST'])
 def index():
-    global queried, query_seq, query_term
+    global queried, query_seq, query_term, SEQ_MAX_LEN
     try:
         if request.method == 'POST':
             seq = request.form.get("selectsequence")
@@ -200,7 +201,7 @@ def index():
             queried = True
             return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
     except Exception as e:
-        return json.dumps({'error': f'An error occurred {str(e)}'}), 500, {'ContentType':'application/json'} 
+        return json.dumps({'error': str(e)}), 500, {'ContentType':'application/json'} 
         
 
 @app.route("/tiles/<int:zoom>/<int:x>/<int:y>.png")
@@ -216,12 +217,12 @@ def add_kmer_to_netcdf_index(xloc, yloc, ints):
     global data, xmax, ymax, whole_max_ints
 
     data.close()
-    _exists = check_file_exists("test.nc")
+    _exists = check_file_exists(OUTFILE_NAME)
     _mode = "w"
     if _exists:
         _mode = "r+"
     
-    ncfile = Dataset("test.nc", _mode, format="NETCDF4")
+    ncfile = Dataset(OUTFILE_NAME, _mode, format="NETCDF4")
 
     if _exists and 'ints' in ncfile.variables:
         ints_s = ncfile['ints']
@@ -233,7 +234,7 @@ def add_kmer_to_netcdf_index(xloc, yloc, ints):
     ints_s[:, :] = _z
 
     ncfile.close()
-    data = xr.open_dataset("test.nc")
+    data = xr.open_dataset(OUTFILE_NAME)
     whole_max_ints = []
     generate_tile(0, 0, 0) # run once to preload
     

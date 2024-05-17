@@ -56,7 +56,7 @@ class KatosteIndex:
         else:
             exists = self.index_exists(self)
             if exists:
-                logging.info("The index exists already!")
+                logging.info("The index exists. Will load now.")
         
         if not exists:
             logging.info(f"Will create katoste index at `{self.index_file}` with {kmer_size_initialize}-mers")
@@ -243,7 +243,7 @@ class KatosteIndex:
             self._load_index_to_memory()
 
         # TODO: collapse seq_no and all_seq_no into one
-        all_oc = []
+        all_oc = np.ma.zeros(self.n_spatial)
         seq_matches = [[0, 1]]
         seq_no = 0
         all_seq_no = 0
@@ -268,7 +268,7 @@ class KatosteIndex:
 
         sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
 
-        for subseq in sliding_sequences:
+        for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
             if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not QUERY_JUMP:
                 kmer_list = get_kmers_numeric(subseq, self.kmer_size)
                 all_items = itemgetter(*kmer_list)(all_kmer_dict)
@@ -281,8 +281,8 @@ class KatosteIndex:
                 all_items = all_items[all_items != np.array(-1)]
                 all_items, counts = np.unique(all_items, return_counts=True)
                 props_ix = np.where(counts / len(kmer_list) > pct_threshold)[0]
-                all_oc += [all_items[props_ix]]
-                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items)] for k in range(len(kmer_list))]
+                all_oc[all_items[props_ix]] += counts[props_ix]
+                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items[props_ix])] for k in range(len(kmer_list))]
 
             seq_no += 1
             all_seq_no += 1
@@ -290,7 +290,8 @@ class KatosteIndex:
                 seq_no = 0
 
         if len(all_oc) > 0:
-            kmer_locations, kmer_count = np.unique(np.concatenate(all_oc), return_counts=True)
+            _nz = all_oc.nonzero()
+            kmer_locations, kmer_count = _nz[0], all_oc[_nz]
         else:
             kmer_locations, kmer_count = np.array([0]), np.array([0])
         

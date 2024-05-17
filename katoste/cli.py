@@ -188,6 +188,12 @@ def get_serve_parser():
         action="store_true",
         help="""No part of the index will be loaded to main memory (full-disk queries)""",
     )
+    parser.add_argument(
+        "--max-len",
+        type=int,
+        default=1000,
+        help="""Maximum allowed length for DNA/RNA queries""",
+    )
     return parser
 
 
