@@ -10,16 +10,17 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2" crossorigin="anonymous"></script>
 
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css"
-        integrity="sha512-07I2e+7D8p6he1SIM+1twR5TIrhUQn9+I6yjqD53JQjFiMf8EtC93ty0/5vJTZGF8aAocvHYNEDJajGdNx1IsQ=="
-        crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet-src.js"
-        integrity="sha512-WXoSHqw/t26DszhdMhOXOkI7qCiv5QWXhH9R7CgvgZMHz1ImlkVQ3uNsiQKu5wwbbxtPzFXd1hK4tzno2VqhpA=="
-        crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
     <script src='https://unpkg.com/leaflet.tilelayer.gl@latest/src/Leaflet.TileLayer.GL'></script>
 
 
@@ -29,15 +30,15 @@
   </head>
   <body>
     <div id="mapcontainer"></div>
-    <div id="" class="">
+    <div style="max-height: 100vh; max-width: 99vw; overflow: scroll; margin-right: 0; position: absolute;">
         <div id="omnibox-container" class="id-omnibox-container">
             <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
                 <div id="search" class="searchbox searchbox-position nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b searchbox-empty expanded">
                     <form id="sequence-select" method="post" enctype="multipart/form-data">
                         <div class="searchboxlabeldiv"> 
-                            <label for="selectsequence" class="searchboxlabel fontBodyMedium">Search Katoste</label>
+                            <label for="selectsequence" class="searchboxlabel fontBodyMedium">Enter a sequence or search term</label>
                         </div>
-                        <textarea name="selectsequence" id="selectsequence" class="searchboxinput" form="sequence-select" aria-label="Search Katoste" spellcheck="false"></textarea>
+                        <textarea name="selectsequence" id="selectsequence" class="searchboxinput" form="sequence-select" aria-label="Enter a sequence or search term" spellcheck="false"></textarea>
                         <div id="highlightedText" class='searchboxinput' aria-hidden="true"></div>
                         <div jstcache="34" class="pzfvzf"> 
                             <button type="submit" aria-label="Search" id="btn-submit" class="searchbutton mL3xi" data-toggle="tooltip" data-placement="botton" title="Search">
@@ -48,7 +49,7 @@
                 </div>
             </div>
         </div>
-
+    
         <div id="omnibox-container" class="id-omnibox-container">
             <div id="buttonbox-container" class="buttonbox nhb85d xoLGzf Hk4XGb sbox-focus expanded">
                 <div class="dryRY ">
@@ -81,8 +82,6 @@
                 </div>
             </div>
         </div>
-        
-
 
         <div id="control-container" class="id-omnibox-container">
             <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
@@ -146,8 +145,9 @@ ATATTTACTACCTA
                         <div id="query_range_slider" class="range-slider-custom"></div>
                         <div class="VOhV7b">
                             <h1 class="MMkI0c">Sequence occurrence</h1>
+                            <h1 class="MMkI0c"><small>In sense, 5'->3'</small></h1>
                         </div>
-                        <div class="VOhV7b" id="heatmapLine"></div>
+                        <div class="VOhV7b" id="heatmapLine" style="height: 100px;"></div>
                         <div class="VOhV7b">
                             <h1 class="MMkI0c">Spatial occurrence</h1>
                             <h1 class="MMkI0c"><small>In sense, 5'->3'</small></h1>
@@ -220,24 +220,40 @@ ATATTTACTACCTA
 
         var customCRS = L.extend(L.CRS.Simple, {
             projection: L.extend(L.Projection.LonLat, {
-                bounds: L.bounds([0, 0], [2160, 4096])
+                bounds: L.bounds([0, 0], [1000, 1000])
             }),
             transformation: new L.Transformation(1, 0, 1, 0),
             scale: function(zoom) {
-                return Math.pow(2, zoom + 7);
+                return 0.3 * Math.pow(2, zoom + 7); // TODO: find good scaling factor for this and take from file!
+            },
+            zoom: function(scale) {
+                return Math.log(scale / 0.3) / Math.log(2) - 7; // Inverse of the scale function
             },
             infinite: false
         });
 
         var map = new L.map('mapcontainer', {
             crs: customCRS,
-            center: [0, 0],
+            center: [2.53, 3.60],
             minZoom: 0,
             zoom: 1,
             zoomSnap: 0,
             maxBoundsViscosity: 0.5,
+            bounceAtZoomLimits: false,
             zoomControl: false
         })
+
+        L.Control.Scale.include({
+            _updateMetric: function(maxMeters) {
+                var maxMilliMeters = maxMeters * 1000,
+                    milliMeters = this._getRoundNum(maxMilliMeters),
+                    label = milliMeters < 1000 ? milliMeters + " µm" : milliMeters / 1000 + " mm";
+
+                this._updateScale(this._mScale, label, milliMeters / maxMilliMeters);
+            }
+        });
+
+        L.control.scale({imperial: false}).addTo(map);
 
         map.attributionControl.setPrefix("Katoste ")
 
@@ -269,6 +285,7 @@ ATATTTACTACCTA
             range: true,
             min: 0,
             max: 1000,
+            step: 0.1,
             values: [ 0, 1000 ],
             slide: function( event, ui ) {
                 mapdata.setUniform('min_total_count_range', ui.values[0]/1000);
@@ -294,36 +311,29 @@ ATATTTACTACCTA
             $( "#query_range_slider" ).slider().find('div').css({"background": "rgb(134, 0, 134)"})
         } );
 
-        L.Control.Scale.include({
-            _updateMetric: function(maxMeters) {
-                var maxMilliMeters = maxMeters * 1000,
-                    milliMeters = this._getRoundNum(maxMilliMeters),
-                    label = milliMeters < 1000 ? milliMeters + " mm" : milliMeters / 1000 + " m";
-
-                this._updateScale(this._mScale, label, milliMeters / maxMilliMeters);
-            }
-        });
-
-        L.control.scale().addTo(map);
-
         var bsAlert = function(message) {
-        if ($("#bs-alert").length == 0) {
-            $('body').append('<div class="modal tabindex="-1" id="bs-alert">'+
-                '<div class="modal-dialog">'+
-                    '<div class="modal-content">'+
-                    '<div class="modal-header">'+
-                        '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>'+
-                        '<h4 class="modal-title">Alert</h4>'+
+            if ($("#bs-alert").length == 0) {
+                $('body').append('<div class="modal fade" tabindex="-1" id="bs-alert">'+
+                    '<div class="modal-dialog modal-sm modal-dialog-centered">'+
+                        '<div class="modal-content">'+
+                        '<div class="modal-header">'+
+                            '<h4 class="modal-title">Katoste Error</h4>'+
+                            '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>'+
+                        '</div>'+
+                        '<div class="modal-body">'+
+                            message+
+                        '</div>'+
+                        '<div class="modal-footer">'+
+                            '<button type="button" class="btn btn-default" data-dismiss="modal">Ok</button>'+
+                        '</div>'+
+                        '</div>'+
                     '</div>'+
-                    '<div class="modal-body">'+
-                        message+
-                    '</div>'+
-                    '<div class="modal-footer">'+
-                        '<button type="button" class="btn btn-default" data-dismiss="modal">Ok</button>'+
-                    '</div>'+
-                    '</div>'+
-                '</div>'+
-                '</div>')
+                    '</div>');
+
+                // Event delegation for dynamically added buttons
+                $('body').on('click', '#bs-alert .close, #bs-alert [data-dismiss="modal"]', function() {
+                    $('#bs-alert').modal('hide');
+                });
             } else {
                 $("#bs-alert .modal-body").text(message);
             }    
@@ -339,14 +349,31 @@ ATATTTACTACCTA
         });
 
         function applyHeatmapHighlighting(text, scores) {
-            return text.split('').map((char, index) => {
-                const score = scores[index];
+            let highlightedText = '';
+            let currentColor = getColorForScore(scores[0]);
+            let currentSegment = text[0];
+
+            for (let i = 1; i < text.length; i++) {
+                const char = text[i];
+                const score = scores[i];
                 const color = getColorForScore(score);
-                return `<span style="background-color: ${color}">${char}</span>`;
-            }).join('').replace(/\n/g, '<br>');
+
+                if (color === currentColor) {
+                    currentSegment += char;
+                } else {
+                    highlightedText += `<span style="background-color: ${currentColor}">${currentSegment}</span>`;
+                    currentColor = color;
+                    currentSegment = char;
+                }
+            }
+
+            // Add the last segment
+            highlightedText += `<span style="background-color: ${currentColor}">${currentSegment}</span>`;
+
+            return highlightedText.replace(/\n/g, '<br>');
         }
 
-        function applyHeatmapLine(scores){
+        function applyHeatmapLine(scores) {
             var trace = {
                 z: [scores],
                 type: 'heatmap',
@@ -356,7 +383,6 @@ ATATTTACTACCTA
 
             var layout = {
                 xaxis: {
-                    title: 'Sequence ocurrence (5\'->3\')',
                     showline: false,
                     ticks: 'outside'
                 },
@@ -375,7 +401,7 @@ ATATTTACTACCTA
                 staticPlot: true
             };
 
-            Plotly.newPlot('heatmapDiv', [trace], layout, config);
+            Plotly.newPlot('heatmapLine', [trace], layout, config);
 
         }
 
@@ -427,7 +453,7 @@ ATATTTACTACCTA
             } else {
                 $('.searchboxlabel').show();
             }
-            if (textArea.scrollHeight > 1 && textArea.scrollHeight <= 480) {
+            if (textArea.scrollHeight >= 48 && textArea.scrollHeight <= 480) {
                 textArea.style.height = 'auto';
                 textAreaHighlight.style.height = 'auto';
                 textArea.style.height = textArea.scrollHeight + "px";
@@ -435,9 +461,12 @@ ATATTTACTACCTA
                 textAreaHighlight.style.top = -textArea.scrollHeight + "px";
                 searchArea.style.height = textArea.scrollHeight + "px";
             } else if (textArea.scrollHeight > 480) {
+                textArea.style.height = 'auto';
+                textAreaHighlight.style.height = 'auto';
                 textArea.style.height = '480px';
                 textAreaHighlight.style.height = '480px';
                 textAreaHighlight.style.top = '-480px';
+                searchArea.style.height = "480px";
             } else {
                 textArea.style.height = '24px';
                 textAreaHighlight.style.height = '24px';
@@ -446,9 +475,12 @@ ATATTTACTACCTA
             }
         }
         
-        $(document).on('input paste', '#selectsequence', function(){
+        $(document).on('change keyup paste', '#selectsequence', function(){
             updateSearchSize();
         });
+        
+        // avoid dragging the document when moving slider (mobile)
+        $(document).delegate('.ui-page', 'touchmove', false);
     
         $(document).ready(function() {
             updateCard();
@@ -462,10 +494,26 @@ ATATTTACTACCTA
                     type : 'POST',
                     url : "{{ url_for('map.index') }}", //post grabbed text to flask endpoint for saving role
                     success: function (data) {
-                        mapdata.initialize()
-                        mapdata.redraw()
-                        map.invalidateSize()
-                        mapdata.redraw()
+                        var gl = mapdata._gl;
+                        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+                        // Re-bind textures for each tile
+                        for (var key in mapdata._tiles) {
+                            var coords = mapdata._keyToTileCoords(key);
+                            var wrappedKey = mapdata._tileCoordsToKey(mapdata._wrapCoords(coords));
+                            if (mapdata._fetchedTextures[wrappedKey]) {
+                                for (var i = 0; i < mapdata._tileLayers.length && i < 8; i++) {
+                                    mapdata._bindTexture(i, mapdata._fetchedTextures[wrappedKey][i]);
+                                }
+                            }
+                        }
+
+                        // Render the updated tiles
+                        mapdata.reRender();
+
+                        // Update other elements as needed
+                        map.invalidateSize();
+                        map.setView([map.getCenter().lat, map.getCenter().lng], map.getZoom());
                         $('#btn-submit').prop("disabled", false);
                         $('#modal-loading').modal('hide');
 

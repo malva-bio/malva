@@ -32,9 +32,9 @@ body {
 	padding: 3px 0;
 	white-space: nowrap;
 	position: absolute;
-	width: 30%;
 	overflow: hidden;
 	z-index: -1;
+	pointer-events: none;
 }
 
 .searchboxlabel:not(.searchbox-empty) {
@@ -69,11 +69,8 @@ body {
 .searchbutton {
 	color: #70757a;
 	font-size: 24px;
-}
-
-.searchbutton {
 	display: block;
-	padding: 12px;
+	padding: 12px 12px 12px 12px;
 }
 
 .pzfvzf {
@@ -169,7 +166,7 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
 	-moz-box-sizing: border-box;
 	box-sizing: border-box;
 	width: 376px;
-	height: 48px;
+	height: 24px;
 	border-bottom: 1px solid transparent;
 	transition-property: background,box-shadow;
 	transition-duration: .3s;
@@ -273,6 +270,7 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
 .OAaR7b {
 	box-shadow: 0 2px 4px rgba(0,0,0,0.2),0 -1px 0px rgba(0,0,0,0.02);
 	border: none;
+	max-width: 87vw;
 }
 
 .searchbox-active .mL3xi, .xoLGzf:not(.searchbox-empty) .mL3xi {
@@ -285,10 +283,6 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
 	height: 24px;
 }
 
-#search.expanded {
-    height: auto !important;
-}
-
 #selectsequence.expanded {
     height: auto !important;
     max-height: 500px !important;
@@ -297,6 +291,7 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
 #search.expanded {
     height: auto !important;
     max-height: 500px !important;
+	max-width: 87vw;
 }
 
 .loading-spinner{
@@ -343,7 +338,7 @@ textarea {
 }
 
 #highlightedText {
-    top: -48px;
+    top: -24px;
     left: 0;
     z-index: 0;
     pointer-events: none;
