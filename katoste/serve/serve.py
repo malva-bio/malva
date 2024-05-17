@@ -11,26 +11,28 @@ from flask import Flask, render_template, send_file, Blueprint, request
 from skimage.filters import gaussian
 from PIL import Image
 
+from scipy.interpolate import splrep, BSpline
+
 from katoste.index import KatosteIndex
 from katoste.utils import check_file_exists
 from katoste.dbutils import handle_sequence
 
-SEQ_MAX_LEN = 10_000
+SEQ_MAX_LEN = 1_000
 
 app = Flask(__name__)
 map_bp = Blueprint('map', __name__)
 
 def interactive_query(sequence):
-    global kmer_index, xy, x_sarray, y_sarray
+    global kmer_index, xy, x_sarray, y_sarray, where_abundant
 
     logging.info(f"Querying sequence '{sequence}'")
-    locs, ints = kmer_index.where(sequence)
+    locs, ints, where_abundant = kmer_index.where(sequence)
     add_kmer_to_netcdf_index(xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
 
     return locs, ints
 
 def _run_serve(args):
-    global app, kmer_index, xy, xmax, ymax, _loc_all, _abu_all, data, whole_max_ints
+    global app, kmer_index, xy, xmax, ymax, _loc_all, _abu_all, data, whole_max_ints, where_abundant, queried, query_seq, query_term
     whole_max_ints = []
 
     logging.info("Loading katoste index and metadata")
@@ -50,9 +52,10 @@ def _run_serve(args):
 
     logging.info("Loading the pointers into memory. Might take a while.")
     kmer_index.where("A"*kmer_index.kmer_size, lazy_index=False)
-
-    # logging.info("Loading pointers into memory")
-    # kmer_index.where("A"*kmer_index.kmer_size)
+    where_abundant = []
+    query_seq = ""
+    query_term = ""
+    queried = False
 
     xmax = kmer_index.coord_lims[1]+1
     ymax = kmer_index.coord_lims[3]+1
@@ -158,20 +161,47 @@ def index():
     _xmax, _ymax = tile_zoomed_coords(0.5, 0.5, 0)
     return render_template("index.html", xmax=_xmax, ymax=_ymax)
 
+def NormalizeData(data):
+    return (data - np.min(data)) / (np.max(data) - np.min(data))
+
+@app.route("/parse_queried", methods=['POST'])
+def parse_queried():
+    global queried, where_abundant, query_seq, query_term
+
+    if not queried:
+        return json.dumps({'success':False}), 200, {'ContentType':'application/json'}
+    
+    y_spline = [0]
+    if len(where_abundant) > 2:
+        _where_abundant = np.array(where_abundant)
+        x = _where_abundant[:, 0]
+        y = _where_abundant[:, 1]
+        x_new = np.arange(0, max(x))
+
+        tck = splrep(x, y, s=100_000, k=1)
+        y_spline = BSpline(*tck)(x_new)
+        y_spline = NormalizeData(y_spline).tolist()
+    
+    return json.dumps({'success':True, 'query_term': query_term, 'sequence': query_seq, 'scores': y_spline}), 200, {'ContentType':'application/json'} 
+
 @map_bp.route("/", methods=['GET', 'POST'])
 def index():
+    global queried, query_seq, query_term
     try:
         if request.method == 'POST':
             seq = request.form.get("selectsequence")
-            if len(seq) > SEQ_MAX_LEN:
-                raise ValueError(f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}")
-
             seq_processed = handle_sequence(seq)
+            if len(seq_processed) > SEQ_MAX_LEN:
+                raise Exception(f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}")
+
+            query_seq = seq_processed
+            query_term = seq
             interactive_query(seq_processed)
+            queried = True
+            return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
     except Exception as e:
-        return json.dumps({'error': f'An error occurred {str(e)}'}), 200, {'ContentType':'application/json'} 
-    finally:
-        return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+        return json.dumps({'error': f'An error occurred {str(e)}'}), 500, {'ContentType':'application/json'} 
+        
 
 @app.route("/tiles/<int:zoom>/<int:x>/<int:y>.png")
 def tile(x, y, zoom):

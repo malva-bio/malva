@@ -213,6 +213,8 @@ class KatosteIndex:
             _res = self.query(kmer)
             if len(_res) > 0:
                 vals += [np.concatenate(_res)]
+            else:
+                vals += [[None]]
         return vals
     
     def _load_index_to_memory(self):
@@ -236,8 +238,11 @@ class KatosteIndex:
             logging.debug("Will not use lazy loading - the chunk indexes are loaded into memory")
             self._load_index_to_memory()
 
+        # TODO: collapse seq_no and all_seq_no into one
         all_oc = []
+        seq_matches = [[0, 1]]
         seq_no = 0
+        all_seq_no = 0
 
         def get_sliding_sequence(string, k):
             n = len(string)
@@ -250,7 +255,7 @@ class KatosteIndex:
             return sliding_seqs
 
         for subseq in track(get_sliding_sequence(sequence, min(sliding_size, len(sequence))), description='Querying'):
-            if seq_no <= self.kmer_size:
+            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2):
                 kmer_list = get_kmers_numeric(subseq, self.kmer_size)
 
                 all_items = self.find_kmer(kmer_list)
@@ -262,7 +267,10 @@ class KatosteIndex:
                 all_items, counts = np.unique(all_items, return_counts=True)
                 props_ix = np.where(counts / len(kmer_list) > pct_threshold)[0]
                 all_oc += [all_items[props_ix]]
+                seq_matches.append([all_seq_no, len(all_items)])
+
             seq_no += 1
+            all_seq_no += 1
             if seq_no == sliding_size:
                 seq_no = 0
 
@@ -273,7 +281,7 @@ class KatosteIndex:
         
         self.close()
 
-        return (kmer_locations, kmer_count)
+        return (kmer_locations, kmer_count, seq_matches)
 
 
 def create_spatial_index(spatial_barcode_file, rescale_coords=1, index_resolution=1, recenter=True):

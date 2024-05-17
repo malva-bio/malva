@@ -65,7 +65,7 @@
                             <div id="queryButton" class="tXNTee L6Bbsd T7HQDc ">
                                 <div class="OyjIsf"></div>
                                 <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe4fc;</span>
-                                <span class="uEubGf fontTitleSmall">Query</span>
+                                <span class="uEubGf fontTitleSmall">Results</span>
                             </div>
                         </button>
                     </div>
@@ -104,7 +104,7 @@
                 <div id="infobox-control-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
                     <div class="u6EGFf">
                         <div class="VOhV7b">
-                            <h1 class="MMkI0b">Query</h1>
+                            <h1 class="MMkI0b">Results</h1>
                         </div>
                     </div>
                     <hr/>
@@ -136,7 +136,7 @@ ATATTTACTACCTA
                         <div class="VOhV7b">
                             <h1 class="MMkI0c">Search term</h1>
                             <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
-                                <pre>gene:IGKC</pre>
+                                <pre id="queryterm"></pre>
                             </div>
                         </div>
                         <div class="VOhV7b">
@@ -324,51 +324,65 @@ ATATTTACTACCTA
             }    
             $("#bs-alert").modal();
         }
-    
-        $(document).ready(function() {
-            $('#btn-submit').click(function (event) {
-            $('#btn-submit').prop("disabled", true);
-            $('#modal-loading').modal('show');
-            $.ajax({
-                    data : { selectsequence : $('#selectsequence').val() }, //grab text between span tags
-                    type : 'POST',
-                    url : "{{ url_for('map.index') }}", //post grabbed text to flask endpoint for saving role
-                    success: function (data) {
-                        mapdata.initialize()
-                        mapdata.redraw()
-                        map.invalidateSize()
-                        mapdata.redraw()
-                        $('#btn-submit').prop("disabled", false);
-                        $('#modal-loading').modal('hide');
 
+        const textarea = document.getElementById('heatmapTextText');
+        const heatmapText = document.getElementById('heatmapText');
+
+        textarea.addEventListener('scroll', () => {
+            heatmapText.scrollTop = textarea.scrollTop;
+            heatmapText.scrollLeft = textarea.scrollLeft;
+        });
+
+        function applyHeatmapHighlighting(text, scores) {
+            return text.split('').map((char, index) => {
+                const score = scores[index];
+                const color = getColorForScore(score);
+                return `<span style="background-color: ${color}">${char}</span>`;
+            }).join('').replace(/\n/g, '<br>');
+        }
+
+        function getColorForScore(score) {
+            const s = 100 - Math.round(50 * score);
+            return `hsl(35, 88%, ${s}%)`;
+        }
+
+        var updateCard = function() {
+            $.ajax({
+                type: 'POST',
+                url: "{{ url_for('parse_queried') }}",
+                success: function(response) {
+                    response = JSON.parse(response)
+                    if (response.success) {
                         var queryCard = $('#card-container');
                         $('#cardNoPopulated').addClass('hidden');
                         $('#cardPopulated').removeClass('hidden');
-                        // queryCard.find('#inputText').val(response.queryDetails);
-                        // queryCard.find('#heatmapText').text(response.heatmapText);
-                    },
-                    error: function (e) { 
-                        $('#modal-loading').modal('hide'); // TODO: complain
-                        $('#btn-submit').prop("disabled", false);
-                        bsAlert('test')
-                        $("#bs-alert").modal('show');
-                    }
-            });
-        });
-        })
 
-        $(function () {
-            $('[data-toggle="tooltip"]').tooltip({
-                html: true
-            })
-        })
+                        const queryarea = document.getElementById('queryterm');
+                        
+                        queryarea.innerHTML = response.query_term;
+                        textarea.value = response.sequence;
+                        
+                        const text = textarea.value;
+                        const scores = response.scores;
+                        heatmapText.innerHTML = applyHeatmapHighlighting(text, scores);
+                    }
+                },
+                error: function(e) {
+                    response = JSON.parse(e)
+                    $('#modal-loading').modal('hide');
+                    $('#btn-submit').prop("disabled", false);
+                    bsAlert(response.error);
+                    $("#bs-alert").modal('show');
+                }
+            });
+        }
 
         // Get the input element
         var textArea = document.getElementById("selectsequence");
         var textAreaHighlight = document.getElementById("highlightedText");
         var searchArea = document.getElementById("sequence-select");
-        
-        $(document).on('input', '#selectsequence', function(){
+
+        function updateSearchSize(){
             if ($("#selectsequence").val()) {
                 $('.searchboxlabel').hide();
             } else {
@@ -391,8 +405,51 @@ ATATTTACTACCTA
                 searchArea.style.height = '24px';
                 textAreaHighlight.style.top = '-24px';
             }
-            console.log(textArea.scrollHeight);
+        }
+        
+        $(document).on('input paste', '#selectsequence', function(){
+            updateSearchSize();
         });
+    
+        $(document).ready(function() {
+            updateCard();
+            updateSearchSize();
+    
+            $('#btn-submit').click(function (event) {
+            $('#btn-submit').prop("disabled", true);
+            $('#modal-loading').modal('show');
+            $.ajax({
+                    data : { selectsequence : $('#selectsequence').val() }, //grab text between span tags
+                    type : 'POST',
+                    url : "{{ url_for('map.index') }}", //post grabbed text to flask endpoint for saving role
+                    success: function (data) {
+                        mapdata.initialize()
+                        mapdata.redraw()
+                        map.invalidateSize()
+                        mapdata.redraw()
+                        $('#btn-submit').prop("disabled", false);
+                        $('#modal-loading').modal('hide');
+
+                        updateCard();
+                        // queryCard.find('#inputText').val(response.queryDetails);
+                        // queryCard.find('#heatmapText').text(response.heatmapText);
+                    },
+                    error: function (e) { 
+                        response = JSON.parse(e.responseText)
+                        $('#modal-loading').modal('hide');
+                        $('#btn-submit').prop("disabled", false);
+                        bsAlert(response.error);
+                        $("#bs-alert").modal('show');
+                    }
+            });
+        });
+        })
+
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip({
+                html: true
+            })
+        })
         
         // syntax highlighting
         document.addEventListener('DOMContentLoaded', () => {
@@ -471,44 +528,6 @@ ATATTTACTACCTA
         });
 
         document.getElementById("qr-code-img").src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + window.location.href;
-
-        document.addEventListener('DOMContentLoaded', () => {
-            const textarea = document.getElementById('heatmapTextText');
-            const heatmapText = document.getElementById('heatmapText');
-
-            const text = textarea.value;
-            const scores = getScoresForText(text); // This function generates or fetches scores for the text
-            heatmapText.innerHTML = applyHeatmapHighlighting(text, scores);
-
-            textarea.addEventListener('input', () => {
-                const text = textarea.value;
-                const scores = getScoresForText(text); // This function generates or fetches scores for the text
-                heatmapText.innerHTML = applyHeatmapHighlighting(text, scores);
-            });
-
-            textarea.addEventListener('scroll', () => {
-                heatmapText.scrollTop = textarea.scrollTop;
-                heatmapText.scrollLeft = textarea.scrollLeft;
-            });
-
-            function getScoresForText(text) {
-                // Example: Generate random scores for each character in the text
-                return Array.from(text).map(() => Math.random());
-            }
-
-            function applyHeatmapHighlighting(text, scores) {
-                return text.split('').map((char, index) => {
-                    const score = scores[index];
-                    const color = getColorForScore(score);
-                    return `<span style="background-color: ${color}">${char}</span>`;
-                }).join('').replace(/\n/g, '<br>');
-            }
-
-            function getColorForScore(score) {
-                const s = 100 - Math.round(50 * score);
-                return `hsl(35, 88%, ${s}%)`;
-            }
-        });
 
     </script>
 
