@@ -187,7 +187,7 @@ class KatosteIndex:
     def find_kmer(self, kmers):
         vals_kmer = {k: [[-1]] for k in kmers}
 
-        _indptrs = np.zeros(max(self.data_lenghts), dtype=np.uint64)
+        _indptrs = np.zeros(max(self.data_lengths), dtype=np.uint64)
 
         for ch in track(range(self.n_chunks), description='Querying kmers at chunks'):
             _data = self.index[f'index_{ch}_data']
@@ -206,9 +206,9 @@ class KatosteIndex:
 
                 _indptr = _h5_indptrs[_loc[i]:_loc[i]+2]
                 if (len(_indptr) !=2):
-                    _indptr = [_indptr[0], self.data_lenghts[ch]]
+                    _indptr = [_indptr[0], self.data_lengths[ch]]
 
-                if ((_indptr[1]-_indptr[0])/self.data_lenghts[ch] > MAX_PCT) or ((_indptr[1]-_indptr[0]) <= MIN_KMER_QUERY):
+                if ((_indptr[1]-_indptr[0])/self.data_lengths[ch] > MAX_PCT) or ((_indptr[1]-_indptr[0]) <= MIN_KMER_QUERY):
                     logging.debug(f"Did not process kmer `{kmer}`")
                     continue
                 
