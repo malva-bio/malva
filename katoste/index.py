@@ -14,18 +14,18 @@ import pandas as pd
 from rich.progress import track
 from sortedcontainers import SortedDict
 from itertools import product
+from operator import itemgetter
 
-from katoste.utils import check_file_exists, check_directory_exists, load_pickle, safety_check_eval, binary_search, save_pickle, get_module_path
+from katoste.utils import check_file_exists, check_directory_exists, load_pickle, safety_check_eval, binary_search, save_pickle, get_module_path, group_intervals
 from katoste.kmer_processing import get_kmers_numeric, encode_kmer
-# import pyximport
-# pyximport.install(reload_support=True)
-# import kmer_processing
 
 N_CHUNK = 100_000_000
 N_REPORT = 1_000_000
+MAX_PCT = 0.01
+MIN_KMER_QUERY = 10
+QUERY_JUMP = False
 
-# TODO: when visualizing, give an option to store which of the subsequences is giving the result
-# so we can localize where in the gene body the spatial mapping is happening
+
 class KatosteIndex:
     def __init__(self, index_dir, rewrite=False, kmer_size_initialize=8):
         self.rewrite = rewrite
@@ -37,6 +37,7 @@ class KatosteIndex:
         self._index_backed = None
         self.coord_lims = None
         self.n_chunks = 0
+        self.data_lengths = None
         self.n_spatial = None
         self.binary_search = self._binary_search_np
 
@@ -125,6 +126,7 @@ class KatosteIndex:
 
         if 'n_chunks' in self.index.attrs:
             self.n_chunks = self.index.attrs['n_chunks']
+            self.data_lengths = [len(self.index[f'index_{chunk}_data']) for chunk in range(self.n_chunks)]
 
     def close(self):
         self.index.close()
@@ -181,40 +183,43 @@ class KatosteIndex:
 
     def _binary_search_katoste(self, arr, start, end, v):
         return binary_search(arr, start, end, v)
-
-    def query(self, kmer):
-        _values = []
-
-        for i in (range(self.n_chunks)):
-            _idx_ptr = self._index_backed[f'index_{i}_indices']
-            _len = _idx_ptr.shape[0]
-            _loc = self.binary_search(_idx_ptr, 0, _len-1, kmer)
-
-            if _idx_ptr[_loc] != kmer:
-                continue
-            
-            _indptr = self._index_backed[f'index_{i}_indptr'][_loc:_loc+2]
-            _data = self.index[f'index_{i}_data']
-
-            if (len(_indptr) !=2):
-                _indptr = [_indptr[0], len(_data)]
-
-            if ((_indptr[1]-_indptr[0])/len(_data) > 0.01) or ((_indptr[1]-_indptr[0]) <= 10):
-                logging.debug(f"Did not process kmer `{kmer}`")
-                continue
-
-            _values += [_data[_indptr[0]:_indptr[1]]]
-
-        return _values
-
+    
     def find_kmer(self, kmers):
-        vals = []
-        for kmer in kmers:
-            _res = self.query(kmer)
-            if len(_res) > 0:
-                vals += [np.concatenate(_res)]
-            else:
-                vals += [[None]]
+        vals_kmer = {k: [[-1]] for k in kmers}
+
+        _indptrs = np.zeros(max(self.data_lenghts), dtype=np.uint64)
+
+        for ch in track(range(self.n_chunks), description='Querying kmers at chunks'):
+            _data = self.index[f'index_{ch}_data']
+            _h5_indices = self._index_backed[f'index_{ch}_indices']
+            _h5_indptrs = self._index_backed[f'index_{ch}_indptr']
+            _loc = np.searchsorted(_h5_indices, kmers)
+            
+            _loc_group = group_intervals(_loc, min_interval=1_000)
+
+            for _lc in _loc_group:
+                _indptrs[_lc[0]:_lc[1]] = _h5_indptrs[_lc[0]:_lc[1]]
+
+            for i, kmer in enumerate(kmers):
+                if _loc[i] == -1:
+                    continue
+
+                _indptr = _h5_indptrs[_loc[i]:_loc[i]+2]
+                if (len(_indptr) !=2):
+                    _indptr = [_indptr[0], self.data_lenghts[ch]]
+
+                if ((_indptr[1]-_indptr[0])/self.data_lenghts[ch] > MAX_PCT) or ((_indptr[1]-_indptr[0]) <= MIN_KMER_QUERY):
+                    logging.debug(f"Did not process kmer `{kmer}`")
+                    continue
+                
+                _res = _data[_indptr[0]:_indptr[1]]
+
+                if len(_res) > 0:
+                    vals_kmer[kmer] += [_res]
+                else:
+                    vals_kmer[kmer] += [[-1]]
+
+        vals = {k: np.concatenate(v)[1:] for k, v in vals_kmer.items()}
         return vals
     
     def _load_index_to_memory(self):
@@ -223,7 +228,6 @@ class KatosteIndex:
             self._index_backed = {f'index_{i}_indices': self.index[f'index_{i}_indices'][:] for i in range(self.n_chunks)}
             self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
             self.binary_search = self._binary_search_katoste
-        
 
     def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True):
         if len(sequence) < self.kmer_size:
@@ -253,21 +257,32 @@ class KatosteIndex:
                 sliding_seqs.append(slide)
 
             return sliding_seqs
+        
+        # get data for kmers
+        all_kmer_list = []
+        _necessary = np.ceil((len(sequence)-self.kmer_size)/np.floor(len(sequence)/self.kmer_size)).astype(int)
+        for subseq in get_sliding_sequence(sequence, len(sequence) - _necessary):
+            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size)]
 
-        for subseq in track(get_sliding_sequence(sequence, min(sliding_size, len(sequence))), description='Querying'):
-            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2):
+        all_kmer_dict = self.find_kmer(np.unique(all_kmer_list))
+
+        sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
+
+        for subseq in sliding_sequences:
+            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not QUERY_JUMP:
                 kmer_list = get_kmers_numeric(subseq, self.kmer_size)
+                all_items = itemgetter(*kmer_list)(all_kmer_dict)
 
-                all_items = self.find_kmer(kmer_list)
                 if len(all_items) == 0:
                     continue
                 else:
-                    all_items = np.concatenate(all_items)
+                    all_items = np.hstack(all_items)
 
+                all_items = all_items[all_items != np.array(-1)]
                 all_items, counts = np.unique(all_items, return_counts=True)
                 props_ix = np.where(counts / len(kmer_list) > pct_threshold)[0]
                 all_oc += [all_items[props_ix]]
-                seq_matches.append([all_seq_no, len(all_items)])
+                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items)] for k in range(len(kmer_list))]
 
             seq_no += 1
             all_seq_no += 1

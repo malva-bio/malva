@@ -74,27 +74,24 @@ def process_gene_string(gene_string):
     Returns:
     dict: A dictionary with keys 'gene_id', 'species', and 'split'.
     """
-    # Remove leading and trailing whitespace
     gene_string = gene_string.strip()
     
-    # Ensure the string starts with 'gene:'
     if not gene_string.startswith('gene:'):
         raise ValueError("Input string must start with 'gene:'")
     
-    # Remove the 'gene:' prefix
     gene_info = gene_string[len('gene:'):].strip()
     
-    # Initialize default values
     species = 'homo sapiens'
     split = [0, None]
     
-    # Split the gene_info by ';' and process each part
     parts = gene_info.split(';')
     
     gene_id = None
     for part in parts:
         if part.startswith('species:'):
             species = part[len('species:'):].strip()
+        if part.startswith('seqtype:'):
+            seqtype = part[len('seqtype:'):].strip()
         elif part.startswith('split:'):
             split_str = part[len('split:'):].strip()
             split = split_str.split(',')
@@ -105,7 +102,6 @@ def process_gene_string(gene_string):
             except ValueError:
                 raise ValueError("Both elements of the 'split' parameter must be integers")
         else:
-            # The remaining part should be the gene_id
             if gene_id is not None:
                 raise ValueError("Multiple gene IDs found in input string")
             gene_id = part.strip()
@@ -113,8 +109,7 @@ def process_gene_string(gene_string):
     if gene_id is None:
         raise ValueError("Gene ID is missing in the input string")
     
-    # Return the parsed gene ID, species, and split as a dictionary
-    return {'gene_id': gene_id, 'species': species, 'split': split}
+    return {'gene_id': gene_id, 'species': species, 'split': split, 'seqtype': seqtype}
 
 
 def process_ensembl_string(ensembl_string):
@@ -136,7 +131,10 @@ def process_ensembl_string(ensembl_string):
     
     return {'ensembl_id': ensembl_id}
 
-def get_from_gene(gene_id: str, species: str = "homo_sapiens"):
+def get_from_gene(gene_id: str, species: str = "homo_sapiens", seqtype: str = "genomic"):
+    if seqtype not in ['genomic', 'cdna']:
+        raise ValueError("'type' must be 'genomic' or 'cdna'")
+    
     ext = f"/xrefs/symbol/{species}/{gene_id}?content-type=text/plain"
     r = requests.get(ENSEMBL_REST+ext, headers={ "Content-Type" : "application/json"})
     if not r.ok:
@@ -144,12 +142,17 @@ def get_from_gene(gene_id: str, species: str = "homo_sapiens"):
     decoded = r.json()
     ensembl_id = decoded[0]['id']
 
-    return get_from_ensembl(ensembl_id=ensembl_id)
+    return get_from_ensembl(ensembl_id=ensembl_id, seqtype=seqtype)
 
-def get_from_ensembl(ensembl_id: str):
-    ext = f"/sequence/id/{ensembl_id}?content-type=text/plain"
+def get_from_ensembl(ensembl_id: str, seqtype: str = "genomic"):
+    if seqtype not in ['genomic', 'cdna']:
+        raise ValueError("'type' must be 'genomic' or 'cdna'")
+    
+    ext = f"/sequence/id/{ensembl_id}?type={seqtype}"
+    if seqtype == 'cdna':
+        ext += ';multiple_sequences=1'
 
-    r = requests.get(ENSEMBL_REST+ext, headers={ "Content-Type" : "text/plain"})
+    r = requests.get(ENSEMBL_REST+ext, headers={ "Content-Type" : "text/x-fasta"})
     if not r.ok:
         r.raise_for_status()
 
