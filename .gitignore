@@ -17,6 +17,10 @@
 *.tsv
 *.csv
 *.pickle
+*.ipynb
+
+# Docker
+*Dockerfile
 
 # Distribution / packaging
 .Python
