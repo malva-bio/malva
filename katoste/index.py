@@ -13,11 +13,10 @@ import pandas as pd
 
 from rich.progress import track
 from sortedcontainers import SortedDict
-from itertools import product
 from operator import itemgetter
 
 from katoste.utils import check_file_exists, check_directory_exists, load_pickle, safety_check_eval, binary_search, save_pickle, get_module_path, group_intervals
-from katoste.kmer_processing import get_kmers_numeric, encode_kmer
+from katoste.kmer_processing import get_kmers_numeric, get_overlapping_kmers_numeric, encode_kmer
 
 N_CHUNK = 100_000_000
 N_REPORT = 1_000_000
@@ -40,11 +39,12 @@ class KatosteIndex:
         self.data_lengths = None
         self.n_spatial = None
         self.binary_search = self._binary_search_np
+        self.get_kmers_numeric = get_kmers_numeric
 
         self._n_kmers_processed = 0
         self._iter_seqs = []
         self._iter_coords = []
-        self.low_complexity_index = None
+        self._iter_position = []
 
         exists = False
         if rewrite:
@@ -78,13 +78,6 @@ class KatosteIndex:
 
         self.kmer_size = kmer_size
 
-        # TODO: reimplement this
-        if self.kmer_size < 11:
-            nucleotides = ['A', 'G', 'C', 'T']
-            low_complexity = [nuc*(self.kmer_size - 2) for nuc in nucleotides]
-            all_mers = [''.join(p) for p in product(nucleotides, repeat=self.kmer_size)]
-            self.low_complexity_index = [i for i, mer in enumerate(all_mers) if any(substring in mer for substring in low_complexity)]
-
         self.initialize_kmer_index()
 
     def initialize_kmer_index(self):
@@ -111,7 +104,8 @@ class KatosteIndex:
         self.close()
 
     def open(self, mode='r'):
-        self.index = h5py.File(self.index_file, mode)
+        _swmr = True if mode == 'r' else False
+        self.index = h5py.File(self.index_file, mode, libver='latest', swmr=_swmr)
         if self._index_backed is None or isinstance(self._index_backed, h5py.File):
             self._index_backed = self.index
 
@@ -131,17 +125,12 @@ class KatosteIndex:
     def close(self):
         self.index.close()
 
-    def process_kmer(self, kmer, coord_ix):
+    def process_kmer(self, kmer, coord_ix, seqorder):
         if self._n_kmers_processed == 0:
             logging.warn("There are no kmers to process!")
             return
 
         _chunk = self.n_chunks
-
-        if self.low_complexity_index is not None:
-            kmer_filter_ix = np.isin(kmer, self.low_complexity_index)
-            kmer = kmer[~kmer_filter_ix]
-            coord_ix = coord_ix[~kmer_filter_ix]
 
         _ix_sorted = np.argsort(kmer)
 
@@ -153,10 +142,18 @@ class KatosteIndex:
         if len(kmer) == 0:
             pass
 
+        # TODO: populate in a more numpy-tic way
+        inverse_indices = np.empty_like(_ix_sorted)
+        for i, idx in enumerate(_ix_sorted):
+            inverse_indices[idx] = i
+
         self.open(mode='r+')
         self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique)
         self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change)
         self.index.create_dataset(f"index_{_chunk}_data", data=coord_ix[_ix_sorted])
+        self.index.create_dataset(f"index_{_chunk}_seqorder", data=seqorder[_ix_sorted])
+        self.index.create_dataset(f"index_{_chunk}_consecutive", data=np.concatenate([inverse_indices[1:], [-1]])[_ix_sorted])
+        self.index.swmr_mode = True
     
         self.n_chunks += 1
         self.index.attrs['n_chunks'] = self.n_chunks
@@ -166,17 +163,23 @@ class KatosteIndex:
         coords = self.spatial_index.get(encode_kmer(index), None)
         if coords is None:
             return
+        
+        kmers = self.get_kmers_numeric(sequence, self.kmer_size)
+        _n_kmers = len(kmers)
+        self._iter_seqs.extend(kmers)
+        self._iter_coords.extend([coords[0]]*_n_kmers)
 
-        for kmer in get_kmers_numeric(sequence, self.kmer_size):
-            self._iter_seqs += [kmer]
-            self._iter_coords += [coords[0]]
-            self._n_kmers_processed += 1
+        # TODO: 16 can be adjusted to 256
+        # this limits to 128 bp in 8 mers, or 384 bp in 24 mers...
+        self._iter_position.extend([i*16 + _n_kmers for i in range(_n_kmers)])
+        self._n_kmers_processed += _n_kmers
 
     def write(self):
-        self.process_kmer(np.array(self._iter_seqs), np.array(self._iter_coords))
+        self.process_kmer(np.array(self._iter_seqs), np.array(self._iter_coords), np.array(self._iter_position))
         self._n_kmers_processed = 0
         self._iter_seqs = []
         self._iter_coords = []
+        self._iter_position = []
 
     def _binary_search_np(self, arr, start, end, v):
         return np.searchsorted(arr, v)
@@ -219,7 +222,9 @@ class KatosteIndex:
                 else:
                     vals_kmer[kmer] += [[-1]]
 
-        vals = {k: np.concatenate(v)[1:] for k, v in vals_kmer.items()}
+        # we have to do 'unique', so we preserve the true matches, otherwise we might recount
+        # and then when filtering, the threshold is meaningless!
+        vals = {k: np.unique(np.concatenate(v)[1:]) for k, v in vals_kmer.items()}
         return vals
     
     def _load_index_to_memory(self):
@@ -229,7 +234,14 @@ class KatosteIndex:
             self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
             self.binary_search = self._binary_search_katoste
 
-    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True):
+    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, max_pct=0.01, min_kmer_query=10, query_jump=True):
+        global MAX_PCT, MIN_KMER_QUERY, QUERY_JUMP
+
+        # TODO: use as arguments for the find_kmer variable
+        MAX_PCT = max_pct
+        MIN_KMER_QUERY = min_kmer_query
+        QUERY_JUMP = query_jump
+
         if len(sequence) < self.kmer_size:
             raise ValueError("Query sequence cannot be smaller than kmer size!")
 
@@ -243,7 +255,7 @@ class KatosteIndex:
             self._load_index_to_memory()
 
         # TODO: collapse seq_no and all_seq_no into one
-        all_oc = np.ma.zeros(self.n_spatial)
+        all_oc = []
         seq_matches = [[0, 1]]
         seq_no = 0
         all_seq_no = 0
@@ -261,37 +273,55 @@ class KatosteIndex:
         # get data for kmers
         all_kmer_list = []
         _necessary = np.ceil((len(sequence)-self.kmer_size)/np.floor(len(sequence)/self.kmer_size)).astype(int)
-        for subseq in get_sliding_sequence(sequence, len(sequence) - _necessary):
-            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size)]
+        for subseq in get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size)):
+            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
-        all_kmer_dict = self.find_kmer(np.unique(all_kmer_list))
+        all_kmer_list = np.unique(all_kmer_list)
+        # 0 is 'A'*kmer_size but also any low-complexity k-mer
+        all_kmer_list = all_kmer_list[all_kmer_list != 0]
+
+        if len(all_kmer_list) == 0:
+            return (np.array([0]), np.array([0]), seq_matches)
+        all_kmer_dict = self.find_kmer(all_kmer_list)
 
         sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
 
         for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
             if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not QUERY_JUMP:
-                kmer_list = get_kmers_numeric(subseq, self.kmer_size)
+                # TODO: store from previous and not rerun?
+                all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+                kmer_list = [i for i in all_kmer_list if i != 0]
+
+                if len(kmer_list) == 0:
+                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
+                    seq_no += 1
+                    all_seq_no += 1
+                    continue
+    
                 all_items = itemgetter(*kmer_list)(all_kmer_dict)
 
                 if len(all_items) == 0:
+                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
+                    seq_no += 1
+                    all_seq_no += 1
                     continue
                 else:
                     all_items = np.hstack(all_items)
 
                 all_items = all_items[all_items != np.array(-1)]
                 all_items, counts = np.unique(all_items, return_counts=True)
-                props_ix = np.where(counts / len(kmer_list) > pct_threshold)[0]
-                all_oc[all_items[props_ix]] += counts[props_ix]
-                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items[props_ix])] for k in range(len(kmer_list))]
+                props_ix = np.where(counts / len(all_kmer_list) >= pct_threshold)[0]
+                all_oc += [all_items[props_ix]]
+                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items[props_ix])] for k in range(len(all_kmer_list))]
 
             seq_no += 1
             all_seq_no += 1
             if seq_no == sliding_size:
                 seq_no = 0
 
+        logging.info("Counting unique spatial matches")
         if len(all_oc) > 0:
-            _nz = all_oc.nonzero()
-            kmer_locations, kmer_count = _nz[0], all_oc[_nz]
+            kmer_locations, kmer_count = np.unique(np.concatenate(all_oc), return_counts=True)
         else:
             kmer_locations, kmer_count = np.array([0]), np.array([0])
         
@@ -415,6 +445,11 @@ def _run_index(args):
 
     logging.info(f"Configuring the katoste index")
     kmer_index = KatosteIndex(args.index_out, kmer_size_initialize=args.kmer_length)
+
+    # Set the proper function to generate k-mers
+    if args.overlapping:
+        logging.info(f"Will index overlapping {args.kmer_length}-mers")
+        kmer_index.get_kmers_numeric = get_overlapping_kmers_numeric
     
     logging.info("Adding spatial index to katoste index")
     kmer_index.append_spatial(sindex)
