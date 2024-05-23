@@ -44,7 +44,6 @@ class KatosteIndex:
         self._n_kmers_processed = 0
         self._iter_seqs = []
         self._iter_coords = []
-        self._iter_position = []
 
         exists = False
         if rewrite:
@@ -104,8 +103,7 @@ class KatosteIndex:
         self.close()
 
     def open(self, mode='r'):
-        _swmr = True if mode == 'r' else False
-        self.index = h5py.File(self.index_file, mode, libver='latest', swmr=_swmr)
+        self.index = h5py.File(self.index_file, mode)
         if self._index_backed is None or isinstance(self._index_backed, h5py.File):
             self._index_backed = self.index
 
@@ -125,7 +123,7 @@ class KatosteIndex:
     def close(self):
         self.index.close()
 
-    def process_kmer(self, kmer, coord_ix, seqorder):
+    def process_kmer(self, kmer, coord_ix):
         if self._n_kmers_processed == 0:
             logging.warn("There are no kmers to process!")
             return
@@ -142,18 +140,10 @@ class KatosteIndex:
         if len(kmer) == 0:
             pass
 
-        # TODO: populate in a more numpy-tic way
-        inverse_indices = np.empty_like(_ix_sorted)
-        for i, idx in enumerate(_ix_sorted):
-            inverse_indices[idx] = i
-
         self.open(mode='r+')
         self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique)
         self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change)
         self.index.create_dataset(f"index_{_chunk}_data", data=coord_ix[_ix_sorted])
-        self.index.create_dataset(f"index_{_chunk}_seqorder", data=seqorder[_ix_sorted])
-        self.index.create_dataset(f"index_{_chunk}_consecutive", data=np.concatenate([inverse_indices[1:], [-1]])[_ix_sorted])
-        self.index.swmr_mode = True
     
         self.n_chunks += 1
         self.index.attrs['n_chunks'] = self.n_chunks
@@ -163,23 +153,17 @@ class KatosteIndex:
         coords = self.spatial_index.get(encode_kmer(index), None)
         if coords is None:
             return
-        
+
         kmers = self.get_kmers_numeric(sequence, self.kmer_size)
         _n_kmers = len(kmers)
         self._iter_seqs.extend(kmers)
         self._iter_coords.extend([coords[0]]*_n_kmers)
-
-        # TODO: 16 can be adjusted to 256
-        # this limits to 128 bp in 8 mers, or 384 bp in 24 mers...
-        self._iter_position.extend([i*16 + _n_kmers for i in range(_n_kmers)])
-        self._n_kmers_processed += _n_kmers
 
     def write(self):
         self.process_kmer(np.array(self._iter_seqs), np.array(self._iter_coords), np.array(self._iter_position))
         self._n_kmers_processed = 0
         self._iter_seqs = []
         self._iter_coords = []
-        self._iter_position = []
 
     def _binary_search_np(self, arr, start, end, v):
         return np.searchsorted(arr, v)
@@ -222,8 +206,6 @@ class KatosteIndex:
                 else:
                     vals_kmer[kmer] += [[-1]]
 
-        # we have to do 'unique', so we preserve the true matches, otherwise we might recount
-        # and then when filtering, the threshold is meaningless!
         vals = {k: np.unique(np.concatenate(v)[1:]) for k, v in vals_kmer.items()}
         return vals
     
