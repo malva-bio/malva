@@ -19,6 +19,9 @@
 *.pickle
 *.ipynb
 
+# Spatial index
+*.nc
+
 # Docker
 *Dockerfile
 
