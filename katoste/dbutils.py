@@ -33,7 +33,7 @@ def process_dna_string(sequence):
     
     return {'sequence': ''.join(result)}
 
-def handle_sequence(input_string):
+def handle_sequence(input_string, recursion=True):
     """
     Checks the input string for specific conditions and routes it accordingly.
     
@@ -54,9 +54,16 @@ def handle_sequence(input_string):
         _input = process_ensembl_string(input_string)
         seq_out = get_from_ensembl(_input['ensembl_id'])
     
-    else:
+    elif input_string.startswith('>'):
         _input = process_dna_string(input_string)
         seq_out = _input['sequence']
+    else:
+        input_string = validate_and_infer_query(input_string)
+        if recursion:
+            seq_out = handle_sequence(input_string, recursion=False)
+        else:
+            seq_out = process_dna_string(input_string)['sequence']
+
     
     if seq_out == "":
         raise ValueError("DNA sequence not valid or not found")
@@ -142,6 +149,10 @@ def get_from_gene(gene_id: str, species: str = "homo_sapiens", seqtype: str = "g
     if not r.ok:
         r.raise_for_status()
     decoded = r.json()
+
+    if len(decoded) < 1:
+        raise ValueError(f"Gene '{gene_id}' for species '{species}' was not found")
+
     ensembl_id = decoded[0]['id']
 
     return get_from_ensembl(ensembl_id=ensembl_id, seqtype=seqtype)
@@ -159,3 +170,57 @@ def get_from_ensembl(ensembl_id: str, seqtype: str = "genomic"):
         r.raise_for_status()
 
     return r.text
+
+def validate_and_infer_query(input_string):
+    """
+    Validate and infer whether the input is gene IDs or DNA sequences.
+    
+    Args:
+        input_string (str): The user input string.
+        
+    Returns:
+        str: Corrected query string or raises an exception if validation fails.
+    """
+    # Split the input into lines and remove empty lines
+    lines = [line.strip() for line in input_string.splitlines() if line.strip()]
+    lines = lines[:1]
+    
+    def is_dna_sequence(seq):
+        return bool(re.fullmatch(r'[ACGTNacgtn]+', seq))
+    
+    def is_gene_id(gene):
+        return bool(re.fullmatch(r'[a-zA-Z0-9._-]+', gene))
+    
+    def is_ensembl_id(gene):
+        return bool(re.fullmatch(r'ENS[GTPE][a-zA-Z0-9._-]+', gene, re.IGNORECASE))
+    
+    inferred_genes = []
+    inferred_sequences = []
+    inferred_ensembl = []
+
+    input_types = set()
+    
+    for line in lines:
+        if is_dna_sequence(line):
+            inferred_sequences.append(line)
+            input_types.add('sequence')
+        elif is_gene_id(line):
+            inferred_genes.append(line)
+            input_types.add('gene')
+        elif is_ensembl_id(line):
+            inferred_ensembl.append(line)
+            input_types.add('ensembl')
+        else:
+            raise ValueError(f"Invalid input: '{line}'. Please enter valid gene IDs or DNA sequences.")
+    
+    if len(input_types) > 1:
+        raise ValueError("Mixed input detected: Please provide either gene IDs, Ensembl IDs, or DNA sequences, not multiple types.")
+    
+    if inferred_genes:
+        return "gene:" + ",".join(inferred_genes)
+    elif inferred_ensembl:
+        return "ensembl:" + ",".join(inferred_ensembl)
+    elif inferred_sequences:
+        return "".join(inferred_sequences)
+    else:
+        raise ValueError("No valid gene IDs, Ensembl IDs, or DNA sequences detected. Please check your input.")
