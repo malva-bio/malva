@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
-include = ["katoste/data/*.yaml"]
+include = ["katoste/data/*.yaml", "katoste/serve/static/index.html"]
 
 [tool.poetry.build]
 script = "build.py"
@@ -52,6 +52,10 @@ pysam = ">0.20.0"
 setproctitle = ">1.0"
 tifffile = ">2022.4.8"
 pyyaml = ">5.4"
+netCDF4 = ">1.6.0"
+xarray = ">2022.11.0"
+datashader = ">0.15.0"
+flask = ">2.3.0"
 
 [tool.poetry.dev-dependencies]
 Cython = "^0.29.21"  # Latest version at time of publishing
