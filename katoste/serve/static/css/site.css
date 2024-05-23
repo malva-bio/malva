@@ -512,14 +512,26 @@ textarea {
 	font-family: monospace, monospace;
 }
 
-#control-container {
+#settings-container {
     opacity: 0;
 	max-height: 0;
     overflow: hidden;
     transition: opacity 0.3s cubic-bezier(0.76, 0, 0.24, 1), all 0.3s cubic-bezier(0.76, 0, 0.24, 1);
 }
 
-#control-container.visible {
+#settings-container.visible {
+    opacity: 1;
+	max-height: 1000px;
+}
+
+#images-container {
+    opacity: 0;
+	max-height: 0;
+    overflow: hidden;
+    transition: opacity 0.3s cubic-bezier(0.76, 0, 0.24, 1), all 0.3s cubic-bezier(0.76, 0, 0.24, 1);
+}
+
+#images-container.visible {
     opacity: 1;
 	max-height: 1000px;
 }
@@ -596,4 +608,12 @@ pre {
 	justify-content: space-between;
 	margin-bottom: 1rem;
 	background-color: #f6f8fa;
+}
+
+.leaflet-control-zoom-in {
+	border-radius: 8px 8px 0px 0px;
+}
+
+.leaflet-control-zoom-out {
+	border-radius: 0px 0px 8px 8px;
 }

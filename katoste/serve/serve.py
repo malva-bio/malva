@@ -12,11 +12,10 @@ from flask import Flask, render_template, send_file, Blueprint, request
 from skimage.filters import gaussian
 from PIL import Image
 
-from scipy.interpolate import splrep, BSpline
-
 from katoste.index import KatosteIndex
 from katoste.utils import check_file_exists
 from katoste.dbutils import handle_sequence
+from katoste.complexity import mask_low_complexity
 
 SEQ_MAX_LEN = 1_000
 OUTFILE_NAME = "test.nc"
@@ -24,11 +23,15 @@ OUTFILE_NAME = "test.nc"
 app = Flask(__name__)
 map_bp = Blueprint('map', __name__)
 
-def interactive_query(sequence):
+def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_complexity_filter=True):
     global kmer_index, xy, x_sarray, y_sarray, where_abundant
 
+    if low_complexity_filter:
+        logging.info("Applying low complexity filter")
+        sequence = mask_low_complexity(sequence, N=4, L=kmer_index.kmer_size)
+
     logging.info(f"Querying sequence '{sequence}'")
-    locs, ints, where_abundant = kmer_index.where(sequence)
+    locs, ints, where_abundant = kmer_index.where(sequence, sliding_size=sliding_size, pct_threshold=pct_threshold)
     logging.info(f"Adding result to spatial file")
     add_kmer_to_netcdf_index(xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
 
@@ -96,6 +99,10 @@ def generate_netcdf_index(kmer_index, xy, xmax, ymax):
 
     _z = np.zeros((xmax, ymax))
     _z[xy[_loc_all, 0], xy[_loc_all, 1]] = _abu_all
+
+    # we need to adjust the value limits to fit in the default variable
+    _z = _z/_z.max()
+    _z = _z * 255
     all_s[:, :] = _z
 
     ncfile.close()
@@ -118,7 +125,7 @@ def generate_tile(zoom, x, y):
     x_sarray = data['x']
     y_sarray = data['y']
 
-    _sigma = 0.5 if zoom <= 1 else 1.5
+    _sigma = 1 if zoom <= 1 else 1.5
     
     xleft, yleft = tile_zoomed_coords(int(x), int(y), int(zoom))
     xright, yright = tile_zoomed_coords(int(x)+1, int(y)+1, int(zoom))
@@ -129,23 +136,29 @@ def generate_tile(zoom, x, y):
     xright_snapped = x_sarray.sel(x=xright, method="nearest").values
     yright_snapped = y_sarray.sel(y=yright, method="nearest").values
 
+    print("querying") # TODO: remove
     # ... and needs to be >= and <= so there are no gaps
     xcondition = f"x >= {xleft_snapped} and x <= {xright_snapped}"
     ycondition = f"y <= {yright_snapped} and y >= {yleft_snapped}"
+    # TODO: use thin to simplify the plotting
+    #frame = data.thin({"x": 10, "y": 10}).query(x=xcondition, y=ycondition)
     frame = data.query(x=xcondition, y=ycondition)
     #frame = frame.coarsen(x=(6-zoom), y=(6-zoom), boundary='trim').mean()
 
     csv = ds.Canvas(plot_width=256, plot_height=256,
                     x_range=(xleft, xright), y_range=(yleft, yright))
     
+    print("aggregating to canvas") # TODO: remove
     agg_all = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('all'))
     img_all = np.nan_to_num(agg_all.data)
 
     if len(whole_max_ints) < 4:
         whole_max_ints = [img_all.max()]
 
+    print("image processing") # TODO: remove
     img_all = gaussian(img_all / whole_max_ints[0] * 255, sigma=_sigma, preserve_range=True)[:, :, np.newaxis]
 
+    print("aggregating gene") # TODO: remove
     if 'ints' in frame.variables:
         agg_ch = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('ints'))
         img_ch = np.nan_to_num(agg_ch.data)
@@ -156,10 +169,12 @@ def generate_tile(zoom, x, y):
         img_ch = gaussian(img_ch / whole_max_ints[1] * 255, sigma=_sigma, preserve_range=True)[:, :, np.newaxis]
         img_all = np.concatenate([img_all, img_ch], axis=2)
     
+    print("concatenate image") # TODO: remove
     img_all = np.concatenate([img_all, np.zeros((256, 256, (3 - img_all.shape[-1]))), 255*np.ones((256, 256, 1))], axis=2)
     img_all = np.clip(img_all, 0, 255)
     whole_max_ints += [255]*(4 - len(whole_max_ints))
 
+    print("creating image") # TODO: remove
     return Image.fromarray(img_all.astype(np.uint8))
 
 @app.route("/")
@@ -188,30 +203,44 @@ def parse_queried():
 @map_bp.route("/", methods=['GET', 'POST'])
 def index():
     global queried, query_seq, query_term, SEQ_MAX_LEN
+    help = ''
     try:
         if request.method == 'POST':
             seq = request.form.get("selectsequence")
-            seq_processed = handle_sequence(seq)
-            if len(seq_processed) > SEQ_MAX_LEN:
-                raise Exception(f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}")
+            sliding_size = int(request.form.get("sliding_size"))
+            pct_threshold = float(request.form.get("pct_threshold"))
+            low_complexity_filter = request.form.get("low_complexity_filter").lower() in ['true', '1', 'True']
 
+            seq_processed = handle_sequence(seq)
+
+            if len(seq_processed) > SEQ_MAX_LEN:
+                help = "Hint: format your query as, e.g., <pre>gene:GENEID;split:0,1000</pre> or  <pre>ensembl:ENSGXXXX;split:0,1000</pre>. This will trim the sequence result from 0th to 1000th position (from 5' to 3'), or <pre>;split:-1000,-1</pre>, to do the same from 3' to 5'"
+                raise Exception(f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}.")
+
+            interactive_query(seq_processed, sliding_size=sliding_size, pct_threshold=pct_threshold, low_complexity_filter=low_complexity_filter)
+            
             query_seq = seq_processed
             query_term = seq
-            interactive_query(seq_processed)
             queried = True
+
             return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
     except Exception as e:
-        return json.dumps({'error': str(e)}), 500, {'ContentType':'application/json'} 
+        return json.dumps({'error': str(e), 'help': help}), 500, {'ContentType':'application/json'} 
         
 
-@app.route("/tiles/<int:zoom>/<int:x>/<int:y>.png")
+@app.route("/tiles/<zoom>/<int:x>/<int:y>.png")
 def tile(x, y, zoom):
-    results = generate_tile(zoom, x, y)
-    # image passed off to bytestream
-    results_bytes = io.BytesIO()
-    results.save(results_bytes, 'PNG')
-    results_bytes.seek(0)
-    return send_file(results_bytes, mimetype='image/png')
+    try:
+        zoom = float(zoom)
+        zoom = round(zoom)
+        results = generate_tile(zoom, x, y)
+        # image passed off to bytestream
+        results_bytes = io.BytesIO()
+        results.save(results_bytes, 'PNG')
+        results_bytes.seek(0)
+        return send_file(results_bytes, mimetype='image/png')
+    except Exception as e:
+        return str(e), 400
 
 def add_kmer_to_netcdf_index(xloc, yloc, ints):
     global data, xmax, ymax, whole_max_ints
@@ -229,6 +258,7 @@ def add_kmer_to_netcdf_index(xloc, yloc, ints):
     else:
         ints_s = ncfile.createVariable("ints",'u1',("x","y",), fill_value=0)
 
+    logging.info("Adding to spatial file") # TODO: remove
     _z = np.ma.zeros((xmax, ymax))
     _z[xloc, yloc] = ints
     ints_s[:, :] = _z
@@ -236,6 +266,8 @@ def add_kmer_to_netcdf_index(xloc, yloc, ints):
     ncfile.close()
     data = xr.open_dataset(OUTFILE_NAME)
     whole_max_ints = []
+
+    logging.info("Generating 0,0,0 tile for rendering limits")
     generate_tile(0, 0, 0) # run once to preload
     
 if __name__ == "__main__":
