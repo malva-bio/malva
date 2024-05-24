@@ -17,6 +17,7 @@ from katoste.utils import check_file_exists
 from katoste.dbutils import handle_sequence
 from katoste.complexity import mask_low_complexity
 
+MAX_LOAD_ALL = 10_000_000
 SEQ_MAX_LEN = 1_000
 OUTFILE_NAME = "test.nc"
 
@@ -31,7 +32,7 @@ def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_comple
         sequence = mask_low_complexity(sequence, N=4, L=kmer_index.kmer_size)
 
     logging.info(f"Querying sequence '{sequence}'")
-    locs, ints, where_abundant = kmer_index.where(sequence, sliding_size=sliding_size, pct_threshold=pct_threshold)
+    locs, ints, where_abundant = kmer_index.where(sequence, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False)
     logging.info(f"Adding result to spatial file")
     add_kmer_to_netcdf_index(xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
 
@@ -51,7 +52,7 @@ def _run_serve(args):
     # _all_kmers = kmer_index._index_backed['index_0_indptr']
     # _kmer_abundance = np.diff(np.concatenate([_all_kmers, np.array(kmer_index.index[f'index_0_data'].shape[0])]))
     # _kmer_filtered = _kmer_abundance
-    _loc_all, _abu_all = np.unique(kmer_index.index[f'index_0_data'][:], return_counts=True)
+    _loc_all, _abu_all = np.unique(kmer_index.index[f'index_0_data'][0:MAX_LOAD_ALL], return_counts=True)
     # _ix_ab = np.argsort(_abu_all)[::-1][100:]
 
     # _loc_all = _loc_all[_ix_ab]
