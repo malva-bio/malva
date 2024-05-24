@@ -114,7 +114,7 @@ def process_gene_string(gene_string):
         elif part.startswith('gene:'):
             if gene_id is not None:
                 raise ValueError("Multiple gene IDs found in input string")
-            gene_id = part.strip()
+            gene_id = part[len('gene:'):].strip()
     
     if gene_id is None:
         raise ValueError("Gene ID is missing in the input string")
