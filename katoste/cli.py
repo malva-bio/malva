@@ -151,6 +151,18 @@ def get_show_parser():
         help="""A scalebar is automatically displayed.
         The size is by default 25/100 of the image width.""",
     )
+    parser.add_argument(
+        "--render-scale",
+        type=float,
+        default=1,
+        help="What is the scale, respect to the original index spatial dimensions per unit, used for rendering.",
+    )
+    parser.add_argument(
+        "--render-smoothing",
+        type=float,
+        default=1.5,
+        help="Sigma value for gaussian smoothing of pseudoimages (for rendering purposes)",
+    )
     return parser
 
 

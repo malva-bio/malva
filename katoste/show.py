@@ -85,7 +85,7 @@ def _run_show(args):
             locs, ints, _ = kmer_index.where(record.sequence, lazy_index=False)
 
             logging.info(f"[{i}/n] Plotting")
-            im = plotter.image(locs, ints)
+            im = plotter.image(locs, ints, args.render_scale, args.render_smoothing)
 
             if args.multichannel:
                 multi_out[record.name] = im
