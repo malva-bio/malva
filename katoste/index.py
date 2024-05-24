@@ -436,7 +436,7 @@ def _run_index(args):
     kmer_index.append_spatial(sindex)
 
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
-    logging.info(f"Will write to disk every {N_CHUNK} sequences, and once at the end (remaining sequences)")
+    logging.info(f"Will write to disk every {args.chunksize} sequences, and once at the end (remaining sequences)")
     _bam_tags = flavor_config['bam_tags']
     _cell = flavor_config['cell']
 
@@ -445,7 +445,7 @@ def _run_index(args):
     for r2, cell_bc in iterate_flavor(args.reads_in, bam_tags=_bam_tags, cell=_cell):
         kmer_index.add_sequence(r2, cell_bc)
         _n_sequences += 1
-        if (_n_sequences) % N_CHUNK == 0:
+        if (_n_sequences) % args.chunksize == 0:
             kmer_index.write()
         if (_n_sequences) % N_REPORT == 0:
             _t1 = time.time()

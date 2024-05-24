@@ -51,6 +51,13 @@ def get_index_parser():
         help="Length (in nucleotides) of indexed k-mers, non-overlapping.",
     )
     parser.add_argument(
+        "--chunksize",
+        type=int,
+        default=1_000_000_000,
+        help="""Consecutive chunk that will be accumulated into RAM before writing.
+        Consider reducing this number to reduce RAM usage (indexing might be slower).""",
+    )
+    parser.add_argument(
         "--overlapping",
         action="store_true",
         help="""By default, the index stores non-overlapping k-mers.
