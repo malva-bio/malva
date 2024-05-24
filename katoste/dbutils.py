@@ -3,6 +3,8 @@ import re
 
 ENSEMBL_REST = "https://rest.ensembl.org"
 
+# implement pre-download ensembl data
+
 def process_dna_string(sequence):
     """
     Validates and parses a DNA sequence or a FASTA-like format sequence.
@@ -82,14 +84,12 @@ def process_gene_string(gene_string):
     Returns:
     dict: A dictionary with keys 'gene_id', 'species', and 'split'.
     """
-    gene_string = gene_string.strip()
+    gene_info = gene_string.strip()
     
     if not gene_string.startswith('gene:'):
         raise ValueError("Input string must start with 'gene:'")
     
-    gene_info = gene_string[len('gene:'):].strip()
-    
-    species = 'homo sapiens'
+    species = 'homo_sapiens'
     split = [0, None]
     seqtype = 'genomic'
 
@@ -97,9 +97,10 @@ def process_gene_string(gene_string):
     
     gene_id = None
     for part in parts:
+        print(part)
         if part.startswith('species:'):
             species = part[len('species:'):].strip()
-        if part.startswith('type:'):
+        elif part.startswith('type:'):
             seqtype = part[len('type:'):].strip()
         elif part.startswith('split:'):
             split_str = part[len('split:'):].strip()
@@ -110,7 +111,7 @@ def process_gene_string(gene_string):
                 split = [int(s.strip()) for s in split]
             except ValueError:
                 raise ValueError("Both elements of the 'split' parameter must be integers")
-        else:
+        elif part.startswith('gene:'):
             if gene_id is not None:
                 raise ValueError("Multiple gene IDs found in input string")
             gene_id = part.strip()

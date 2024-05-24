@@ -615,11 +615,11 @@ ATATTTACTACCTA
         }
 
         function isGeneId(gene) {
-            return /^[a-zA-Z0-9._-]+(;type:[a-zA-Z0-9._-]+)?(;split:-?\d+,-?\d+)?$/.test(gene) || /^gene:[a-zA-Z0-9._-]+(;type:[a-zA-Z0-9._-]+)?(;split:-?\d+,-?\d+)?$/.test(gene);
+            return /^[a-zA-Z0-9._-]+(;type:[a-zA-Z0-9._-]+)?(;species:[a-zA-Z0-9._-]+)?(;split:-?\d+,-?\d+)?$/.test(gene) || /^gene:[a-zA-Z0-9._-]+(;type:[a-zA-Z0-9._-]+)?(;species:[a-zA-Z0-9._-]+)?(;split:-?\d+,-?\d+)?$/.test(gene);
         }
 
         function isEnsemblId(ensembl) {
-            return /^ENS[GTPE]\d{9,11}(;split:-?\d+,-?\d+)?$/i.test(ensembl) || /^ensembl:ENS[GTPE]\d{9,11}(;split:-?\d+,-?\d+)?$/i.test(ensembl);
+            return /^ENS\w+(;split:-?\d+,-?\d+)?$/i.test(ensembl) || /^ensembl:ENS\w+(;split:-?\d+,-?\d+)?$/i.test(ensembl);
         }
 
         function validateSplitField(split) {
