@@ -259,7 +259,7 @@ def cmdline_main():
     parser, args = cmdline_args()
 
     if args.version and args.subcommand is None:
-        print(importlib.metadata.version('katoste '))
+        print(importlib.metadata.version('katoste'))
         return 0
     else:
         del args.version
