@@ -97,7 +97,6 @@ def process_gene_string(gene_string):
     
     gene_id = None
     for part in parts:
-        print(part)
         if part.startswith('species:'):
             species = part[len('species:'):].strip()
         elif part.startswith('type:'):
