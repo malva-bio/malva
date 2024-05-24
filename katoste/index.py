@@ -254,7 +254,7 @@ class KatosteIndex:
         all_kmer_list = []
         _necessary = np.ceil((len(sequence)-self.kmer_size)/np.floor(len(sequence)/self.kmer_size)).astype(int)
         for subseq in get_sliding_sequence(sequence, len(sequence) - _necessary):
-            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
+            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size)]
 
         all_kmer_list = np.unique(all_kmer_list)
         # 0 is 'A'*kmer_size but also any low-complexity k-mer
@@ -270,7 +270,7 @@ class KatosteIndex:
         for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
             if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not QUERY_JUMP:
                 # TODO: store from previous and not rerun?
-                all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+                all_kmer_list = get_kmers_numeric(subseq, self.kmer_size)
                 kmer_list = [i for i in all_kmer_list if i != 0]
 
                 if len(kmer_list) == 0:
