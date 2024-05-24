@@ -1,8 +1,8 @@
-# TODO: will contain file utils and others (e.g., readers for BAM, FASTA, validations...)
 import logging
 import os
 import pickle
 import shutil
+import numpy as np
 from pathlib import Path
 
 def safety_check_eval(s, danger="();."):
@@ -278,3 +278,21 @@ def binary_search(arr, low, high, x):
  
     else:
         return -1
+    
+def group_intervals(arr, min_interval):
+    arr = np.sort(arr)
+    
+    intervals = []
+    start = arr[0]
+    end = arr[0]
+    
+    for i in range(1, len(arr)):
+        if arr[i] - end > min_interval:
+            intervals.append((start, end))
+            start = arr[i]
+        
+        end = arr[i]
+    
+    intervals.append((start, end))
+    
+    return intervals

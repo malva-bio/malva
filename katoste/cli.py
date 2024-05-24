@@ -51,6 +51,14 @@ def get_index_parser():
         help="Length (in nucleotides) of indexed k-mers, non-overlapping.",
     )
     parser.add_argument(
+        "--overlapping",
+        action="store_true",
+        help="""By default, the index stores non-overlapping k-mers.
+        With this option, overlapping k-mers are indexed, increasing
+        sensitivity against mutation events during query time, but also
+        increases time to build the index and its size.""",
+    )
+    parser.add_argument(
         "--rescale-coords",
         type=float,
         default=1,
@@ -182,6 +190,17 @@ def get_serve_parser():
         type=str,
         default="127.0.0.1",
         help="""Address where the webserver will be available at""",
+    )
+    parser.add_argument(
+        "--lazy-index",
+        action="store_true",
+        help="""No part of the index will be loaded to main memory (full-disk queries)""",
+    )
+    parser.add_argument(
+        "--max-len",
+        type=int,
+        default=1000,
+        help="""Maximum allowed length for DNA/RNA queries""",
     )
     return parser
 

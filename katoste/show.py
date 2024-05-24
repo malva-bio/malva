@@ -84,7 +84,7 @@ def _run_show(args):
                 continue
 
             logging.info(f"[{i}/n] Querying sequence {record.name}")
-            locs, ints = kmer_index.where(record.sequence, lazy_index=False)
+            locs, ints, _ = kmer_index.where(record.sequence, lazy_index=False)
 
             logging.info(f"[{i}/n] Plotting")
             im = plotter.image(locs, ints)

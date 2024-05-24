@@ -8,17 +8,19 @@
     <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
     <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.3/themes/base/jquery-ui.css">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <script src="https://code.jquery.com/ui/1.13.3/jquery-ui.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jqueryui-touch-punch/0.2.3/jquery.ui.touch-punch.min.js"></script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-0evHe/X+R7YkIZDRvuzKMRqM+OrBnVFBL6DOitfPri4tjfHxaWutUpFmBp4vmVor" crossorigin="anonymous">
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.0-beta1/dist/js/bootstrap.bundle.min.js" integrity="sha384-pprn3073KE6tl6bjs2QrFaJGz5/SUsLqktiwsUTF55Jfv3qYSDhgCecCxMW52nD2" crossorigin="anonymous"></script>
 
 
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css"
-        integrity="sha512-07I2e+7D8p6he1SIM+1twR5TIrhUQn9+I6yjqD53JQjFiMf8EtC93ty0/5vJTZGF8aAocvHYNEDJajGdNx1IsQ=="
-        crossorigin=""/>
-    <script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet-src.js"
-        integrity="sha512-WXoSHqw/t26DszhdMhOXOkI7qCiv5QWXhH9R7CgvgZMHz1ImlkVQ3uNsiQKu5wwbbxtPzFXd1hK4tzno2VqhpA=="
-        crossorigin=""></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+     integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+     crossorigin=""/>
+     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+     crossorigin=""></script>
     <script src='https://unpkg.com/leaflet.tilelayer.gl@latest/src/Leaflet.TileLayer.GL'></script>
 
 
@@ -28,26 +30,205 @@
   </head>
   <body>
     <div id="mapcontainer"></div>
-    <div id="" class="">
+    <div style="max-height: 100vh; max-width: 99vw; overflow: scroll; margin-right: 0; position: absolute;">
         <div id="omnibox-container" class="id-omnibox-container">
             <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
                 <div id="search" class="searchbox searchbox-position nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b searchbox-empty expanded">
                     <form id="sequence-select" method="post" enctype="multipart/form-data">
                         <div class="searchboxlabeldiv"> 
-                            <label for="selectsequence" class="searchboxlabel fontBodyMedium">Search Katoste</label>
+                            <label for="selectsequence" class="searchboxlabel fontBodyMedium">Enter a sequence or search term</label>
                         </div>
-                        <textarea name="selectsequence" id="selectsequence" class="searchboxinput" form="sequence-select" aria-label="Search Katoste" data-toggle="tooltip" data-placement="botton" title="Example usage:<br/>;'gene:GENEID' for genes<br/>;'ensembl:ENSG123456' for ensembl queries<br/>;'>seq<br/>;ATTGGTCA'<br/>;for fasta queries<br/>;'ATTCGAT' for gene queries" spellcheck="false"></textarea>
+                        <textarea name="selectsequence" id="selectsequence" class="searchboxinput" form="sequence-select" aria-label="Enter a sequence or search term" spellcheck="false"></textarea>
+                        <div id="highlightedText" class='searchboxinput' aria-hidden="true"></div>
                         <div jstcache="34" class="pzfvzf"> 
                             <button type="submit" aria-label="Search" id="btn-submit" class="searchbutton mL3xi" data-toggle="tooltip" data-placement="botton" title="Search">
                                 <span aria-hidden="true" class="google-symbols"></span>
                             </button>
                         </div>
                     </form>
-                    <label class='slider-label' for="total_counts_range"><b style='color:rgb(0, 107, 107) !important;'>Total counts</b> | Range:</label>
-                    <div id="total_counts_range_slider"></div>
+                </div>
+            </div>
+        </div>
+    
+        <div id="omnibox-container" class="id-omnibox-container">
+            <div id="buttonbox-container" class="buttonbox nhb85d xoLGzf Hk4XGb sbox-focus expanded">
+                <div class="dryRY ">
+                    <div class="KNfEk Rqu0ae ">
+                        <button class="e2moi " aria-label="general">
+                            <div id="settingsButton" class="tXNTee L6Bbsd T7HQDc ">
+                                <div class="OyjIsf"></div>
+                                <span class="k48Abe google-symbols" aria-hidden="true">&#xe8b8;</span>
+                                <span class="uEubGf fontTitleSmall">Settings</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="KNfEk Rqu0ae ">
+                        <button class="e2moi " aria-label="general">
+                            <div id="imageButton" class="tXNTee L6Bbsd T7HQDc ">
+                                <div class="OyjIsf"></div>
+                                <span class="k48Abe google-symbols" aria-hidden="true">&#xe3f4;</span>
+                                <span class="uEubGf fontTitleSmall">Image</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="KNfEk Rqu0ae ">
+                        <button class="e2moi " aria-label="query">
+                            <div id="queryButton" class="tXNTee L6Bbsd T7HQDc ">
+                                <div class="OyjIsf"></div>
+                                <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe8fe;</span>
+                                <span class="uEubGf fontTitleSmall">Sequence</span>
+                            </div>
+                        </button>
+                    </div>
+                    <div class="KNfEk Rqu0ae ">
+                        <button class="e2moi " aria-label="qr">
+                            <div id="qrButton" class="tXNTee L6Bbsd T7HQDc ">
+                                <div class="OyjIsf"></div>
+                                <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true" style="margin-right: 0px;">&#xef6b;</span>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
 
-                    <label class='slider-label' for="query_range"><b style='color:rgb(134, 0, 134) !important;'>Query</b> | Range:</label>
-                    <div id="query_range_slider"></div>
+        <div id="settings-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="infobox-settings-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b">Settings</h1>
+                        </div>
+                    </div>
+                    <hr/>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" value="" id="lowComplexityFilterChecked" checked>
+                        <label class="form-check-label" for="lowComplexityFilterChecked">
+                          Filter low complexity sequences
+                        </label>
+                    </div>
+                    <div class="VOhV7b">
+                        <h1 class="MMkI0c">k-mer presence (%)</h1>
+                    </div>
+                    <div id="pctthreshold" class="range-slider-custom"></div>
+                    <div class="VOhV7b">
+                        <h1 class="MMkI0c">Maximum k-mer presence percentage</h1>
+                    </div>
+                    <div id="pctmaxkmer" class="range-slider-custom"></div>
+                    <div class="VOhV7b">
+                        <h1 class="MMkI0c">Minimmum k-mer presence count</h1>
+                    </div>
+                    <div id="countminkmer" class="range-slider-custom"></div>
+                </div>
+            </div>
+        </div>
+        <div id="images-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="infobox-images-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b">Image Settings</h1>
+                        </div>
+                    </div>
+                    <hr/>
+                    <div class="VOhV7b">
+                        <h1 class="MMkI0c">Brightness limits (<span style='color:rgb(0, 107, 107) !important;'>Total counts</span>)</h1>
+                    </div>
+                    <div id="total_counts_range_slider" class="range-slider-custom"></div>
+                    <div id="cardPopulated2" class="hidden">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0c">Brightness limits (<span style='color:rgb(134, 0, 134) !important;'>Query result</span>)</h1>
+                        </div>
+                        <div id="query_range_slider" class="range-slider-custom"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="card-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="infobox-images-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b">Sequence Query Results</h1>
+                        </div>
+                    </div>
+                    <hr/>
+                    <div id="cardNoPopulated">
+                        
+                        <span>No query was processed; examples:</span><br><br>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>gene:IGKC</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>gene:Krt16;species:mus_musculus</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>gene:Acta2;species:mus_musculus;split:-256,-1</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>ensembl:ENSE00001507664</pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>>sequence_1
+ATATTTACTACCTA
+                            </pre>
+                        </div>
+                        <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                            <pre>ATATTTTCATTGCA</pre>
+                        </div>
+                    </div>
+                    <div id="cardPopulated" class="hidden">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0c">Search term</h1>
+                            <div class="highlight highlight-source-shell notranslate position-relative overflow-auto" dir="auto">
+                                <pre id="queryterm"></pre>
+                            </div>
+                        </div>
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0c">Sequence occurrence</h1>
+                            <h1 class="MMkI0c"><small>In sense, 5'->3'</small></h1>
+                        </div>
+                        <div class="VOhV7b" id="heatmapLine" style="height: 100px;"></div>
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0c">Spatial occurrence</h1>
+                            <h1 class="MMkI0c"><small>In sense, 5'->3'</small></h1>
+                        </div>
+                        <div class="u6EGFf">
+                            <textarea id="heatmapTextText" spellcheck="false" class='heatmapinput' placeholder="Type your text here..."></textarea>
+                            <div id="heatmapText" class='heatmapinput' aria-hidden="true"></div>
+                        </div>
+                        <div class="dryRY ufjIR">
+                            <div class="KNfEk Rqu0ae ">
+                                <button class="e2moi " aria-label="query">
+                                    <div class="tXNTee L6Bbsd T7HQDc ">
+                                        <div class="OyjIsf"></div>
+                                        <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe161;</span>
+                                        <span class="uEubGf fontTitleSmall">Save</span>
+                                    </div>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div id="qr-container" class="id-omnibox-container">
+            <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
+                <div id="infobox-images-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
+                    <div class="u6EGFf">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0b">QR code</h1>
+                        </div>
+                    </div>
+                    <hr/>
+                    <div class="VOhV7b">
+                        <div style="display: flex; justify-content: center;">
+                            <h1 class="MMkI0c">Scan to access (e.g., from phone)</h1>
+                            <img id="qr-code-img" src="" alt="QR code to access katoste">
+                        </div>
+                        
+                    </div>
+                    <div id="total_counts_range_slider" class="range-slider-custom"></div>
                 </div>
             </div>
         </div>
@@ -78,15 +259,42 @@
         }                                 
         `;
 
+        var customCRS = L.extend(L.CRS.Simple, {
+            projection: L.extend(L.Projection.LonLat, {
+                bounds: L.bounds([0, 0], [1000, 1000])
+            }),
+            transformation: new L.Transformation(1, 0, 1, 0),
+            scale: function(zoom) {
+                return 0.3 * Math.pow(2, zoom + 7); // TODO: find good scaling factor for this and take from file!
+            },
+            zoom: function(scale) {
+                return Math.log(scale / 0.3) / Math.log(2) - 7; // Inverse of the scale function
+            },
+            infinite: false
+        });
+
         var map = new L.map('mapcontainer', {
-            crs: L.CRS.Simple,
-            center: [0, 0],
+            crs: customCRS,
+            center: [2.53, 3.60],
             minZoom: 0,
             zoom: 1,
             zoomSnap: 0,
             maxBoundsViscosity: 0.5,
+            bounceAtZoomLimits: false,
             zoomControl: false
         })
+
+        L.Control.Scale.include({
+            _updateMetric: function(maxMeters) {
+                var maxMilliMeters = maxMeters * 1000,
+                    milliMeters = this._getRoundNum(maxMilliMeters),
+                    label = milliMeters < 1000 ? milliMeters + " µm" : milliMeters / 1000 + " mm";
+
+                this._updateScale(this._mScale, label, milliMeters / maxMilliMeters);
+            }
+        });
+
+        L.control.scale({imperial: false}).addTo(map);
 
         map.attributionControl.setPrefix("Katoste ")
 
@@ -110,14 +318,27 @@
             tileUrls: ['/tiles/{z}/{x}/{y}.png'],
             zIndex: -1
         });
+        
+        mapdata.addTo(map);
 
-        var mapdata_added = mapdata.addTo(map);
+        var counter = 0
+        
+        // normally we do this for the whole tile layer, but here we need to apply 
+        // individually because we are using the tileLayer.gl component
+        function updateMapTiles(){
+            counter++;
+            for (i = 0; i < mapdata._tileLayers.length; i++) {
+                mapdata._tileLayers[i]._url = "/tiles/{z}/{x}/{y}.png?" + counter;
+            }
+            mapdata.redraw();
+        }
 
         $( function() {
             $( "#total_counts_range_slider" ).slider({
             range: true,
             min: 0,
             max: 1000,
+            step: 0.1,
             values: [ 0, 1000 ],
             slide: function( event, ui ) {
                 mapdata.setUniform('min_total_count_range', ui.values[0]/1000);
@@ -143,83 +364,408 @@
             $( "#query_range_slider" ).slider().find('div').css({"background": "rgb(134, 0, 134)"})
         } );
 
-        L.control.scale().addTo(map);
+        $( function() {
+            $( "#pctthreshold" ).slider({
+            min: 0,
+            max: 100,
+            value: 65,
+            });
+        } );
 
-        var bsAlert = function(message) {
-        if ($("#bs-alert").length == 0) {
-            $('body').append('<div class="modal tabindex="-1" id="bs-alert">'+
-                '<div class="modal-dialog">'+
-                    '<div class="modal-content">'+
-                    '<div class="modal-header">'+
-                        '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>'+
-                        '<h4 class="modal-title">Alert</h4>'+
+        $( function() {
+            $( "#pctmaxkmer" ).slider({
+            min: 0,
+            max: 100,
+            value: 1,
+            });
+        } );
+
+        $( function() {
+            $( "#countminkmer" ).slider({
+            min: 0,
+            max: 100,
+            value: 10,
+            });
+        } );
+
+        var bsAlert = function(message, help) {
+            if ($("#bs-alert").length == 0) {
+                $('body').append('<div class="modal fade" tabindex="-1" id="bs-alert">'+
+                    '<div class="modal-dialog modal-sm modal-dialog-centered">'+
+                        '<div class="modal-content">'+
+                        '<div class="modal-header">'+
+                            '<h4 class="modal-title">Katoste Error</h4>'+
+                            '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>'+
+                        '</div>'+
+                        '<div class="modal-body">'+
+                            '<p>' + message + '</p>' + (help ? '<div class="alert alert-info">' + help + '</div>' : '') +
+                        '</div>'+
+                        '<div class="modal-footer">'+
+                            '<button type="button" class="btn btn-default" data-dismiss="modal">Ok</button>'+
+                        '</div>'+
+                        '</div>'+
                     '</div>'+
-                    '<div class="modal-body">'+
-                        message+
-                    '</div>'+
-                    '<div class="modal-footer">'+
-                        '<button type="button" class="btn btn-default" data-dismiss="modal">Ok</button>'+
-                    '</div>'+
-                    '</div>'+
-                '</div>'+
-                '</div>')
+                    '</div>');
+
+                // Event delegation for dynamically added buttons
+                $('body').on('click', '#bs-alert .close, #bs-alert [data-dismiss="modal"]', function() {
+                    $('#bs-alert').modal('hide');
+                });
             } else {
-                $("#bs-alert .modal-body").text(message);
+                $("#bs-alert .modal-body").html('<p>' + message + '</p>' + (help ? '<div class="alert alert-info">' + help + '</div>' : ''));
             }    
             $("#bs-alert").modal();
         }
-    
-        $(document).ready(function() {
-            $('#btn-submit').click(function (event) {
-            $('#btn-submit').prop("disabled", true);
-            $('#modal-loading').modal('show');
-            $.ajax({
-                    data : { selectsequence : $('#selectsequence').val() }, //grab text between span tags
-                    type : 'POST',
-                    url : "{{ url_for('map.index') }}", //post grabbed text to flask endpoint for saving role
-                    success: function (data) {
-                        mapdata.initialize()
-                        mapdata.redraw()
-                        map.invalidateSize()
-                        mapdata.redraw()
-                        $('#btn-submit').prop("disabled", false);
-                        $('#modal-loading').modal('hide');
-                    },
-                    error: function (e) { 
-                        console.log('Submission failed...');
-                        $('#modal-loading').modal('hide'); // TODO: complain
-                        $('#btn-submit').prop("disabled", false);
-                        bsAlert('test')
-                    }
-            });
-        });
-        })
 
-        $(function () {
-            $('[data-toggle="tooltip"]').tooltip()
-        })
+        const textarea = document.getElementById('heatmapTextText');
+        const heatmapText = document.getElementById('heatmapText');
+
+        textarea.addEventListener('scroll', () => {
+            heatmapText.scrollTop = textarea.scrollTop;
+            heatmapText.scrollLeft = textarea.scrollLeft;
+        });
+
+        function applyHeatmapHighlighting(text, scores) {
+            let highlightedText = '';
+            let currentColor = getColorForScore(scores[0]);
+            let currentSegment = text[0];
+
+            for (let i = 1; i < text.length; i++) {
+                const char = text[i];
+                const score = scores[i];
+                const color = getColorForScore(score);
+
+                if (color === currentColor) {
+                    currentSegment += char;
+                } else {
+                    highlightedText += `<span style="background-color: ${currentColor}">${currentSegment}</span>`;
+                    currentColor = color;
+                    currentSegment = char;
+                }
+            }
+
+            // Add the last segment
+            highlightedText += `<span style="background-color: ${currentColor}">${currentSegment}</span>`;
+
+            return highlightedText.replace(/\n/g, '<br>');
+        }
+
+        function applyHeatmapLine(scores) {
+            var trace = {
+                z: [scores],
+                type: 'heatmap',
+                colorscale: 'Oranges',
+                showscale: true
+            };
+
+            var layout = {
+                xaxis: {
+                    showline: false,
+                    ticks: 'outside'
+                },
+                yaxis: {
+                    visible: false
+                },
+                margin: {
+                    t: 20,
+                    r: 20,
+                    b: 40,
+                    l: 20
+                }
+            };
+
+            var config = {
+                staticPlot: true
+            };
+
+            Plotly.newPlot('heatmapLine', [trace], layout, config);
+
+        }
+
+        function getColorForScore(score) {
+            const s = 100 - Math.round(50 * score);
+            return `hsl(35, 88%, ${s}%)`;
+        }
+
+        var updateCard = function() {
+            $.ajax({
+                type: 'POST',
+                url: "{{ url_for('parse_queried') }}",
+                success: function(response) {
+                    response = JSON.parse(response)
+                    if (response.success) {
+                        var queryCard = $('#card-container');
+                        $('#cardNoPopulated').addClass('hidden');
+                        $('#cardPopulated').removeClass('hidden');
+                        $('#cardPopulated2').removeClass('hidden');
+
+                        const queryarea = document.getElementById('queryterm');
+                        
+                        queryarea.innerHTML = response.query_term;
+                        textarea.value = response.sequence;
+                        
+                        const text = textarea.value;
+                        const scores = response.scores;
+                        heatmapText.innerHTML = applyHeatmapHighlighting(text, scores);
+                        applyHeatmapLine(scores);
+                    }
+                },
+                error: function(e) {
+                    response = JSON.parse(e)
+                    $('#modal-loading').modal('hide');
+                    $('#btn-submit').prop("disabled", false);
+                    bsAlert(response.error, response.help);
+                    $("#bs-alert").modal('show');
+                }
+            });
+        }
 
         // Get the input element
         var textArea = document.getElementById("selectsequence");
-        
-        $(document).on('input', '#selectsequence', function(){
+        var textAreaHighlight = document.getElementById("highlightedText");
+        var searchArea = document.getElementById("sequence-select");
+
+        function updateSearchSize(){
             if ($("#selectsequence").val()) {
                 $('.searchboxlabel').hide();
             } else {
                 $('.searchboxlabel').show();
             }
-            if (textArea.scrollHeight > 1 && textArea.scrollHeight <= 480) {
+            if (textArea.scrollHeight >= 48 && textArea.scrollHeight <= 480) {
                 textArea.style.height = 'auto';
+                textAreaHighlight.style.height = 'auto';
                 textArea.style.height = textArea.scrollHeight + "px";
+                textAreaHighlight.style.height = textArea.scrollHeight + "px";
+                textAreaHighlight.style.top = -textArea.scrollHeight + "px";
                 searchArea.style.height = textArea.scrollHeight + "px";
             } else if (textArea.scrollHeight > 480) {
+                textArea.style.height = 'auto';
+                textAreaHighlight.style.height = 'auto';
                 textArea.style.height = '480px';
+                textAreaHighlight.style.height = '480px';
+                textAreaHighlight.style.top = '-480px';
+                searchArea.style.height = "480px";
             } else {
                 textArea.style.height = '24px';
+                textAreaHighlight.style.height = '24px';
                 searchArea.style.height = '24px';
+                textAreaHighlight.style.top = '-24px';
             }
-            console.log(textArea.scrollHeight);
+        }
+        
+        $(document).on('change keyup paste', '#selectsequence', function(){
+            updateSearchSize();
         });
+        
+        // avoid dragging the document when moving slider (mobile)
+        $(document).delegate('.ui-page', 'touchmove', false);
+    
+        $(document).ready(function() {
+            updateCard();
+            updateSearchSize();
+    
+            $('#btn-submit').click(function (event) {
+                event.preventDefault();
+                if (!validateInput()) {
+                    return false;
+                }
+                $('#btn-submit').prop("disabled", true);
+                $('#modal-loading').modal('show');
+                $.ajax({
+                    data : { 
+                        selectsequence : $('#selectsequence').val(), 
+                        sliding_size : 128, // TODO: create a control for this (settings)
+                        pct_threshold : $('#pctthreshold').slider("option", "value") / 100,
+                        low_complexity_filter: $('#lowComplexityFilterChecked').is(':checked')
+                    }, //grab text between span tags
+                    type : 'POST',
+                    url : "{{ url_for('map.index') }}", //post grabbed text to flask endpoint for saving role
+                    success: function (data) {
+                        updateMapTiles();
+                        $('#btn-submit').prop("disabled", false);
+                        $('#modal-loading').modal('hide');
+
+                        updateCard();
+                        // queryCard.find('#inputText').val(response.queryDetails);
+                        // queryCard.find('#heatmapText').text(response.heatmapText);
+                    },
+                    error: function (e) { 
+                        response = JSON.parse(e.responseText)
+                        $('#modal-loading').modal('hide');
+                        $('#btn-submit').prop("disabled", false);
+                        bsAlert(response.error, response.help);
+                        $("#bs-alert").modal('show');
+                    }
+                });
+        });
+        })
+
+        $(function () {
+            $('[data-toggle="tooltip"]').tooltip({
+                html: true
+            })
+        })
+
+        function isDnaSequence(seq) {
+            return /^[ACGTNUacgtnu\s]+$/.test(seq);
+        }
+
+        function isFastaSequence(seq) {
+            return /^>[\s\S]+$/.test(seq);
+        }
+
+        function isGeneId(gene) {
+            return /^[a-zA-Z0-9._-]+(;type:[a-zA-Z0-9._-]+)?(;split:-?\d+,-?\d+)?$/.test(gene) || /^gene:[a-zA-Z0-9._-]+(;type:[a-zA-Z0-9._-]+)?(;split:-?\d+,-?\d+)?$/.test(gene);
+        }
+
+        function isEnsemblId(ensembl) {
+            return /^ENS[GTPE]\d{9,11}(;split:-?\d+,-?\d+)?$/i.test(ensembl) || /^ensembl:ENS[GTPE]\d{9,11}(;split:-?\d+,-?\d+)?$/i.test(ensembl);
+        }
+
+        function validateSplitField(split) {
+            return /^-?\d+,-?\d+$/.test(split);
+        }
+
+        function validateInput() {
+            const textarea = document.getElementById('selectsequence');
+            const input = textarea.value.trim();
+            const lines = input.split(/\n+/);
+            let typeCounts = {
+                geneId: 0,
+                ensemblId: 0,
+                dnaSeq: 0,
+                fastaSeq: 0
+            };
+            let isValid = true;
+            let errorMessage = '';
+
+            lines.forEach(line => {
+                line = line.trim();
+                // we put DNA match first, to avoid collision with geneID regex
+                if (isDnaSequence(line)) {
+                    typeCounts.dnaSeq++;
+                } else if (isGeneId(line)) {
+                    typeCounts.geneId++;
+                } else if (isEnsemblId(line)) {
+                    typeCounts.ensemblId++;
+                } else if (isFastaSequence(line)) {
+                    typeCounts.fastaSeq++;
+                } else {
+                    isValid = false;
+                    errorMessage += `Invalid input: '${line}'. Please enter valid gene IDs, Ensembl IDs, or DNA sequences.\n`;
+                }
+            });
+
+            let typesEntered = Object.values(typeCounts).filter(count => count > 0).length;
+            if (typesEntered > 1) {
+                isValid = false;
+                errorMessage += 'Mixed input detected: Please provide either gene IDs, Ensembl IDs, DNA sequences, or FASTA sequences, not multiple types.\n';
+            }
+
+            if (typeCounts.geneId > 1 || typeCounts.ensemblId > 1) {
+                isValid = false;
+                errorMessage += 'Only one gene ID or Ensembl ID can be provided at a time.\n';
+            }
+
+            if (!isValid) {
+                bsAlert(errorMessage, 'Examples of valid queries are DNA sequences <pre>ACATTCTG...</pre>, one gene ID or ensembl ID <pre>KRT6A</pre>, or a formatted expression, e.g. <pre>gene:GENEID;type:cdna</pre>');
+                $("#bs-alert").modal('show');
+                return false;
+            }
+
+            return true;
+        }
+        
+        // syntax highlighting
+        document.addEventListener('DOMContentLoaded', () => {
+            const textarea = document.getElementById('selectsequence');
+            const highlightedText = document.getElementById('highlightedText');
+
+            textarea.addEventListener('input', () => {
+                const text = textarea.value;
+                highlightedText.innerHTML = applySyntaxHighlighting(text);
+            });
+
+            textarea.addEventListener('scroll', () => {
+                highlightedText.scrollTop = textarea.scrollTop;
+                highlightedText.scrollLeft = textarea.scrollLeft;
+            });
+
+            function applySyntaxHighlighting(text) {
+                const keywordPatterns = {
+                    'gene:': 'keyword-gene',
+                    'species:': 'keyword-species',
+                    'split:': 'keyword-split'
+                };
+
+                let highlighted = text.replace(/(gene:|species:|split:|ensembl:|type:)([^;]*)/g, (match, p1, p2) => {
+                    const keywordClass = keywordPatterns[p1];
+                    const argumentClass = 'argument';
+                    return `<span class="${keywordClass}">${p1}</span><span class="${argumentClass}">${p2}</span>`;
+                });
+
+                return highlighted.replace(/\n/g, '<br>');
+            }
+
+            // TODO: do iteratively
+            // To display and hide the cards
+            const settingsButton = document.getElementById('settingsButton');
+            const imageButton = document.getElementById('imageButton');
+            const queryButton = document.getElementById('queryButton');
+            const qrButton = document.getElementById('qrButton');
+            const settingsContainer = document.getElementById('settings-container');
+            const imagesContainer = document.getElementById('images-container');
+            const queryContainer = document.getElementById('card-container');
+            const qrContainer = document.getElementById('qr-container');
+
+            function toggleSettingsContainer(button) {
+                if (settingsContainer.classList.contains('visible')) {
+                    settingsContainer.classList.remove('visible');
+                    settingsButton.classList.remove('active');
+                } else {
+                    settingsContainer.classList.add('visible');
+                    settingsButton.classList.add('active');
+                }
+            }
+            
+            function toggleImagesContainer(button) {
+                if (imagesContainer.classList.contains('visible')) {
+                    imagesContainer.classList.remove('visible');
+                    imageButton.classList.remove('active');
+                } else {
+                    imagesContainer.classList.add('visible');
+                    imageButton.classList.add('active');
+                }
+            }
+
+            function toggleQueryContainer(button) {
+                if (queryContainer.classList.contains('visible')) {
+                    queryContainer.classList.remove('visible');
+                    queryButton.classList.remove('active');
+                } else {
+                    queryContainer.classList.add('visible');
+                    queryButton.classList.add('active');
+                }
+            }
+
+            function toggleQrContainer(button) {
+                if (qrContainer.classList.contains('visible')) {
+                    qrContainer.classList.remove('visible');
+                    qrButton.classList.remove('active');
+                } else {
+                    qrContainer.classList.add('visible');
+                    qrButton.classList.add('active');
+                }
+            }
+
+            // Add event listeners to buttons
+            settingsButton.addEventListener('click', toggleSettingsContainer);
+            imageButton.addEventListener('click', toggleImagesContainer);
+            queryButton.addEventListener('click', toggleQueryContainer);
+            qrButton.addEventListener('click', toggleQrContainer);
+        });
+
+        document.getElementById("qr-code-img").src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + window.location.href;
 
     </script>
 

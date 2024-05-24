@@ -4,6 +4,7 @@ import array
 from collections import Counter
 
 BASE_ENCODING = {'A': 0, 'N': 0, 'C': 1, 'G': 2, 'T': 3, 'U': 3}
+NONCOMPLEX_CHAR = 'N'
 
 def encode_base(base):
     """Encode a DNA base to a numeric value."""
@@ -32,9 +33,30 @@ def get_kmers_numeric(string, k, remove_noncomplex=False):
             kmer = prev_kmer[-(k-len(kmer)):] + kmer
 
         if remove_noncomplex:
-            _max_counter = (k - int(k/2))
-            counter = Counter(kmer)
-            if max(counter.values()) > _max_counter:
+            if NONCOMPLEX_CHAR in kmer:
+                kmers.append(0)
+                continue
+
+        encoded_kmer = encode_kmer(kmer)
+        kmers.append(encoded_kmer)
+
+    return kmers
+
+
+def get_overlapping_kmers_numeric(string, k, remove_noncomplex=False):
+    """Get a list of numerically encoded overlapping k-mers from a DNA string."""
+    n = len(string)
+    if k > 16:
+        kmers = array.array('Q')
+    else:
+        kmers = array.array('I')
+
+    for i in range(0, n-k):
+        kmer = string[i:i+k]
+
+        if remove_noncomplex:
+            if NONCOMPLEX_CHAR in kmer:
+                kmers.append(0)
                 continue
 
         encoded_kmer = encode_kmer(kmer)

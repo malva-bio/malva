@@ -17,6 +17,13 @@
 *.tsv
 *.csv
 *.pickle
+*.ipynb
+
+# Spatial index
+*.nc
+
+# Docker
+*Dockerfile
 
 # Distribution / packaging
 .Python
