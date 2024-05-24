@@ -8,8 +8,6 @@ import tifffile
 from katoste.index import KatosteIndex
 from katoste.utils import check_directory_exists
 
-# TODO: implement caching during kmer querying? (at the index class)
-
 class KatostePlot:
     def __init__(self, index):
         if not isinstance(index, KatosteIndex):

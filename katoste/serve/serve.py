@@ -49,15 +49,7 @@ def _run_serve(args):
     kmer_index = KatosteIndex(args.index_in)
     kmer_index.open() # TODO: when loading, if the index exists, instead of this
 
-    # _all_kmers = kmer_index._index_backed['index_0_indptr']
-    # _kmer_abundance = np.diff(np.concatenate([_all_kmers, np.array(kmer_index.index[f'index_0_data'].shape[0])]))
-    # _kmer_filtered = _kmer_abundance
     _loc_all, _abu_all = np.unique(kmer_index.index[f'index_0_data'][0:MAX_LOAD_ALL], return_counts=True)
-    # _ix_ab = np.argsort(_abu_all)[::-1][100:]
-
-    # _loc_all = _loc_all[_ix_ab]
-    # _abu_all = _abu_all[_ix_ab]
-
     kmer_index.close()
 
     logging.info("Loading the pointers into memory. Might take a while.")
@@ -137,29 +129,24 @@ def generate_tile(zoom, x, y):
     xright_snapped = x_sarray.sel(x=xright, method="nearest").values
     yright_snapped = y_sarray.sel(y=yright, method="nearest").values
 
-    print("querying") # TODO: remove
     # ... and needs to be >= and <= so there are no gaps
     xcondition = f"x >= {xleft_snapped} and x <= {xright_snapped}"
     ycondition = f"y <= {yright_snapped} and y >= {yleft_snapped}"
     # TODO: use thin to simplify the plotting
     #frame = data.thin({"x": 10, "y": 10}).query(x=xcondition, y=ycondition)
     frame = data.query(x=xcondition, y=ycondition)
-    #frame = frame.coarsen(x=(6-zoom), y=(6-zoom), boundary='trim').mean()
 
     csv = ds.Canvas(plot_width=256, plot_height=256,
                     x_range=(xleft, xright), y_range=(yleft, yright))
     
-    print("aggregating to canvas") # TODO: remove
     agg_all = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('all'))
     img_all = np.nan_to_num(agg_all.data)
 
     if len(whole_max_ints) < 4:
         whole_max_ints = [img_all.max()]
 
-    print("image processing") # TODO: remove
     img_all = gaussian(img_all / whole_max_ints[0] * 255, sigma=_sigma, preserve_range=True)[:, :, np.newaxis]
 
-    print("aggregating gene") # TODO: remove
     if 'ints' in frame.variables:
         agg_ch = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('ints'))
         img_ch = np.nan_to_num(agg_ch.data)
@@ -170,12 +157,10 @@ def generate_tile(zoom, x, y):
         img_ch = gaussian(img_ch / whole_max_ints[1] * 255, sigma=_sigma, preserve_range=True)[:, :, np.newaxis]
         img_all = np.concatenate([img_all, img_ch], axis=2)
     
-    print("concatenate image") # TODO: remove
     img_all = np.concatenate([img_all, np.zeros((256, 256, (3 - img_all.shape[-1]))), 255*np.ones((256, 256, 1))], axis=2)
     img_all = np.clip(img_all, 0, 255)
     whole_max_ints += [255]*(4 - len(whole_max_ints))
 
-    print("creating image") # TODO: remove
     return Image.fromarray(img_all.astype(np.uint8))
 
 @app.route("/")
@@ -259,7 +244,7 @@ def add_kmer_to_netcdf_index(xloc, yloc, ints):
     else:
         ints_s = ncfile.createVariable("ints",'u1',("x","y",), fill_value=0)
 
-    logging.info("Adding to spatial file") # TODO: remove
+    logging.info("Adding to spatial file")
     _z = np.ma.zeros((xmax, ymax))
     _z[xloc, yloc] = ints
     ints_s[:, :] = _z

@@ -172,23 +172,17 @@ class KatosteIndex:
     def _binary_search_katoste(self, arr, start, end, v):
         return binary_search(arr, start, end, v)
     
-    def find_kmer(self, kmers):
+    def find_kmer(self, kmers, max_pct=0.01, min_kmer_query=10):
         vals = {k: set([-1]) for k in kmers}
 
-        # _indptrs = np.zeros(max(self.data_lengths), dtype=np.uint64)
 
-        for ch in track(range(self.n_chunks), description=f"Querying chunks"):
+        for ch in range(self.n_chunks):
             _data = self.index[f'index_{ch}_data']
             _h5_indices = self._index_backed[f'index_{ch}_indices']
             _h5_indptrs = self._index_backed[f'index_{ch}_indptr']
             _loc = np.searchsorted(_h5_indices, kmers)
-            
-            # _loc_group = group_intervals(_loc, min_interval=1_000)
 
-            # for _lc in _loc_group:
-            #     _indptrs[_lc[0]:_lc[1]+1] = _h5_indptrs[_lc[0]:_lc[1]+1]
-
-            for i, kmer in enumerate(kmers):
+            for i, kmer in track(enumerate(kmers), description=f"Querying chunk {ch}"):
                 if _loc[i] == -1:
                     continue
 
@@ -196,7 +190,7 @@ class KatosteIndex:
                 if (len(_indptr) != 2):
                     _indptr = [_indptr[0], self.data_lengths[ch]]
 
-                if ((_indptr[1]-_indptr[0])/self.data_lengths[ch] > MAX_PCT) or ((_indptr[1]-_indptr[0]) <= MIN_KMER_QUERY):
+                if ((_indptr[1]-_indptr[0])/self.data_lengths[ch] > max_pct) or ((_indptr[1]-_indptr[0]) <= min_kmer_query):
                     continue
                 
                 _res = _data[_indptr[0]:_indptr[1]]
@@ -215,13 +209,6 @@ class KatosteIndex:
             self.binary_search = self._binary_search_katoste
 
     def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, max_pct=0.01, min_kmer_query=10, query_jump=False):
-        global MAX_PCT, MIN_KMER_QUERY, QUERY_JUMP
-
-        # TODO: use as arguments for the find_kmer variable
-        MAX_PCT = max_pct
-        MIN_KMER_QUERY = min_kmer_query
-        QUERY_JUMP = query_jump
-
         if len(sequence) < self.kmer_size:
             raise ValueError("Query sequence cannot be smaller than kmer size!")
 
@@ -253,8 +240,10 @@ class KatosteIndex:
         # get data for kmers
         all_kmer_list = []
         _necessary = np.ceil((len(sequence)-self.kmer_size)/np.floor(len(sequence)/self.kmer_size)).astype(int)
-        for subseq in get_sliding_sequence(sequence, len(sequence) - _necessary):
-            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size)]
+        sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
+    
+        for subseq in sliding_sequences:
+            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
         all_kmer_list = np.unique(all_kmer_list)
         # 0 is 'A'*kmer_size but also any low-complexity k-mer
@@ -263,14 +252,12 @@ class KatosteIndex:
         if len(all_kmer_list) == 0:
             return (np.array([0]), np.array([0]), seq_matches)
 
-        all_kmer_dict = self.find_kmer(all_kmer_list)
-
-        sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
+        all_kmer_dict = self.find_kmer(all_kmer_list, max_pct=max_pct, min_kmer_query=min_kmer_query)
 
         for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
-            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not QUERY_JUMP:
+            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not query_jump:
                 # TODO: store from previous and not rerun?
-                all_kmer_list = get_kmers_numeric(subseq, self.kmer_size)
+                all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
                 kmer_list = [i for i in all_kmer_list if i != 0]
 
                 if len(kmer_list) == 0:
