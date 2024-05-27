@@ -18,13 +18,14 @@ from katoste.dbutils import handle_sequence
 from katoste.complexity import mask_low_complexity
 
 MAX_LOAD_ALL = 10_000_000
+MAX_DATA_POINTS = 100_000
 SEQ_MAX_LEN = 1_000
 OUTFILE_NAME = "test.nc"
 
 app = Flask(__name__)
 map_bp = Blueprint('map', __name__)
 
-def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_complexity_filter=True):
+def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_complexity_filter=True, countmaxkmer=100_000, countminkmer=10):
     global kmer_index, xy, x_sarray, y_sarray, where_abundant
 
     if low_complexity_filter:
@@ -32,7 +33,7 @@ def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_comple
         sequence = mask_low_complexity(sequence, N=4, L=kmer_index.kmer_size)
 
     logging.info(f"Querying sequence '{sequence}'")
-    locs, ints, where_abundant = kmer_index.where(sequence, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False)
+    locs, ints, where_abundant = kmer_index.where(sequence, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False, count_at_most=countmaxkmer, count_at_least=countminkmer)
     logging.info(f"Adding result to spatial file")
     add_kmer_to_netcdf_index(xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
 
@@ -133,14 +134,19 @@ def generate_tile(zoom, x, y):
     xcondition = f"x >= {xleft_snapped} and x <= {xright_snapped}"
     ycondition = f"y <= {yright_snapped} and y >= {yleft_snapped}"
     # TODO: use thin to simplify the plotting
-    #frame = data.thin({"x": 10, "y": 10}).query(x=xcondition, y=ycondition)
-    frame = data.query(x=xcondition, y=ycondition)
+
+    thin_value = 1
+    if (xright_snapped - xleft_snapped) * (yright_snapped - yleft_snapped) >= MAX_DATA_POINTS:
+        thin_value = int(np.log10((((xright_snapped - xleft_snapped) * (yright_snapped - yleft_snapped)) / MAX_DATA_POINTS)) + 1)
+        frame = data.thin({"x": thin_value, "y": thin_value}).query(x=xcondition, y=ycondition)
+    else:
+        frame = data.query(x=xcondition, y=ycondition)
 
     csv = ds.Canvas(plot_width=256, plot_height=256,
                     x_range=(xleft, xright), y_range=(yleft, yright))
     
-    agg_all = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('all'))
-    img_all = np.nan_to_num(agg_all.data)
+    agg_all = csv.quadmesh(frame, x='x', y='y', agg=ds.sum('all'))
+    img_all = np.nan_to_num(agg_all.data) * thin_value * thin_value
 
     if len(whole_max_ints) < 4:
         whole_max_ints = [img_all.max()]
@@ -196,6 +202,11 @@ def index():
             sliding_size = int(request.form.get("sliding_size"))
             pct_threshold = float(request.form.get("pct_threshold"))
             low_complexity_filter = request.form.get("low_complexity_filter").lower() in ['true', '1', 'True']
+            countmaxkmer = 10**float(request.form.get("countmaxkmer"))
+            countminkmer = 10**float(request.form.get("countminkmer"))
+
+            if countminkmer >= countmaxkmer:
+                raise ValueError("k-mer 'in at least' must be smaller than 'in at most'")
 
             seq_processed = handle_sequence(seq)
 
@@ -203,7 +214,7 @@ def index():
                 help = "Hint: format your query as, e.g., <pre>gene:GENEID;split:0,1000</pre> or  <pre>ensembl:ENSGXXXX;split:0,1000</pre>. This will trim the sequence result from 0th to 1000th position (from 5' to 3'), or <pre>;split:-1000,-1</pre>, to do the same from 3' to 5'"
                 raise Exception(f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}.")
 
-            interactive_query(seq_processed, sliding_size=sliding_size, pct_threshold=pct_threshold, low_complexity_filter=low_complexity_filter)
+            interactive_query(seq_processed, sliding_size=sliding_size, pct_threshold=pct_threshold, low_complexity_filter=low_complexity_filter, countmaxkmer=countmaxkmer, countminkmer=countminkmer)
             
             query_seq = seq_processed
             query_term = seq

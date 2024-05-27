@@ -112,11 +112,11 @@
                     </div>
                     <div id="pctthreshold" class="range-slider-custom"></div>
                     <div class="VOhV7b">
-                        <h1 class="MMkI0c">Maximum k-mer presence percentage</h1>
+                        <h1 class="MMkI0c">k-mers in at most [log10 % of reads]</h1>
                     </div>
-                    <div id="pctmaxkmer" class="range-slider-custom"></div>
+                    <div id="countmaxkmer" class="range-slider-custom"></div>
                     <div class="VOhV7b">
-                        <h1 class="MMkI0c">Minimmum k-mer presence count</h1>
+                        <h1 class="MMkI0c">k-mers in at least [log10 % of reads]</h1>
                     </div>
                     <div id="countminkmer" class="range-slider-custom"></div>
                 </div>
@@ -373,18 +373,20 @@ ATATTTACTACCTA
         } );
 
         $( function() {
-            $( "#pctmaxkmer" ).slider({
+            $( "#countmaxkmer" ).slider({
             min: 0,
-            max: 100,
-            value: 1,
+            max: 10,
+            value: 5,
+            step: 1
             });
         } );
 
         $( function() {
             $( "#countminkmer" ).slider({
             min: 0,
-            max: 100,
-            value: 10,
+            max: 10,
+            value: 1,
+            step: 1
             });
         } );
 
@@ -576,6 +578,8 @@ ATATTTACTACCTA
                         selectsequence : $('#selectsequence').val(), 
                         sliding_size : 128, // TODO: create a control for this (settings)
                         pct_threshold : $('#pctthreshold').slider("option", "value") / 100,
+                        countmaxkmer : $('#countmaxkmer').slider("option", "value"),
+                        countminkmer : $('#countminkmer').slider("option", "value"),
                         low_complexity_filter: $('#lowComplexityFilterChecked').is(':checked')
                     }, //grab text between span tags
                     type : 'POST',
