@@ -167,7 +167,7 @@ class KatosteIndex:
     def _binary_search_katoste(self, arr, start, end, v):
         return binary_search(arr, start, end, v)
     
-    def find_kmer(self, kmers, count_at_most=0.01, count_at_least=10):
+    def find_kmer(self, kmers, count_at_most=10_000, count_at_least=10):
         vals = {k: set([-1]) for k in kmers}
 
 
@@ -207,7 +207,7 @@ class KatosteIndex:
             self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
             self.binary_search = self._binary_search_katoste
 
-    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, count_at_most=0.01, count_at_least=10, query_jump=False):
+    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, count_at_most=10_000, count_at_least=10, query_jump=False):
         if len(sequence) < self.kmer_size:
             raise ValueError("Query sequence cannot be smaller than kmer size!")
 
@@ -295,73 +295,6 @@ class KatosteIndex:
         self.close()
 
         return (kmer_locations, kmer_count, seq_matches)
-    
-    def where_sliding(self, sliding_sequences, sliding_size=128, pct_threshold=0.65, lazy_index=True, count_at_most=0.01, count_at_least=10, query_jump=False):
-        if pct_threshold < 0 or pct_threshold > 1:
-            raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
-
-        if not lazy_index:
-            logging.debug("Will not use lazy loading - the chunk indexes are loaded into memory")
-            self._load_index_to_memory()
-
-        all_oc = []
-        seq_matches = [[0, 1]]
-        seq_no = 0
-        all_seq_no = 0
-
-        all_kmer_list = []
-    
-        for subseq in sliding_sequences:
-            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
-
-        all_kmer_list = np.unique(all_kmer_list)
-        # 0 is 'A'*kmer_size but also any low-complexity k-mer
-        all_kmer_list = all_kmer_list[all_kmer_list != 0]
-
-        if len(all_kmer_list) == 0:
-            return (np.array([0]), np.array([0]), seq_matches)
-
-        all_kmer_dict = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least)
-
-        for subseq in sliding_sequences:
-            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not query_jump:
-                all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-                kmer_list = [i for i in all_kmer_list if i != 0]
-
-                if len(kmer_list) == 0:
-                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
-                    seq_no += 1
-                    all_seq_no += 1
-                    continue
-    
-                all_items = itemgetter(*kmer_list)(all_kmer_dict)
-
-                if len(all_items) == 0:
-                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
-                    seq_no += 1
-                    all_seq_no += 1
-                    continue
-                else:
-                    all_items = np.hstack(all_items)
-
-                all_items = all_items[all_items != np.array(-1)]
-                all_items, counts = np.unique(all_items, return_counts=True)
-                props_ix = np.where(counts / len(all_kmer_list) >= pct_threshold)[0]
-                all_oc += [all_items[props_ix]]
-                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items[props_ix])] for k in range(len(all_kmer_list))]
-
-            seq_no += 1
-            all_seq_no += 1
-            if seq_no == sliding_size:
-                seq_no = 0
-
-        logging.info("Counting unique spatial matches")
-        if len(all_oc) > 0:
-            kmer_locations, kmer_count = np.unique(np.concatenate(all_oc), return_counts=True)
-        else:
-            kmer_locations, kmer_count = np.array([0]), np.array([0])
-
-        return (kmer_locations, kmer_count, seq_matches)
 
 
 def create_spatial_index(spatial_barcode_file, rescale_coords=1, index_resolution=1, recenter=True):
@@ -418,7 +351,7 @@ def iterate_flavor(reads_in,
                    bam_tags='CB:{cell}',
                    cell='r1[2:27]'):
     bam_tags = [bt.split(":") for bt in bam_tags.split(",")]
-    bam_tags = {what[1:-1]: tag for what, tag in bam_tags}
+    bam_tags = {what[1:-1]: tag for tag, what in bam_tags}
 
     if len(reads_in) == 2:
         import dnaio
@@ -439,10 +372,10 @@ def iterate_flavor(reads_in,
         import pysam
 
         _cell_tag = bam_tags['cell']
-        with pysam.AlignmentFile(reads_in, "rb", until_eof=True) as f:
-            for record in f:
-                cell_bc = record.get_tag[_cell_tag]
-                yield (record.sequence, cell_bc)
+        with pysam.AlignmentFile(reads_in[0], "rb") as f:
+            for record in f.fetch(until_eof=True):
+                cell_bc = record.get_tag(_cell_tag)
+                yield (record.query_sequence, cell_bc)
     else:
         raise ValueError("`--reads-in` must point to paired FASTQ files or a single BAM file")
 

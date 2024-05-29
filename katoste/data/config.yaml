@@ -9,8 +9,8 @@ barcode_flavors:
     bam_tags: CB:{cell}
     cell: r1[0:25]
   visium:
-    bam_tags: CB:{cell}
+    bam_tags: CR:{cell}
     cell: r1[0:16]
   slide_seq:
-    bam_tags: CB:{cell}
+    bam_tags: XC:{cell}
     cell: r1[0:14]

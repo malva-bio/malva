@@ -62,7 +62,7 @@ def _run_serve(args):
 
     xmax = kmer_index.coord_lims[1]+1
     ymax = kmer_index.coord_lims[3]+1
-    n_spatial = kmer_index.n_spatial
+    n_spatial = kmer_index.n_spatial+1
 
     xy = np.unravel_index(np.arange(n_spatial), (xmax, ymax), order='C')
     xy = np.vstack(xy).T
@@ -133,7 +133,6 @@ def generate_tile(zoom, x, y):
     # ... and needs to be >= and <= so there are no gaps
     xcondition = f"x >= {xleft_snapped} and x <= {xright_snapped}"
     ycondition = f"y <= {yright_snapped} and y >= {yleft_snapped}"
-    # TODO: use thin to simplify the plotting
 
     thin_value = 1
     if (xright_snapped - xleft_snapped) * (yright_snapped - yleft_snapped) >= MAX_DATA_POINTS:
@@ -145,8 +144,8 @@ def generate_tile(zoom, x, y):
     csv = ds.Canvas(plot_width=256, plot_height=256,
                     x_range=(xleft, xright), y_range=(yleft, yright))
     
-    agg_all = csv.quadmesh(frame, x='x', y='y', agg=ds.sum('all'))
-    img_all = np.nan_to_num(agg_all.data) * thin_value * thin_value
+    agg_all = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('all'))
+    img_all = np.nan_to_num(agg_all.data)# * thin_value * thin_value
 
     if len(whole_max_ints) < 4:
         whole_max_ints = [img_all.max()]
