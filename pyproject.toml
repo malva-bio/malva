@@ -43,7 +43,6 @@ generate-setup-file = true
 python = ">3.8,<3.12"
 numpy = ">=1.17.0"
 pandas = ">=1.0"
-tqdm = "*"
 dnaio = ">1.0.0"
 h5py = ">=3"
 sortedcontainers = ">1.0.0"
