@@ -13,6 +13,6 @@ def build(setup_kwargs):
     setup_kwargs.update(
         dict(
             cmdclass=dict(build_ext=BuildExt),
-            ext_modules=cythonize(["katoste/kmer_processing.pyx"]),
+            ext_modules=cythonize(["katoste/kmer_processing.pyx", "katoste/fastq_processing.pyx", "katoste/reader.pyx"]),
         )
     )

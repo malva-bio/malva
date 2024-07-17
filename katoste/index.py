@@ -1,6 +1,3 @@
-# TODO: implement multithreading for faster indexing
-# TODO: convert iterate_flavor into a class?
-
 import logging
 import os
 import yaml
@@ -15,8 +12,9 @@ from rich.progress import track
 from sortedcontainers import SortedDict, SortedList
 from operator import itemgetter
 
-from katoste.utils import check_file_exists, check_directory_exists, load_pickle, safety_check_eval, binary_search, save_pickle, get_module_path, group_intervals
+from katoste.utils import check_file_exists, check_directory_exists, load_pickle, binary_search, save_pickle, get_module_path
 from katoste.kmer_processing import get_kmers_numeric, get_overlapping_kmers_numeric, encode_kmer
+from katoste.reader import iterate_flavor
 
 N_REPORT = 1_000_000
 
@@ -144,16 +142,114 @@ class KatosteIndex:
         self.index.attrs['n_chunks'] = self.n_chunks
         self.close()
 
-    def add_sequence(self, sequence, index):
-        coords = self.spatial_index.get(encode_kmer(index), None)
+    def add_kmers(self, kmers, cell_bc):
+        coords = self.spatial_index.get(cell_bc, None)
         if coords is None:
             return
 
-        kmers = self.get_kmers_numeric(sequence, self.kmer_size)
         _n_kmers = len(kmers)
         self._iter_seqs.extend(kmers)
         self._iter_coords.extend([coords[0]]*_n_kmers)
         self._n_kmers_processed += _n_kmers
+    
+    def merge_chunks(self, f: str, chunksize: int = 1_000_000):
+        _indices_lengths = [len(self.index[f'index_{chunk}_indices']) for chunk in range(0, self.n_chunks)]
+        which_index = np.argmax(_indices_lengths)
+        max_kmer_chunk = _indices_lengths[which_index]
+        imin = np.array([0] * self.n_chunks)
+        imax = np.array([chunksize] * self.n_chunks)
+
+        result_indices = [None]
+        result_indptr = [0]
+        result_data = []
+
+        _intm_result = [0, 0]
+
+        output_file = h5py.File(f, 'w')
+
+        # Copying attributes to the output file
+        for key, value in self.index.attrs.items():
+            output_file.attrs[key] = value
+        
+        # ... except for chunk size, which is 1
+        output_file.attrs['n_chunks'] = 1
+
+        # Create datasets in the output file
+        output_file.create_dataset('index_0_indices', (0,), maxshape=(None,), dtype='uint64')
+        output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype='uint64')
+        output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype='uint32')
+
+        for _ in track(range(0, max_kmer_chunk, chunksize), description='Merging sorted chunks'):
+            _val_max_ix_0 = self.index[f'index_{which_index}_indices'][imin[0]:imax[0]][-1]
+            imax = np.array([np.argwhere(self.index[f'index_{chunk}_indices'] <= _val_max_ix_0)[-1][0] for chunk in range(0, self.n_chunks)]) + 1
+
+            # process for the chunk of N kmers
+            chunk_indices = [self.index[f'index_{chunk}_indices'][imin[chunk]:imax[chunk]] for chunk in range(0, self.n_chunks)]
+            chunk_indptr_lo = [self.index[f'index_{chunk}_indptr'][imin[chunk]:imax[chunk]] for chunk in range(0, self.n_chunks)]
+
+            # We detect if this is the last chunk, and then we can process this
+            chunk_indptr_hi = []
+            for chunk in range(0, self.n_chunks):
+                _chunk_indptr_hi = self.index[f'index_{chunk}_indptr'][(imin[chunk]+1):(imax[chunk]+1)]
+                if len(_chunk_indptr_hi) < len(chunk_indptr_lo[chunk]):
+                    _chunk_indptr_hi = np.concatenate([_chunk_indptr_hi, [len(self.index[f'index_{chunk}_data'])]])
+                chunk_indptr_hi.append(_chunk_indptr_hi)
+
+            # Compact for sorting
+            chunks_indices = np.concatenate(chunk_indices)
+            chunks_indptr_lo = np.concatenate(chunk_indptr_lo)
+            chunks_indptr_hi = np.concatenate(chunk_indptr_hi)
+
+            # We do mergesort to keep the order between chunks
+            # The chunks *must* be sorted beforehand, otherwise this breaks!
+            _chunk_idx_sorted = np.argsort(chunks_indices, kind='mergesort')
+            chunks_labels = np.repeat(np.arange(self.n_chunks), [len(c) for c in chunk_indices])
+            chunks_data = [self.index[f'index_{chunk}_data'][chunk_indptr_lo[chunk][0]:chunk_indptr_hi[chunk][-1]] for chunk in range(0, self.n_chunks) if len(chunk_indptr_hi[chunk]) > 0]
+
+            # Resample and merge the chunk data into a single file
+            for ind, l, lo, hi in (zip(chunks_indices[_chunk_idx_sorted],
+                                        chunks_labels[_chunk_idx_sorted],
+                                        chunks_indptr_lo[_chunk_idx_sorted],
+                                        chunks_indptr_hi[_chunk_idx_sorted])):
+
+                if result_indices[-1] != ind:
+                    if result_indices[0] is None:
+                        result_indices[0] = ind
+                    else:
+                        result_indices.append(ind)
+                        result_indptr += [_intm_result[1]]
+                        _intm_result[0] = _intm_result[1]
+
+                _data = chunks_data[l][(lo-chunk_indptr_lo[l][0]):(hi-chunk_indptr_lo[l][0])]
+                _intm_result[1] += len(_data)
+                result_data.append(_data)
+
+            result_data = np.concatenate(result_data)
+
+            logging.info(f"Writing chunk of size {chunksize} with {len(result_data)} items to the file {f}")
+            # Write the merged chunk to the output file
+            current_indices_length = output_file['index_0_indices'].shape[0]
+            current_indptr_length = output_file['index_0_indptr'].shape[0]
+            current_data_length = output_file['index_0_data'].shape[0]
+
+            output_file['index_0_indices'].resize((current_indices_length + len(result_indices),))
+            output_file['index_0_indices'][current_indices_length:] = result_indices
+
+            output_file['index_0_indptr'].resize((current_indptr_length + len(result_indptr),))
+            output_file['index_0_indptr'][current_indptr_length:] = result_indptr
+
+            output_file['index_0_data'].resize((current_data_length + len(result_data),))
+            output_file['index_0_data'][current_data_length:] = result_data
+
+            result_indices = [None]
+            result_indptr = [0]
+            result_data = []
+
+            imin = imax.copy()
+            imax = imin + chunksize
+        
+        output_file.close()
+        return True
 
     def write(self):
         self.process_kmer(np.array(self._iter_seqs), np.array(self._iter_coords))
@@ -315,9 +411,10 @@ def create_spatial_index(spatial_barcode_file, rescale_coords=1, index_resolutio
 
     if index_resolution != 1:
         spatial_index['xcoord'] /= index_resolution
-        spatial_index['xcoord'] = spatial_index['xcoord'].astype(int)
         spatial_index['ycoord'] /= index_resolution
-        spatial_index['ycoord'] = spatial_index['ycoord'].astype(int)
+        
+    spatial_index['xcoord'] = spatial_index['xcoord'].astype(int)
+    spatial_index['ycoord'] = spatial_index['ycoord'].astype(int)
 
     if (any(spatial_index['xcoord'] < 0) or any(spatial_index['xcoord'] > 65_535)) \
         or (any(spatial_index['ycoord'] < 0) or any(spatial_index['ycoord'] > 65_535)):
@@ -347,37 +444,6 @@ def load_flavor(flavor, flavors_config_path):
     current_flavor_config = flavor_config['barcode_flavors'][flavor]
     return current_flavor_config
 
-def iterate_flavor(reads_in,
-                   bam_tags='CB:{cell}',
-                   cell='r1[2:27]'):
-    bam_tags = [bt.split(":") for bt in bam_tags.split(",")]
-    bam_tags = {what[1:-1]: tag for tag, what in bam_tags}
-
-    if len(reads_in) == 2:
-        import dnaio
-
-        # adapted from spacemake
-        assert safety_check_eval(cell)
-        f_cell = compile(cell, "<string cell>", "eval")
-    
-        with dnaio.open(reads_in[0], reads_in[1], fileformat='fastq') as f:
-            for r1, r2 in f:
-                r1 = r1.sequence
-                r2 = r2.sequence  
-                cell_bc = eval(f_cell)
-
-                yield (r2, cell_bc)
-
-    elif len(reads_in) == 1:
-        import pysam
-
-        _cell_tag = bam_tags['cell']
-        with pysam.AlignmentFile(reads_in[0], "rb") as f:
-            for record in f.fetch(until_eof=True):
-                cell_bc = record.get_tag(_cell_tag)
-                yield (record.query_sequence, cell_bc)
-    else:
-        raise ValueError("`--reads-in` must point to paired FASTQ files or a single BAM file")
 
 def _run_index(args):
     # Validate that input files exist and output files don't
@@ -428,8 +494,8 @@ def _run_index(args):
 
     _n_sequences = 0
     _t0 = time.time()
-    for r2, cell_bc in iterate_flavor(args.reads_in, bam_tags=_bam_tags, cell=_cell):
-        kmer_index.add_sequence(r2, cell_bc)
+    for cell_bc, kmers in iterate_flavor(args.reads_in, bam_tags=_bam_tags, cell=_cell):
+        kmer_index.add_kmers(kmers, cell_bc)
         _n_sequences += 1
         if (_n_sequences) % args.chunksize == 0:
             kmer_index.write()

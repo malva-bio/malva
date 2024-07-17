@@ -9,11 +9,11 @@ ctypedef unsigned int uint32_t
 
 cdef int BASE_ENCODING[128]
 BASE_ENCODING[ord('A')] = 0
-BASE_ENCODING[ord('N')] = 0
+BASE_ENCODING[ord('N')] = 3
 BASE_ENCODING[ord('C')] = 1
-BASE_ENCODING[ord('G')] = 2
-BASE_ENCODING[ord('T')] = 3
-BASE_ENCODING[ord('U')] = 3
+BASE_ENCODING[ord('T')] = 2
+BASE_ENCODING[ord('U')] = 2
+BASE_ENCODING[ord('G')] = 3
 
 cdef inline int encode_base(char base):
     """Encode a DNA base to a numeric value."""
