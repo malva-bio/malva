@@ -1,10 +1,10 @@
 [build-system]
-requires = ["poetry", "Cython", "setuptools", "wheel"]
+requires = ["poetry", "Cython", "setuptools", "wheel", "numpy"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "katoste"
-version = "0.1.0"
+version = "0.2.0"
 description = "katoste: fast indexing and querying of genomic sequences from spatial transcriptomics data"
 license = "GPL-2.0"
 authors = [
