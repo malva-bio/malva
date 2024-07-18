@@ -9,6 +9,7 @@
 
 # C files
 *.c
+*.cpp
 
 # genome sequences
 *.fa
