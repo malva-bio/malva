@@ -1,3 +1,5 @@
+# cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
+
 import pysam
 
 from xopen import xopen
@@ -7,8 +9,6 @@ from cython cimport boundscheck, wraparound
 
 ctypedef unsigned int uint32_t
 
-@boundscheck(False)
-@wraparound(False)
 def iterate_flavor(list reads_in,
                    str bam_tags='CB:{cell}',
                    str cell='r1[2:27]'):
