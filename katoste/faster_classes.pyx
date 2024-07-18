@@ -195,13 +195,12 @@ cdef class KatosteIndex:
                     logging.info(f"Processed {_n_sequences:,} sequences in {round(_elapsed, 2)} s ({round(n_report/_elapsed, 2):,} reads/s)")
                     _t0 = time.time()
                 if (_n_sequences) % chunksize == 0:
-                    logging.info("Writing chunk to h5 file")
                     self.write()
             self.write()
         else:
             raise ValueError("`--reads-in` must point to paired FASTQ files")
 
-    def add_reads(self, list reads_in, str bam_tags='CB:{cell}', str cell='r1[2:27]', n_report: int=1_000_000, chunksize: int=100_000_000, threads: int = 1):
+    def add_reads(self, list reads_in, str bam_tags='CB:{cell}', str cell='r1[2:27]', n_report: int=10_000_000, chunksize: int=100_000_000, threads: int = 1):
         self._iter_seqs = []
         self._iter_coords = []
         self._add_reads(reads_in, bam_tags, cell, n_report, chunksize, threads)
