@@ -1,3 +1,5 @@
+import numpy
+
 from distutils.command.build_ext import build_ext
 
 class BuildExt(build_ext):
@@ -13,6 +15,7 @@ def build(setup_kwargs):
     setup_kwargs.update(
         dict(
             cmdclass=dict(build_ext=BuildExt),
-            ext_modules=cythonize(["katoste/kmer_processing.pyx", "katoste/fastq_processing.pyx", "katoste/reader.pyx"]),
+            ext_modules=cythonize(["katoste/kmer_processing.pyx", "katoste/fastq_processing.pyx", "katoste/reader.pyx", "katoste/faster_classes.pyx"]),
+            include_dirs=[numpy.get_include()],
         )
     )
