@@ -1,3 +1,4 @@
+# distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 
 # This is adapted from the dnaio package for improved throughput
@@ -8,6 +9,7 @@ from cpython.unicode cimport PyUnicode_DecodeASCII
 from libc.string cimport memcmp, memcpy, memchr, memmove
 from libc.stdlib cimport malloc, free
 from libc.stdint cimport uint64_t, uint32_t
+from libcpp.vector cimport vector
 
 # Use a larger lookup table for faster 16-bit chunk encoding
 cdef uint32_t[65536] KMER_ENCODE_TABLE
@@ -142,7 +144,6 @@ cdef class KmerFastqParser:
 
     def __next__(self):
         cdef:
-            object ret_val
             char *name_end
             char *sequence_start
             char *sequence_end
@@ -154,7 +155,7 @@ cdef class KmerFastqParser:
             Py_ssize_t sequence_length
             int num_kmers
             int jump_mem
-            unsigned long long* kmer_array
+            vector[uint64_t] kmer_array
             unsigned long long result = 0
             int j
         # Repeatedly attempt to parse the buffer until we have found a full record.
@@ -213,9 +214,7 @@ cdef class KmerFastqParser:
                 num_kmers = sequence_length - self.kmer_size
 
             # Allocate memory for the kmer array
-            kmer_array = <unsigned long long*>malloc(num_kmers * sizeof(unsigned long long))
-            if not kmer_array:
-                raise MemoryError()
+            kmer_array.resize(num_kmers)
     
             try:
                 # Process the sequence in kmer_size chunks
@@ -235,9 +234,10 @@ cdef class KmerFastqParser:
 
                 self.number_of_records += 1
                 self.record_start = qualities_end + 1
-                return [kmer_array[i] for i in range(num_kmers)]
-            finally:
-                free(kmer_array)
+                return kmer_array
+            except:
+                kmer_array.clear()
+                raise
 
     def __repr__(self):
         return f"<KmerFastqParser records_processed={self.number_of_records}>"

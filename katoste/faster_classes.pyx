@@ -3,7 +3,6 @@
 
 cimport cython
 cimport numpy as np
-cimport logging
 
 from libc.stdint cimport uint32_t, uint64_t
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
@@ -49,8 +48,8 @@ cdef class KatosteIndex:
         public int n_spatial
         public np.ndarray spatial_coords
         public int _n_kmers_processed
-        public list _iter_seqs
-        public list _iter_coords
+        vector[uint64_t] _iter_seqs
+        vector[uint32_t] _iter_coords
         public object binary_search
         SpatialIndex spatial_index
 
@@ -61,8 +60,8 @@ cdef class KatosteIndex:
         self.n_chunks = 0
         self._n_kmers_processed = 0
 
-        self._iter_seqs = []
-        self._iter_coords = []
+        self._iter_seqs = vector[uint64_t]()
+        self._iter_coords = vector[uint32_t]()
 
         if rewrite:
             if os.path.exists(self.index_dir):
@@ -168,11 +167,12 @@ cdef class KatosteIndex:
             return
 
         n_kmers = kmers.size()
-        
-        with gil:
-            self._iter_seqs.extend(kmers)
-            self._iter_coords.extend([coord]*n_kmers)
-            self._n_kmers_processed += n_kmers
+
+        for i in range(n_kmers):
+            self._iter_seqs.push_back(kmers[i])
+            self._iter_coords.push_back(coord)
+
+        self._n_kmers_processed += n_kmers
 
     cdef _add_reads(self, list reads_in, str bam_tags, str cell, int n_report, int chunksize, int threads):
         cdef int num_reads = len(reads_in)
@@ -201,8 +201,8 @@ cdef class KatosteIndex:
             raise ValueError("`--reads-in` must point to paired FASTQ files")
 
     def add_reads(self, list reads_in, str bam_tags='CB:{cell}', str cell='r1[2:27]', n_report: int=10_000_000, chunksize: int=100_000_000, threads: int = 1):
-        self._iter_seqs = []
-        self._iter_coords = []
+        self._iter_seqs.clear()
+        self._iter_coords.clear()
         self._add_reads(reads_in, bam_tags, cell, n_report, chunksize, threads)
 
     @cython.wraparound(True)
@@ -308,7 +308,13 @@ cdef class KatosteIndex:
         self.close()
 
     def write(self):
-        self.process_kmer(np.array(self._iter_seqs, dtype=np.uint64), np.array(self._iter_coords, dtype=np.uint32))
+        cdef np.ndarray[np.uint64_t, ndim=1] np_iter_seqs
+        cdef np.ndarray[np.uint32_t, ndim=1] np_iter_coords
+        
+        np_iter_seqs = np.array(self._iter_seqs, dtype=np.uint64)
+        np_iter_coords = np.array(self._iter_coords, dtype=np.uint32)
+
+        self.process_kmer(np_iter_seqs, np_iter_coords)
         self._n_kmers_processed = 0
         self._iter_seqs.clear()
         self._iter_coords.clear()
@@ -475,8 +481,8 @@ cdef class SpatialIndex:
     def bounds(self):
         return (self.xmin, self.xmax, self.ymin, self.ymax)
 
-    def save_binary(self, const char* filename):
-        cdef FILE* file = fopen(filename, "wb")
+    def save_binary(self, str filename):
+        cdef FILE* file = fopen(filename.encode('ascii'), "wb")
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for writing")
 
@@ -499,8 +505,8 @@ cdef class SpatialIndex:
 
         fclose(file)
 
-    def load_binary(self, const char* filename):
-        cdef FILE* file = fopen(filename, "rb")
+    def load_binary(self, str filename):
+        cdef FILE* file = fopen(filename.encode('ascii'), "rb")
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for reading")
 

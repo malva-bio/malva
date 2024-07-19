@@ -41,7 +41,7 @@ def _run_index(args):
     _bam_tags = flavor_config['bam_tags']
     _cell = flavor_config['cell']
     
-    _sindex_loc = os.path.join(args.index_out, "sindex.pickle")
+    _sindex_loc = os.path.join(args.index_out, "sindex.bin")
     _sindex_exists = check_file_exists(_sindex_loc)
 
     if _sindex_exists:
