@@ -128,10 +128,10 @@ cdef class KatosteIndex:
     def close(self):
         self.index.close()
 
-    @cython.wraparound(True)
-    def process_kmer(self, np.ndarray[np.uint64_t, ndim=1] kmer, np.ndarray[np.uint32_t, ndim=1] coord_ix):
+    cdef void process_kmer(self, np.ndarray[np.uint64_t, ndim=1] kmer, np.ndarray[np.uint32_t, ndim=1] coord_ix) nogil:
         cdef:
             int _chunk
+            int i, change_idx = 1, n = len(kmer)
             np.ndarray[np.int64_t, ndim=1] _ix_sorted
             np.ndarray[np.uint64_t, ndim=1] k_unique
             np.ndarray[np.int64_t, ndim=1] k_change
@@ -142,15 +142,20 @@ cdef class KatosteIndex:
 
         _chunk = self.n_chunks
 
-        _ix_sorted = np.argsort(kmer)
-        kmer = kmer[_ix_sorted]
-
-        k_unique = np.unique(kmer)
-        k_change = np.concatenate([np.array([0], dtype=np.int64), np.where(kmer[:-1] != kmer[1:])[0]])
-
-        if len(kmer) == 0:
+        if n == 0:
             return
 
+        _ix_sorted = np.argsort(kmer)
+        k_unique = np.unique(kmer)
+
+        k_change = np.empty(len(k_unique) + 1, dtype=np.int64)
+        k_change[0] = 0
+
+        for i in range(1, n):
+            if kmer[_ix_sorted[i]] != kmer[_ix_sorted[i] - 1]:
+                k_change[change_idx] = i
+                change_idx += 1
+        
         self.open(mode='r+')
         self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique)
         self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change, dtype=np.uint32)
