@@ -46,7 +46,8 @@ def _run_index(args):
 
     if _sindex_exists:
         logging.info("Loading previously created `cell (spot) barcode->spatial coordinate` index")
-        sindex = SpatialIndex().load_binary(_sindex_loc)
+        sindex = SpatialIndex()
+        sindex.load_binary(_sindex_loc)
     else:
         logging.info("Creating `cell (spot) barcode->spatial coordinate` index")
         sindex = create_spatial_index(args.spatial_bc_in, args.rescale_coords, args.index_resolution, not args.no_recenter)
