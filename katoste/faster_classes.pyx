@@ -8,6 +8,7 @@ from libc.stdint cimport uint32_t, uint64_t
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
 from libcpp.unordered_map cimport unordered_map as cpp_map
 from libcpp.vector cimport vector
+from cython.operator cimport dereference as deref
 
 import h5py
 import logging
@@ -24,6 +25,7 @@ from xopen import xopen
 from katoste.kmer_processing import encode_kmer, get_kmers_numeric
 from katoste.fastq_processing import SequenceFastqParser, KmerFastqParser
 from katoste.utils import binary_search
+from libc.stdint cimport uint64_t, uint32_t
 
 np.import_array()
 
@@ -59,6 +61,7 @@ cdef class KatosteIndex:
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
         self._n_kmers_processed = 0
+        self.spatial_index = SpatialIndex()
 
         self._iter_seqs = vector[uint64_t]()
         self._iter_coords = vector[uint32_t]()
@@ -157,14 +160,14 @@ cdef class KatosteIndex:
         self.index.attrs['n_chunks'] = self.n_chunks
         self.close()
 
-    cdef void add_kmers(self, vector[uint64_t]& kmers, uint64_t cell_bc) nogil:
+    cdef int add_kmers(self, vector[uint64_t]& kmers, uint64_t cell_bc) nogil:
         cdef:
             uint32_t coord
             size_t n_kmers, i
 
         coord = self.spatial_index.get_key(cell_bc)
         if coord == 0:
-            return
+            return 0
 
         n_kmers = kmers.size()
 
@@ -173,6 +176,7 @@ cdef class KatosteIndex:
             self._iter_coords.push_back(coord)
 
         self._n_kmers_processed += n_kmers
+        return 1
 
     cdef _add_reads(self, list reads_in, str bam_tags, str cell, int n_report, int chunksize, int threads):
         cdef int num_reads = len(reads_in)
@@ -308,16 +312,21 @@ cdef class KatosteIndex:
         self.close()
 
     def write(self):
-        cdef np.ndarray[np.uint64_t, ndim=1] np_iter_seqs
-        cdef np.ndarray[np.uint32_t, ndim=1] np_iter_coords
-        
-        np_iter_seqs = np.array(self._iter_seqs, dtype=np.uint64)
-        np_iter_coords = np.array(self._iter_coords, dtype=np.uint32)
+        cdef np.npy_intp dims[1]
+        cdef uint64_t* seqs_ptr = &self._iter_seqs[0]
+        cdef uint32_t* coords_ptr = &self._iter_coords[0]
 
-        self.process_kmer(np_iter_seqs, np_iter_coords)
+        dims[0] = self._iter_seqs.size()
+        cdef np.ndarray seqs_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>seqs_ptr)
+        dims[0] = self._iter_coords.size()
+        cdef np.ndarray coords_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>coords_ptr)
+
+        self.process_kmer(seqs_view, coords_view)
+
         self._n_kmers_processed = 0
         self._iter_seqs.clear()
         self._iter_coords.clear()
+
 
     def _binary_search_np(self, arr, start, end, v):
         return np.searchsorted(arr, v)
@@ -454,7 +463,6 @@ cdef class KatosteIndex:
 
         return (kmer_locations, kmer_count, seq_matches)
 
-
 cdef class SpatialIndex:
     cdef:
         cpp_map[uint64_t, uint32_t] index
@@ -469,7 +477,12 @@ cdef class SpatialIndex:
         # self.num_coords += 1
 
     cdef uint32_t get_key(self, uint64_t key) nogil:
-        return self.index[key]
+        # Access the map without acquiring the GIL
+        cdef cpp_map[uint64_t, uint32_t].iterator it = self.index.find(key)
+        if it != self.index.end():
+            return deref(it).second
+        else:
+            return 0
 
     def set_bounds(self, uint32_t xmin, uint32_t xmax, uint32_t ymin, uint32_t ymax):
         self.xmin = xmin
