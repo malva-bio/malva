@@ -62,7 +62,7 @@ def _run_index(args):
 
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
     logging.info(f"Will write to disk every {args.chunksize:,} sequences, and once at the end (remaining sequences)")
-    kmer_index.add_reads(args.reads_in, _bam_tags, _cell, chunksize=args.chunksize)
+    kmer_index.add_reads(args.reads_in, _bam_tags, _cell, chunksize=args.chunksize, threads=args.threads)
     logging.info("Done")
 
 

@@ -84,6 +84,12 @@ def get_index_parser():
         The x,y coordinate values must be in the range 0-65,535.
         Otherwise, an exception will be thrown.""",
     )
+    parser.add_argument(
+        "--threads",
+        type=float,
+        default=1,
+        help="""Number of threads used for parallel processing""",
+    )
     return parser
 
 
