@@ -13,6 +13,7 @@ from cython.operator cimport dereference as deref
 import h5py
 import logging
 import os
+import io
 import time
 import numpy as np
 import pandas as pd
@@ -22,10 +23,26 @@ from rich.progress import track
 from sortedcontainers import SortedList
 from xopen import xopen
 
+from katoste.fast_map cimport map
 from katoste.kmer_processing import encode_kmer, get_kmers_numeric
-from katoste.fastq_processing import SequenceFastqParser, KmerFastqParser
+from katoste.fastq_processing cimport SequenceFastqParser, KmerFastqParser
 from katoste.utils import binary_search
-from libc.stdint cimport uint64_t, uint32_t
+from libcpp.utility cimport move
+
+cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
+
+cdef extern from "<algorithm>" namespace "std" nogil:
+    void sort[Iter, Compare](Iter first, Iter last, Compare comp)
+
+cdef extern from "<numeric>" namespace "std" nogil:
+    void iota[Iter](Iter first, Iter last, size_t val)
+
+cdef struct IndexedValue:
+    uint64_t value
+    size_t index
+
+cdef int compare_indexed_value(const IndexedValue& a, const IndexedValue& b) nogil:
+    return a.value < b.value
 
 np.import_array()
 
@@ -128,13 +145,14 @@ cdef class KatosteIndex:
     def close(self):
         self.index.close()
 
-    cdef void process_kmer(self, np.ndarray[np.uint64_t, ndim=1] kmer, np.ndarray[np.uint32_t, ndim=1] coord_ix) nogil:
+    cdef void process_kmer(self, vector[uint64_t] kmer, vector[uint32_t] coord_ix):
         cdef:
+            np.npy_intp dims[1]
             int _chunk
-            int i, change_idx = 1, n = len(kmer)
-            np.ndarray[np.int64_t, ndim=1] _ix_sorted
-            np.ndarray[np.uint64_t, ndim=1] k_unique
-            np.ndarray[np.int64_t, ndim=1] k_change
+            vector[uint64_t] k_unique
+            vector[uint32_t] k_change
+            size_t i, n = kmer.size()
+            uint64_t current_kmer
 
         if self._n_kmers_processed == 0:
             logging.warn("There are no kmers to process!")
@@ -145,21 +163,30 @@ cdef class KatosteIndex:
         if n == 0:
             return
 
-        _ix_sorted = np.argsort(kmer)
-        k_unique = np.unique(kmer)
+        k_unique.push_back(kmer[0])
+        k_change.push_back(0)
 
-        k_change = np.empty(len(k_unique) + 1, dtype=np.int64)
-        k_change[0] = 0
+        current_kmer = kmer[0]
 
-        for i in range(1, n):
-            if kmer[_ix_sorted[i]] != kmer[_ix_sorted[i] - 1]:
-                k_change[change_idx] = i
-                change_idx += 1
-        
+        with nogil:
+            for i in range(1, n):
+                if kmer[i] != current_kmer:
+                    k_unique.push_back(kmer[i])
+                    k_change.push_back(i)
+                    current_kmer = kmer[i]
+
+        # create a numpy arrays
+        dims[0] = k_unique.size()
+        cdef np.ndarray k_unique_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_unique[0])
+        cdef np.ndarray k_change_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&k_change[0])
+
+        dims[0] = coord_ix.size()
+        cdef np.ndarray coords_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&coord_ix[0])
+
         self.open(mode='r+')
-        self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique)
-        self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change, dtype=np.uint32)
-        self.index.create_dataset(f"index_{_chunk}_data", data=coord_ix[_ix_sorted], dtype=np.uint32)
+        self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique_view, dtype=np.uint64)
+        self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change_view, dtype=np.uint32)
+        self.index.create_dataset(f"index_{_chunk}_data", data=coords_view, dtype=np.uint32)
     
         self.n_chunks += 1
         self.index.attrs['n_chunks'] = self.n_chunks
@@ -183,18 +210,25 @@ cdef class KatosteIndex:
         self._n_kmers_processed += n_kmers
         return 1
 
-    cdef _add_reads(self, list reads_in, str bam_tags, str cell, int n_report, int chunksize, int threads):
+    cdef void _add_reads(self, list reads_in, str bam_tags, str cell, int n_report, int chunksize, int threads):
         cdef int num_reads = len(reads_in)
         cdef int _n_sequences = 0
+        cdef SequenceFastqParser iter_r1
+        cdef KmerFastqParser iter_r2
+        cdef uint64_t r1
+        cdef vector[uint64_t] r2
 
         _t0 = time.time()
 
         if num_reads == 2:
             # TODO: update trim_start and trim_end so it uses the config provided by the user
-            iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=max(threads//2, 1)), 512 * 1024, trim_start = 2, trim_end = 27)
-            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), 512 * 1024, kmer_size = self.kmer_size)
+            iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=4), BUFFER_SIZE, trim_start = 2, trim_end = 27)
+            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=4), BUFFER_SIZE, kmer_size = self.kmer_size)
             
-            for r1, r2 in zip(iter_r1, iter_r2):
+            while True:
+                r2 = iter_r2.next()
+                r1 = iter_r1.next()
+
                 _n_sequences += 1
                 self.add_kmers(r2, r1)
             
@@ -205,6 +239,9 @@ cdef class KatosteIndex:
                     _t0 = time.time()
                 if (_n_sequences) % chunksize == 0:
                     self.write()
+                
+                if iter_r1.eof or iter_r2.eof:
+                    break
             self.write()
         else:
             raise ValueError("`--reads-in` must point to paired FASTQ files")
@@ -317,16 +354,44 @@ cdef class KatosteIndex:
         self.close()
 
     def write(self):
-        cdef np.npy_intp dims[1]
-        cdef uint64_t* seqs_ptr = &self._iter_seqs[0]
-        cdef uint32_t* coords_ptr = &self._iter_coords[0]
+        cdef:
+            size_t i, n = self._iter_seqs.size()
+            vector[IndexedValue] indexed_seqs
+            vector[size_t] sorted_indices
+            vector[uint64_t] sorted_seqs
+            vector[uint32_t] sorted_coords
 
-        dims[0] = self._iter_seqs.size()
-        cdef np.ndarray seqs_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>seqs_ptr)
-        dims[0] = self._iter_coords.size()
-        cdef np.ndarray coords_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>coords_ptr)
+        print("generating iota")
+        with nogil:
+            sorted_indices.resize(n)
+            iota(sorted_indices.begin(), sorted_indices.end(), 0)
 
-        self.process_kmer(seqs_view, coords_view)
+        print("copying values")
+        # TODO: optimize, do not copy like this (it is very slow and memory-intensive, ~30s for 100M reads)
+        with nogil:
+            indexed_seqs.resize(n)
+            for i in range(n):
+                indexed_seqs[i].value = self._iter_seqs[i]
+                indexed_seqs[i].index = i
+        
+        print("resorting")
+        # TODO: this is very fast (remove comment)
+        sort(indexed_seqs.begin(), indexed_seqs.end(), compare_indexed_value)
+
+        print("reorder values based on index")
+        # TODO: optimize this (it is very slow ~30s for 100M reads)
+        with nogil:
+            sorted_indices.resize(n)
+            sorted_seqs.resize(n)
+            sorted_coords.resize(n)
+            for i in range(n):
+                sorted_indices[i] = indexed_seqs[i].index
+                sorted_seqs[i] = indexed_seqs[i].value
+                sorted_coords[i] = self._iter_coords[sorted_indices[i]]
+        
+        print("processing kmer (generating the change array etc)")
+        # TODO: this is fast enough (mostly dominated by writing to the file, bottleneck is write speed)
+        self.process_kmer(sorted_seqs, sorted_coords)
 
         self._n_kmers_processed = 0
         self._iter_seqs.clear()
@@ -470,7 +535,7 @@ cdef class KatosteIndex:
 
 cdef class SpatialIndex:
     cdef:
-        cpp_map[uint64_t, uint32_t] index
+        map[uint64_t, uint32_t] index
         uint32_t xmin, xmax, ymin, ymax
 
     def __cinit__(self):
@@ -482,12 +547,13 @@ cdef class SpatialIndex:
         # self.num_coords += 1
 
     cdef uint32_t get_key(self, uint64_t key) nogil:
+        return self.index[key]
         # Access the map without acquiring the GIL
-        cdef cpp_map[uint64_t, uint32_t].iterator it = self.index.find(key)
-        if it != self.index.end():
-            return deref(it).second
-        else:
-            return 0
+        # cdef map[uint64_t, uint32_t].iterator it = self.index.find(key)
+        # if it != self.index.end():
+        #    return deref(it).second
+        # else:
+        #    return 0
 
     def set_bounds(self, uint32_t xmin, uint32_t xmax, uint32_t ymin, uint32_t ymax):
         self.xmin = xmin
@@ -517,9 +583,15 @@ cdef class SpatialIndex:
         # Write map contents
         cdef uint64_t key
         cdef uint32_t value
-        for key, value in self.index:
+        cdef map[uint64_t, uint32_t].iterator it = self.index.begin()
+        cdef map[uint64_t, uint32_t].iterator end = self.index.end()
+
+        while it != end:
+            key = move(deref(it).first)
+            value = deref(it).second
             fwrite(&key, sizeof(uint64_t), 1, file)
             fwrite(&value, sizeof(uint32_t), 1, file)
+            it += 1  # Correctly increment the iterator
 
         fclose(file)
 
@@ -573,8 +645,8 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
         raise ValueError("`rescale_coords` and `index_resolution` must be greater than 0")
 
     if recenter:
-        xmin = np.min(_xcoord)
-        ymin = np.min(_ycoord)
+        xmin = _xcoord.min()
+        ymin = _ycoord.min()
         _xcoord -= xmin
         _ycoord -= ymin
 
@@ -589,10 +661,10 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
     xcoord = np.floor(_xcoord).astype(np.uint32)
     ycoord = np.floor(_ycoord).astype(np.uint32)
 
-    xmin = np.min(xcoord)
-    xmax = np.max(xcoord)
-    ymin = np.min(ycoord)
-    ymax = np.max(ycoord)
+    xmin = xcoord.max()
+    xmax = xcoord.max()
+    ymin = ycoord.max()
+    ymax = ycoord.max()
 
     if xmax >= 65535 or ymax >= 65535:
         raise ValueError("Spatial coordinates must be between 0 and 65,535")
