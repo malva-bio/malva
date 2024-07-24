@@ -1,3 +1,4 @@
+# distutils: language = c++
 #cython: boundscheck=False, wraparound=False, initializedcheck=False, overflowcheck=False, cdivision=True, language_level=3
 
 import array

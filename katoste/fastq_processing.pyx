@@ -2,12 +2,9 @@
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 
 # This is adapted from the dnaio package for improved throughput
-cimport cython
 from cpython.bytes cimport PyBytes_AS_STRING, PyBytes_GET_SIZE, PyBytes_CheckExact
 from cpython.mem cimport PyMem_Free, PyMem_Malloc, PyMem_Realloc
-from cpython.unicode cimport PyUnicode_DecodeASCII
 from libc.string cimport memcmp, memcpy, memchr, memmove
-from libc.stdlib cimport malloc, free
 from libc.stdint cimport uint64_t, uint32_t
 from libcpp.vector cimport vector
 
@@ -55,18 +52,6 @@ cdef class KmerFastqParser:
         An array of uint64 values, numerically encoding the (non) overlapping k-mers of the
         input sequence 
     """
-    cdef:
-        Py_ssize_t buffer_size
-        char *buffer
-        Py_ssize_t bytes_in_buffer
-        bint extra_newline
-        bint eof
-        object file
-        char *record_start
-        int kmer_size
-        bint overlapping
-    cdef readonly Py_ssize_t number_of_records
-
     def __cinit__(self, file, Py_ssize_t buffer_size, int kmer_size = 32, bint overlapping = False):
         self.buffer_size = buffer_size
         self.buffer = <char *>PyMem_Malloc(self.buffer_size)
@@ -142,7 +127,7 @@ cdef class KmerFastqParser:
     def __iter__(self):
         return self
 
-    def __next__(self):
+    cdef vector[uint64_t] next(self):
         cdef:
             char *name_end
             char *sequence_start
@@ -262,18 +247,6 @@ cdef class SequenceFastqParser:
     Yields:
         A uint64 value, encoding the (preprocessed) input sequence 
     """
-    cdef:
-        Py_ssize_t buffer_size
-        char *buffer
-        Py_ssize_t bytes_in_buffer
-        bint extra_newline
-        bint eof
-        object file
-        char *record_start
-        int trim_start
-        int trim_end
-    cdef readonly Py_ssize_t number_of_records
-
     def __cinit__(self, file, Py_ssize_t buffer_size, int trim_start = 0, int trim_end = 32):
         self.buffer_size = buffer_size
         self.buffer = <char *>PyMem_Malloc(self.buffer_size)
@@ -349,7 +322,7 @@ cdef class SequenceFastqParser:
     def __iter__(self):
         return self
 
-    def __next__(self):
+    cdef uint64_t next(self):
         cdef:
             char *name_end
             char *sequence_start
@@ -361,7 +334,7 @@ cdef class SequenceFastqParser:
             size_t remaining_bytes
             Py_ssize_t sequence_length
             char base
-            unsigned long long result = 0
+            uint64_t result = 0
 
         while True:
             buffer_end = self.buffer + self.bytes_in_buffer
