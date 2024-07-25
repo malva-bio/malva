@@ -86,7 +86,7 @@ def get_index_parser():
     )
     parser.add_argument(
         "--threads",
-        type=float,
+        type=int,
         default=1,
         help="""Number of threads used for parallel processing""",
     )
