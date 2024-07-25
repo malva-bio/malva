@@ -1,3 +1,4 @@
+# distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 
 import pysam
@@ -5,7 +6,6 @@ import pysam
 from xopen import xopen
 from katoste.utils import safety_check_eval
 from katoste.fastq_processing import SequenceFastqParser, KmerFastqParser
-from cython cimport boundscheck, wraparound
 
 ctypedef unsigned int uint32_t
 
