@@ -3,7 +3,39 @@ import os
 import pickle
 import shutil
 import numpy as np
+import re
+
 from pathlib import Path
+
+class FormatError(Exception):
+    """Exception raised for errors in the input format."""
+    def __init__(self, message):
+        super().__init__(message)
+
+def check_cell_string(cell='r1[2:27]'):
+    """
+    Validates and parses the 'cell' string parameter to ensure it
+    follows the expected format and extracts the read group and index range.
+
+    Parameters:
+        cell (str): A string specifying the read group and index range 
+        in the format 'r1[start:end]' or 'r2[start:end]'. Default is 'r1[2:27]'.
+
+    Returns:
+        tuple: A tuple containing the read group (str) and the start 
+        (int) and end (int) indices parsed from the 'cell' string.
+
+    Raises:
+        FormatError: If the 'cell' string does not match the expected format.
+    """
+    match = re.match(r'(r[12])\[(\d+):(\d+)\]', cell)
+    if not match:
+        raise FormatError("Cell format must be 'r1[start:end]' or 'r2[start:end]'")
+
+    read_group, start, end = match.groups()
+    start, end = int(start), int(end)
+
+    return read_group, start, end
 
 def safety_check_eval(s, danger="();."):
     chars = set(list(s))

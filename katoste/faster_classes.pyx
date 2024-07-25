@@ -26,7 +26,7 @@ from xopen import xopen
 from katoste.fast_map cimport map
 from katoste.kmer_processing import encode_kmer, get_kmers_numeric
 from katoste.fastq_processing cimport SequenceFastqParser, KmerFastqParser
-from katoste.utils import binary_search
+from katoste.utils import binary_search, check_cell_string
 from libcpp.utility cimport move
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
@@ -204,7 +204,7 @@ cdef class KatosteIndex:
         self._n_kmers_processed += n_kmers
         return 1
 
-    cdef void _add_reads(self, list reads_in, str bam_tags, str cell, int n_report, int chunksize, int threads):
+    cdef void _add_reads(self, list reads_in, str bam_tags, str read_group, int[] trim_limit, int n_report, int chunksize, int threads):
         cdef int num_reads = len(reads_in)
         cdef int _n_sequences = 0
         cdef SequenceFastqParser iter_r1
@@ -212,12 +212,14 @@ cdef class KatosteIndex:
         cdef uint64_t r1
         cdef vector[uint64_t] r2
 
+        if read_group != 'r1':
+            raise NotImplementedError("Only 'r1' is implemented")
+
         _t0 = time.time()
 
         if num_reads == 2:
-            # TODO: update trim_start and trim_end so it uses the config provided by the user
-            iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=4), BUFFER_SIZE, trim_start = 2, trim_end = 27)
-            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=4), BUFFER_SIZE, kmer_size = self.kmer_size)
+            iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, trim_start = trim_limit[0], trim_end = trim_limit[1])
+            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size)
             
             while True:
                 try:
@@ -244,7 +246,8 @@ cdef class KatosteIndex:
 
     def add_reads(self, list reads_in, str bam_tags='CB:{cell}', str cell='r1[2:27]', n_report: int=10_000_000, chunksize: int=100_000_000, threads: int = 1):
         self._iter_seqs.clear()
-        self._add_reads(reads_in, bam_tags, cell, n_report, chunksize, threads)
+        read_group, start, end = check_cell_string(cell)
+        self._add_reads(reads_in, bam_tags, read_group, [start, end], n_report, chunksize, threads)
 
     @cython.wraparound(True)
     def merge_chunks(self, f: str, chunksize: int = 1_000_000):
