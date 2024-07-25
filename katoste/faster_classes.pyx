@@ -593,7 +593,14 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
         double xmin, ymin
         uint32_t x, y
 
-    spatial_index = pd.read_csv(spatial_barcode_file, sep='\t')
+    if spatial_barcode_file.endswith('.csv'):
+        sep = ','
+    elif spatial_barcode_file.endswith('.tsv'):
+        sep = '\t'
+    else:
+        raise ValueError("Unsupported file format. The file must be either a .csv or .tsv file")
+
+    spatial_index = pd.read_csv(spatial_barcode_file, sep=sep)
     spatial_index.drop_duplicates(subset='cell_bc')
 
     spatial_index['cell_bc_encoded'] = spatial_index.apply(lambda x: encode_kmer(x['cell_bc']), axis=1)
