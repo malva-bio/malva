@@ -12,10 +12,10 @@ from flask import Flask, render_template, send_file, Blueprint, request
 from skimage.filters import gaussian
 from PIL import Image
 
-from katoste.index import KatosteIndex
-from katoste.utils import check_file_exists
-from katoste.dbutils import handle_sequence
-from katoste.complexity import mask_low_complexity
+from malva.index import MalvaIndex
+from malva.utils import check_file_exists
+from malva.dbutils import handle_sequence
+from malva.complexity import mask_low_complexity
 
 MAX_LOAD_ALL = 10_000_000
 MAX_DATA_POINTS = 100_000
@@ -46,8 +46,8 @@ def _run_serve(args):
 
     whole_max_ints = []
 
-    logging.info("Loading katoste index and metadata")
-    kmer_index = KatosteIndex(args.index_in)
+    logging.info("Loading malva index and metadata")
+    kmer_index = MalvaIndex(args.index_in)
     kmer_index.open() # TODO: when loading, if the index exists, instead of this
 
     _loc_all, _abu_all = np.unique(kmer_index.index[f'index_0_data'][0:MAX_LOAD_ALL], return_counts=True)
@@ -267,6 +267,6 @@ def add_kmer_to_netcdf_index(xloc, yloc, ints):
     generate_tile(0, 0, 0) # run once to preload
     
 if __name__ == "__main__":
-    from katoste.cli import get_serve_parser
+    from malva.cli import get_serve_parser
     args = get_serve_parser().parse_args()
     _run_serve(args)

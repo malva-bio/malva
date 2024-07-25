@@ -1,7 +1,7 @@
 import argparse
 import logging
 
-INDEX_HELP = "Build a katoste index from spatial transcriptomic sequencing reads"
+INDEX_HELP = "Build a malva index from spatial transcriptomic sequencing reads"
 def get_index_parser():
     parser = argparse.ArgumentParser(
         description=INDEX_HELP,
@@ -30,7 +30,7 @@ def get_index_parser():
         "--index-out",
         type=str,
         required=True,
-        help="""Valid directory where the katoste index (and metadata) will be written into.
+        help="""Valid directory where the malva index (and metadata) will be written into.
         If the directory exists, it must not contain files called `index.kst` and `index_metadata.json`.
         Otherwise, an exception will be thrown.""",
     )
@@ -75,7 +75,7 @@ def get_index_parser():
         "--index-resolution",
         type=float,
         default=10,
-        help="Spatial resolution of the katoste index, in microns.",
+        help="Spatial resolution of the malva index, in microns.",
     )
     parser.add_argument(
         "--no-recenter",
@@ -105,12 +105,12 @@ def setup_index_parser(parent_parser):
 
 
 def cmd_run_index(args):
-    from katoste.index import _run_index
+    from malva.index import _run_index
 
     _run_index(args)
 
 
-SHOW_HELP = "Query a DNA/RNA sequence against a katoste index and visualize spatial distribution"
+SHOW_HELP = "Query a DNA/RNA sequence against a malva index and visualize spatial distribution"
 def get_show_parser():
     parser = argparse.ArgumentParser(
         description=SHOW_HELP,
@@ -121,7 +121,7 @@ def get_show_parser():
     parser.add_argument(
         "--index-in",
         type=str,
-        help="""Valid directory where the katoste index (and metadata) is located.
+        help="""Valid directory where the malva index (and metadata) is located.
         The directory must contain the file `index.kst` and `index_metadata.json`.
         Otherwise, an exception will be thrown.""",
     )
@@ -184,12 +184,12 @@ def setup_show_parser(parent_parser):
 
 
 def cmd_run_show(args):
-    from katoste.show import _run_show
+    from malva.show import _run_show
 
     _run_show(args)
 
 
-SERVE_HELP = "Webserver for interactive spatial querying of katoste indexes"
+SERVE_HELP = "Webserver for interactive spatial querying of malva indexes"
 def get_serve_parser():
     parser = argparse.ArgumentParser(
         description=SERVE_HELP,
@@ -200,7 +200,7 @@ def get_serve_parser():
     parser.add_argument(
         "--index-in",
         type=str,
-        help="""Valid directory where the katoste index (and metadata) is located.
+        help="""Valid directory where the malva index (and metadata) is located.
         The directory must contain the file `index.kst` and `index_metadata.json`.
         Otherwise, an exception will be thrown.""",
     )
@@ -242,7 +242,7 @@ def setup_serve_parser(parent_parser):
 
 
 def cmd_run_serve(args):
-    from katoste.serve.serve import _run_serve
+    from malva.serve.serve import _run_serve
 
     _run_serve(args)
 
@@ -250,7 +250,7 @@ def cmd_run_serve(args):
 def cmdline_args():
     parent_parser = argparse.ArgumentParser(
         allow_abbrev=False,
-        description="katoste: fast indexing and querying of genomic sequences from spatial transcriptomics data",
+        description="malva: fast indexing and querying of genomic sequences from spatial transcriptomics data",
     )
 
     parent_parser_subparsers = parent_parser.add_subparsers(title="commands", dest="subcommand")
@@ -272,18 +272,18 @@ def cmdline_main():
     import setproctitle
     import sys
 
-    setproctitle.setproctitle('katoste ' + " ".join(sys.argv[1:]))
+    setproctitle.setproctitle('malva ' + " ".join(sys.argv[1:]))
 
     parser, args = cmdline_args()
 
     if args.version and args.subcommand is None:
-        print(importlib.metadata.version('katoste'))
+        print(importlib.metadata.version('malva'))
         return 0
     else:
         del args.version
 
     if "func" in args:
-        logging.info(f"katoste {args.subcommand} - running with the following parameters:")
+        logging.info(f"malva {args.subcommand} - running with the following parameters:")
         logging.info(args.__dict__)
         args.func(args)
     else:

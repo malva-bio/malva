@@ -4,8 +4,8 @@
 import pysam
 
 from xopen import xopen
-from katoste.utils import safety_check_eval
-from katoste.fastq_processing import SequenceFastqParser, KmerFastqParser
+from malva.utils import safety_check_eval
+from malva.fastq_processing import SequenceFastqParser, KmerFastqParser
 
 ctypedef unsigned int uint32_t
 

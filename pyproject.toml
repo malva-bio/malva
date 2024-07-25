@@ -3,9 +3,9 @@ requires = ["poetry", "Cython", "setuptools", "wheel", "numpy"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
-name = "katoste"
+name = "malva"
 version = "0.2.0"
-description = "katoste: fast indexing and querying of genomic sequences from spatial transcriptomics data"
+description = "malva: fast indexing and querying of genomic sequences from spatial transcriptomics data"
 license = "GPL-2.0"
 authors = [
     "Daniel León-Periñán <daniel.leonperinan@mdc-berlin.de>",
@@ -33,7 +33,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
-include = ["katoste/data/*.yaml", "katoste/serve/static/index.html"]
+include = ["malva/data/*.yaml", "malva/serve/static/index.html"]
 
 [tool.poetry.build]
 script = "build.py"
@@ -43,7 +43,6 @@ generate-setup-file = true
 python = ">3.8,<3.12"
 numpy = ">=1.17.0"
 pandas = ">=1.0"
-polars = ">=1.2.1"
 dnaio = ">1.0.0"
 h5py = ">=3"
 sortedcontainers = ">1.0.0"
@@ -63,9 +62,9 @@ scikit-image = ">=0.24.0"
 Cython = "^0.29.21"  # Latest version at time of publishing
 
 [tool.poetry.urls]
-"Documentation" = "https://rajewsky-lab.github.io/katoste"
-"Source" = "https://github.com/rajewsky-lab/katoste"
-"Home-page" = "https://rajewsky-lab.github.io/katoste"
+"Documentation" = "https://rajewsky-lab.github.io/malva"
+"Source" = "https://github.com/rajewsky-lab/malva"
+"Home-page" = "https://rajewsky-lab.github.io/malva"
 
 [tool.poetry.scripts]
-katoste = 'katoste.__main__:run_katoste'
+malva = 'malva.__main__:run_malva'

@@ -2,8 +2,8 @@ import logging
 import os
 import yaml
 
-from katoste.utils import check_file_exists, check_directory_exists, get_module_path
-from katoste.faster_classes import KatosteIndex, SpatialIndex, create_spatial_index
+from malva.utils import check_file_exists, check_directory_exists, get_module_path
+from malva.faster_classes import MalvaIndex, SpatialIndex, create_spatial_index
 
 N_REPORT = 1_000_000
 
@@ -54,10 +54,10 @@ def _run_index(args):
         logging.info("Saving `cell (spot) barcode->spatial coordinate` index")
         sindex.save_binary(_sindex_loc)
 
-    logging.info(f"Configuring the katoste index")
-    kmer_index = KatosteIndex(args.index_out, kmer_size_initialize=args.kmer_length)
+    logging.info(f"Configuring the malva index")
+    kmer_index = MalvaIndex(args.index_out, kmer_size_initialize=args.kmer_length)
     
-    logging.info("Adding spatial index to katoste index")
+    logging.info("Adding spatial index to malva index")
     kmer_index.append_spatial(sindex)
 
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
@@ -67,6 +67,6 @@ def _run_index(args):
 
 
 if __name__ == "__main__":
-    from katoste.cli import get_index_parser
+    from malva.cli import get_index_parser
     args = get_index_parser().parse_args()
     _run_index()

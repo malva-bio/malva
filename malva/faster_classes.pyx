@@ -23,10 +23,10 @@ from rich.progress import track
 from sortedcontainers import SortedList
 from xopen import xopen
 
-from katoste.fast_map cimport map
-from katoste.kmer_processing import encode_kmer, get_kmers_numeric
-from katoste.fastq_processing cimport SequenceFastqParser, KmerFastqParser
-from katoste.utils import binary_search, check_cell_string
+from malva.fast_map cimport map
+from malva.kmer_processing import encode_kmer, get_kmers_numeric
+from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
+from malva.utils import binary_search, check_cell_string
 from libcpp.utility cimport move
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
@@ -47,7 +47,7 @@ cdef struct SpatialCoord:
     uint32_t x
     uint32_t y
 
-cdef class KatosteIndex:
+cdef class MalvaIndex:
     cdef:
         public str index_dir
         public str index_file
@@ -66,7 +66,7 @@ cdef class KatosteIndex:
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=8):
         self.index_dir = index_dir
-        self.index_file = os.path.join(self.index_dir, 'katoste_index.h5')
+        self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
         self._n_kmers_processed = 0
@@ -83,7 +83,7 @@ cdef class KatosteIndex:
             logging.info("The index exists. Will load now.")
             self.open()
         else:
-            logging.info(f"Will create katoste index at `{self.index_file}` with {kmer_size_initialize}-mers")
+            logging.info(f"Will create malva index at `{self.index_file}` with {kmer_size_initialize}-mers")
             self.initialize(kmer_size=kmer_size_initialize)
 
     @staticmethod
@@ -368,7 +368,7 @@ cdef class KatosteIndex:
     def _binary_search_np(self, arr, start, end, v):
         return np.searchsorted(arr, v)
 
-    def _binary_search_katoste(self, arr, start, end, v):
+    def _binary_search_malva(self, arr, start, end, v):
         return binary_search(arr, start, end, v)
     
     def find_kmer(self, kmers, count_at_most=10_000, count_at_least=10):
@@ -409,7 +409,7 @@ cdef class KatosteIndex:
         if isinstance(self._index_backed, h5py.File) or self._index_backed is None:
             self._index_backed = {f'index_{i}_indices': SortedList(self.index[f'index_{i}_indices'][:]) for i in range(self.n_chunks)}
             self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
-            self.binary_search = self._binary_search_katoste
+            self.binary_search = self._binary_search_malva
 
     def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, count_at_most=10_000, count_at_least=10, query_jump=False):
         if len(sequence) < self.kmer_size:

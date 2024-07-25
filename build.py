@@ -13,36 +13,36 @@ class BuildExt(build_ext):
 
 extensions = [
     Extension(
-        "katoste.kmer_processing",
-        ["katoste/kmer_processing.pyx"],
+        "malva.kmer_processing",
+        ["malva/kmer_processing.pyx"],
         include_dirs=[unordered_dense_include, numpy.get_include()],
         language="c++",
         extra_compile_args=["-std=c++17"],
     ),
     Extension(
-        "katoste.fastq_processing",
-        ["katoste/fastq_processing.pyx"],
+        "malva.fastq_processing",
+        ["malva/fastq_processing.pyx"],
         include_dirs=[unordered_dense_include, numpy.get_include()],
         language="c++",
         extra_compile_args=["-std=c++17"],
     ),
     Extension(
-        "katoste.reader",
-        ["katoste/reader.pyx"],
+        "malva.reader",
+        ["malva/reader.pyx"],
         include_dirs=[unordered_dense_include, numpy.get_include()],
         language="c++",
         extra_compile_args=["-std=c++17"],
     ),
     Extension(
-        "katoste.faster_classes",
-        ["katoste/faster_classes.pyx"],
+        "malva.faster_classes",
+        ["malva/faster_classes.pyx"],
         include_dirs=[unordered_dense_include, numpy.get_include()],
         language="c++",
         extra_compile_args=["-std=c++17"],
     ),
     Extension(
-        "katoste.fast_map",
-        ["katoste/fast_map.pyx"],
+        "malva.fast_map",
+        ["malva/fast_map.pyx"],
         include_dirs=[unordered_dense_include, numpy.get_include()],
         language="c++",
         extra_compile_args=["-std=c++17"],
@@ -60,7 +60,7 @@ def build(setup_kwargs):
 
 if __name__ == "__main__":
     setup(
-        name="katoste",
+        name="malva",
         # Add other necessary setup parameters
         ext_modules=extensions,
         cmdclass=dict(build_ext=BuildExt),

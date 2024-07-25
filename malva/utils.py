@@ -45,8 +45,8 @@ def safety_check_eval(s, danger="();."):
         return True
     
 def get_module_path():
-    import pathlib, katoste
-    return pathlib.Path(katoste.__file__).resolve().parent
+    import pathlib, malva
+    return pathlib.Path(malva.__file__).resolve().parent
 
 def save_pickle(obj, file_path):
     """
