@@ -12,18 +12,13 @@ import numpy as np
 import pandas as pd
 
 from rich.progress import track
-from sortedcontainers import SortedDict
+from sortedcontainers import SortedDict, SortedList
 from operator import itemgetter
 
 from katoste.utils import check_file_exists, check_directory_exists, load_pickle, safety_check_eval, binary_search, save_pickle, get_module_path, group_intervals
 from katoste.kmer_processing import get_kmers_numeric, get_overlapping_kmers_numeric, encode_kmer
 
-N_CHUNK = 1_000_000_000
 N_REPORT = 1_000_000
-MAX_PCT = 0.01
-MIN_KMER_QUERY = 10
-QUERY_JUMP = False
-
 
 class KatosteIndex:
     def __init__(self, index_dir, rewrite=False, kmer_size_initialize=8):
@@ -172,31 +167,29 @@ class KatosteIndex:
     def _binary_search_katoste(self, arr, start, end, v):
         return binary_search(arr, start, end, v)
     
-    def find_kmer(self, kmers):
+    def find_kmer(self, kmers, count_at_most=10_000, count_at_least=10):
         vals = {k: set([-1]) for k in kmers}
 
-        # _indptrs = np.zeros(max(self.data_lengths), dtype=np.uint64)
 
-        for ch in track(range(self.n_chunks), description=f"Querying chunks"):
+        for ch in range(self.n_chunks):
             _data = self.index[f'index_{ch}_data']
             _h5_indices = self._index_backed[f'index_{ch}_indices']
             _h5_indptrs = self._index_backed[f'index_{ch}_indptr']
-            _loc = np.searchsorted(_h5_indices, kmers)
             
-            # _loc_group = group_intervals(_loc, min_interval=1_000)
+            # print("Searching on index")
+            # _loc = np.searchsorted(_h5_indices, kmers)
 
-            # for _lc in _loc_group:
-            #     _indptrs[_lc[0]:_lc[1]+1] = _h5_indptrs[_lc[0]:_lc[1]+1]
-
-            for i, kmer in enumerate(kmers):
-                if _loc[i] == -1:
+            for i, kmer in track(enumerate(kmers), description=f"Querying chunk {ch}"):
+                try:
+                    _loc = _h5_indices.index(kmer)
+                except ValueError:
                     continue
 
-                _indptr = _h5_indptrs[_loc[i]:_loc[i]+2]
+                _indptr = _h5_indptrs[_loc:_loc+2]
                 if (len(_indptr) != 2):
                     _indptr = [_indptr[0], self.data_lengths[ch]]
 
-                if ((_indptr[1]-_indptr[0])/self.data_lengths[ch] > MAX_PCT) or ((_indptr[1]-_indptr[0]) <= MIN_KMER_QUERY):
+                if ((_indptr[1]-_indptr[0]) >= count_at_most) or ((_indptr[1]-_indptr[0]) <= count_at_least):
                     continue
                 
                 _res = _data[_indptr[0]:_indptr[1]]
@@ -210,18 +203,11 @@ class KatosteIndex:
     def _load_index_to_memory(self):
         # only load from memory when a file or None; skip if already a dict (assumes proper format)
         if isinstance(self._index_backed, h5py.File) or self._index_backed is None:
-            self._index_backed = {f'index_{i}_indices': self.index[f'index_{i}_indices'][:] for i in range(self.n_chunks)}
+            self._index_backed = {f'index_{i}_indices': SortedList(self.index[f'index_{i}_indices'][:]) for i in range(self.n_chunks)}
             self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
             self.binary_search = self._binary_search_katoste
 
-    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, max_pct=0.01, min_kmer_query=10, query_jump=False):
-        global MAX_PCT, MIN_KMER_QUERY, QUERY_JUMP
-
-        # TODO: use as arguments for the find_kmer variable
-        MAX_PCT = max_pct
-        MIN_KMER_QUERY = min_kmer_query
-        QUERY_JUMP = query_jump
-
+    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, count_at_most=10_000, count_at_least=10, query_jump=False):
         if len(sequence) < self.kmer_size:
             raise ValueError("Query sequence cannot be smaller than kmer size!")
 
@@ -253,7 +239,9 @@ class KatosteIndex:
         # get data for kmers
         all_kmer_list = []
         _necessary = np.ceil((len(sequence)-self.kmer_size)/np.floor(len(sequence)/self.kmer_size)).astype(int)
-        for subseq in get_sliding_sequence(sequence, len(sequence) - _necessary):
+        sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
+    
+        for subseq in sliding_sequences:
             all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
         all_kmer_list = np.unique(all_kmer_list)
@@ -263,12 +251,10 @@ class KatosteIndex:
         if len(all_kmer_list) == 0:
             return (np.array([0]), np.array([0]), seq_matches)
 
-        all_kmer_dict = self.find_kmer(all_kmer_list)
-
-        sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
+        all_kmer_dict = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least)
 
         for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
-            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not QUERY_JUMP:
+            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not query_jump:
                 # TODO: store from previous and not rerun?
                 all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
                 kmer_list = [i for i in all_kmer_list if i != 0]
@@ -365,7 +351,7 @@ def iterate_flavor(reads_in,
                    bam_tags='CB:{cell}',
                    cell='r1[2:27]'):
     bam_tags = [bt.split(":") for bt in bam_tags.split(",")]
-    bam_tags = {what[1:-1]: tag for what, tag in bam_tags}
+    bam_tags = {what[1:-1]: tag for tag, what in bam_tags}
 
     if len(reads_in) == 2:
         import dnaio
@@ -386,10 +372,10 @@ def iterate_flavor(reads_in,
         import pysam
 
         _cell_tag = bam_tags['cell']
-        with pysam.AlignmentFile(reads_in, "rb", until_eof=True) as f:
-            for record in f:
-                cell_bc = record.get_tag[_cell_tag]
-                yield (record.sequence, cell_bc)
+        with pysam.AlignmentFile(reads_in[0], "rb") as f:
+            for record in f.fetch(until_eof=True):
+                cell_bc = record.get_tag(_cell_tag)
+                yield (record.query_sequence, cell_bc)
     else:
         raise ValueError("`--reads-in` must point to paired FASTQ files or a single BAM file")
 
@@ -436,7 +422,7 @@ def _run_index(args):
     kmer_index.append_spatial(sindex)
 
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
-    logging.info(f"Will write to disk every {N_CHUNK} sequences, and once at the end (remaining sequences)")
+    logging.info(f"Will write to disk every {args.chunksize:,} sequences, and once at the end (remaining sequences)")
     _bam_tags = flavor_config['bam_tags']
     _cell = flavor_config['cell']
 
@@ -445,17 +431,17 @@ def _run_index(args):
     for r2, cell_bc in iterate_flavor(args.reads_in, bam_tags=_bam_tags, cell=_cell):
         kmer_index.add_sequence(r2, cell_bc)
         _n_sequences += 1
-        if (_n_sequences) % N_CHUNK == 0:
+        if (_n_sequences) % args.chunksize == 0:
             kmer_index.write()
         if (_n_sequences) % N_REPORT == 0:
             _t1 = time.time()
             _elapsed = _t1 - _t0
-            logging.info(f"Processed {_n_sequences} sequences in {round(_elapsed, 2)} s ({round(N_REPORT/_elapsed, 2)} reads/s)")
+            logging.info(f"Processed {_n_sequences:,} sequences in {round(_elapsed, 2)} s ({round(N_REPORT/_elapsed, 2):,} reads/s)")
             _t0 = time.time()
 
     logging.info("Writing all remaining chunks into index")
     kmer_index.write()
-    logging.info(f"Indexed {_n_sequences} sequences into {_n_locations} spatial locations")
+    logging.info(f"Indexed {_n_sequences:,} sequences into {_n_locations:,} spatial locations")
 
 
 if __name__ == "__main__":

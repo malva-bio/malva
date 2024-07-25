@@ -38,7 +38,7 @@ def get_index_parser():
         "--flavor",
         type=str,
         default="openst",
-        choices=['openst', 'stereoseq', 'slideseqv2', 'visium', 'seqscopev1', 'visiumhd', '*.yaml'], # TODO: formatting of the .yaml is acceptable, or move validation to the function
+        choices=['openst', 'stereo_seq', 'slide_seq', 'visium', 'seq_scope_v1', '*.yaml'], # TODO: formatting of the .yaml is acceptable, or move validation to the function
         help="""Spatial transcriptomics technology. 
         These are default configurations to read from the paired FASTQ (or BAM) files.
         Other configurations can be provided as a properly formatted `.yaml` file - see
@@ -49,6 +49,13 @@ def get_index_parser():
         type=int,
         default=24,
         help="Length (in nucleotides) of indexed k-mers, non-overlapping.",
+    )
+    parser.add_argument(
+        "--chunksize",
+        type=int,
+        default=1_000_000_000,
+        help="""Consecutive chunk that will be accumulated into RAM before writing.
+        Consider reducing this number to reduce RAM usage (indexing might be slower).""",
     )
     parser.add_argument(
         "--overlapping",
@@ -143,6 +150,18 @@ def get_show_parser():
         action="store_true",
         help="""A scalebar is automatically displayed.
         The size is by default 25/100 of the image width.""",
+    )
+    parser.add_argument(
+        "--render-scale",
+        type=float,
+        default=1,
+        help="What is the scale, respect to the original index spatial dimensions per unit, used for rendering.",
+    )
+    parser.add_argument(
+        "--render-smoothing",
+        type=float,
+        default=1.5,
+        help="Sigma value for gaussian smoothing of pseudoimages (for rendering purposes)",
     )
     return parser
 
@@ -252,7 +271,7 @@ def cmdline_main():
     parser, args = cmdline_args()
 
     if args.version and args.subcommand is None:
-        print(importlib.metadata.version('katoste '))
+        print(importlib.metadata.version('katoste'))
         return 0
     else:
         del args.version

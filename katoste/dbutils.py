@@ -3,6 +3,9 @@ import re
 
 ENSEMBL_REST = "https://rest.ensembl.org"
 
+# implement pre-download ensembl data
+revcomp = str.maketrans('ACGTU','TGCAA')
+
 def process_dna_string(sequence):
     """
     Validates and parses a DNA sequence or a FASTA-like format sequence.
@@ -48,11 +51,21 @@ def handle_sequence(input_string, recursion=True):
 
     if input_string.startswith('gene:'):
         _input = process_gene_string(input_string)
-        seq_out = get_from_gene(_input['gene_id'], _input['species'], seqtype=_input['seqtype'])[_input['split'][0]:_input['split'][1]]
+        seq_out = get_from_gene(_input['gene_id'], _input['species'], seqtype=_input['seqtype'])
+
+        if _input['split'][1] is not None and _input['split'][0] > _input['split'][1]:
+            seq_out = seq_out.translate(revcomp)[::-1][_input['split'][1]:_input['split'][0]]
+        else:
+            seq_out = seq_out[_input['split'][0]:_input['split'][1]]
     
     elif input_string.startswith('ensembl:'):
         _input = process_ensembl_string(input_string)
-        seq_out = get_from_ensembl(_input['ensembl_id'])
+        seq_out = get_from_ensembl(_input['ensembl_id'], _input['seqtype'])
+
+        if _input['split'][1] is not None and _input['split'][0] > _input['split'][1]:
+            seq_out = seq_out.translate(revcomp)[::-1][_input['split'][1]:_input['split'][0]]
+        else:
+            seq_out = seq_out[_input['split'][0]:_input['split'][1]]
     
     elif input_string.startswith('>'):
         _input = process_dna_string(input_string)
@@ -82,14 +95,12 @@ def process_gene_string(gene_string):
     Returns:
     dict: A dictionary with keys 'gene_id', 'species', and 'split'.
     """
-    gene_string = gene_string.strip()
+    gene_info = gene_string.strip()
     
     if not gene_string.startswith('gene:'):
         raise ValueError("Input string must start with 'gene:'")
     
-    gene_info = gene_string[len('gene:'):].strip()
-    
-    species = 'homo sapiens'
+    species = 'homo_sapiens'
     split = [0, None]
     seqtype = 'genomic'
 
@@ -99,7 +110,7 @@ def process_gene_string(gene_string):
     for part in parts:
         if part.startswith('species:'):
             species = part[len('species:'):].strip()
-        if part.startswith('type:'):
+        elif part.startswith('type:'):
             seqtype = part[len('type:'):].strip()
         elif part.startswith('split:'):
             split_str = part[len('split:'):].strip()
@@ -110,10 +121,10 @@ def process_gene_string(gene_string):
                 split = [int(s.strip()) for s in split]
             except ValueError:
                 raise ValueError("Both elements of the 'split' parameter must be integers")
-        else:
+        elif part.startswith('gene:'):
             if gene_id is not None:
                 raise ValueError("Multiple gene IDs found in input string")
-            gene_id = part.strip()
+            gene_id = part[len('gene:'):].strip()
     
     if gene_id is None:
         raise ValueError("Gene ID is missing in the input string")
@@ -136,9 +147,33 @@ def process_ensembl_string(ensembl_string):
     if not ensembl_string.startswith('ensembl:'):
         raise ValueError("Input string must start with 'ensembl:'")
     
-    ensembl_id = ensembl_string[len('ensembl:'):].strip()
+    split = [0, None]
+    seqtype = 'genomic'
+
+    parts = ensembl_string.split(';')
+
+    ensembl_id = None
+    for part in parts:
+        if part.startswith('type:'):
+            seqtype = part[len('type:'):].strip()
+        elif part.startswith('split:'):
+            split_str = part[len('split:'):].strip()
+            split = split_str.split(',')
+            if len(split) != 2:
+                raise ValueError("The 'split' parameter must have exactly two elements")
+            try:
+                split = [int(s.strip()) for s in split]
+            except ValueError:
+                raise ValueError("Both elements of the 'split' parameter must be integers")
+        elif part.startswith('ensembl:'):
+            if ensembl_id is not None:
+                raise ValueError("Multiple ensembl IDs found in input string")
+            ensembl_id = part[len('ensembl:'):].strip()
     
-    return {'ensembl_id': ensembl_id}
+    if ensembl_id is None:
+        raise ValueError("Ensembl ID is missing in the input string")
+    
+    return {'ensembl_id': ensembl_id, 'split': split, 'seqtype': seqtype}
 
 def get_from_gene(gene_id: str, species: str = "homo_sapiens", seqtype: str = "genomic"):
     if seqtype not in ['genomic', 'cdna']:
@@ -158,11 +193,13 @@ def get_from_gene(gene_id: str, species: str = "homo_sapiens", seqtype: str = "g
     return get_from_ensembl(ensembl_id=ensembl_id, seqtype=seqtype)
 
 def get_from_ensembl(ensembl_id: str, seqtype: str = "genomic"):
-    if seqtype not in ['genomic', 'cdna']:
+    if seqtype not in ['genomic', 'cdna', 'transcript']:
         raise ValueError("'type' must be 'genomic' or 'cdna'")
     
     ext = f"/sequence/id/{ensembl_id}?type={seqtype}"
-    if seqtype == 'cdna':
+    if seqtype == 'transcript':
+        ext = f"/sequence/id/{ensembl_id}"
+    elif seqtype == 'cdna':
         ext += ';multiple_sequences=1'
 
     r = requests.get(ENSEMBL_REST+ext, headers={ "Content-Type" : "text/x-fasta"})
