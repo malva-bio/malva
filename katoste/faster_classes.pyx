@@ -139,6 +139,7 @@ cdef class KatosteIndex:
     cdef void process_kmer(self, vector[pair[uint64_t, uint32_t]] kmer_coords):
         cdef:
             np.npy_intp dims[1]
+            np.npy_intp dims_b[2]
             int _chunk
             vector[uint64_t] k_unique
             vector[uint32_t] k_change
@@ -171,14 +172,14 @@ cdef class KatosteIndex:
         cdef np.ndarray k_unique_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_unique[0])
         cdef np.ndarray k_change_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&k_change[0])
 
-        dims[0] = n
-        cdef np.ndarray coords_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&(data_ptr[0].second))
+        dims_b[0] = n
+        dims_b[1] = 4
+        cdef np.ndarray coords_view = np.PyArray_SimpleNewFromData(2, dims_b, np.NPY_UINT32, <void*>&(data_ptr[0].second))
 
         self.open(mode='r+')
         self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique_view, dtype=np.uint64)
         self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change_view, dtype=np.uint32)
-        self.index.create_dataset(f"index_{_chunk}_data", data=coords_view, dtype=np.uint32)
-        # self.index.create_dataset(f"index_{_chunk}_data", data=coords_view, dtype=np.uint32)
+        self.index.create_dataset(f"index_{_chunk}_data", data=coords_view[:, 0], dtype=np.uint32)
     
         self.n_chunks += 1
         self.index.attrs['n_chunks'] = self.n_chunks
@@ -350,12 +351,15 @@ cdef class KatosteIndex:
     def write(self):
         cdef vector[pair[uint64_t, uint32_t]].iterator first = self._iter_seqs.begin()
         cdef vector[pair[uint64_t, uint32_t]].iterator last = self._iter_seqs.end()
+        # swap trick for out of scope memfree
+        cdef vector[pair[uint64_t, uint32_t]] temp
         sort(first, last, &compare_indexed_value)
         
         self.process_kmer(self._iter_seqs)
 
         self._n_kmers_processed = 0
         self._iter_seqs.clear()
+        self._iter_seqs.swap(temp)
 
 
     def _binary_search_np(self, arr, start, end, v):
@@ -508,12 +512,6 @@ cdef class SpatialIndex:
 
     cdef uint32_t get_key(self, uint64_t key) nogil:
         return self.index[key]
-        # Access the map without acquiring the GIL
-        # cdef map[uint64_t, uint32_t].iterator it = self.index.find(key)
-        # if it != self.index.end():
-        #    return deref(it).second
-        # else:
-        #    return 0
 
     def set_bounds(self, uint32_t xmin, uint32_t xmax, uint32_t ymin, uint32_t ymax):
         self.xmin = xmin
