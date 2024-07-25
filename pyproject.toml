@@ -56,6 +56,8 @@ netCDF4 = ">1.6.0"
 xarray = ">2022.11.0"
 datashader = ">0.15.0"
 flask = ">2.3.0"
+biopython = ">=1.83"
+scikit-image = ">=0.24.0"
 
 [tool.poetry.dev-dependencies]
 Cython = "^0.29.21"  # Latest version at time of publishing
