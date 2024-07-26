@@ -484,10 +484,11 @@ cdef class MalvaIndex:
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
         whole_sliding_sequences = get_whole_sliding_sequence(sequence, self.kmer_size)
+        # TODO: these progress bars can be configured (displayed or not, whatever the user prefers)
         #for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
         for subseq in whole_sliding_sequences:
             all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-            CONST_THRESHOLD = pct_threshold * len(all_kmer_list)
+            CONST_THRESHOLD = pct_threshold * sliding_size
             kmer_list = [(i, k) for i, k in enumerate(all_kmer_list) if k != 0]
             
             # TODO: remove this - it is here so there will not be compilation-runtime issues
@@ -507,22 +508,21 @@ cdef class MalvaIndex:
                 for value in values:
                     if primary_map.find(value) == primary_map.end():
                         primary_map[value] = pair[uint32_t, uint32_t](1, idx_kmer)
-                    elif idx - primary_map[value].second:
-                        secondary_map[value].first += 1
+                    elif idx_kmer - primary_map[value].second == 1:
+                        primary_map[value].first += 1
+                        primary_map[value].second = idx_kmer
                     else:
-                        primary_map[value].first = max(0, primary_map[value].first - (idx - primary_map[value].second))
+                        primary_map[value].first = max(0, primary_map[value].first - (idx_kmer - primary_map[value].second))
                         primary_map[value].second = idx_kmer
 
-            for item in primary_map:
-                key = item.first
-                count = item.second
-                if count < CONST_THRESHOLD:
-                    continue
-                if secondary_map.find(key) != secondary_map.end():
-                    secondary_map[key] += 1
-                else:
-                    secondary_map[key] = 1
-
+                for p_pair in primary_map:
+                    value = p_pair.first
+                    if idx_kmer * self.kmer_size >= sliding_size:
+                        if secondary_map.find(value) == secondary_map.end():
+                            secondary_map[value] = 0
+                        elif primary_map[value] > CONST_THRESHOLD:
+                            secondary_map[value] += 1
+ 
         kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
         kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
 
