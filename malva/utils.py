@@ -6,6 +6,8 @@ import numpy as np
 import re
 
 from pathlib import Path
+from rich.progress import track
+from contextlib import contextmanager
 
 class FormatError(Exception):
     """Exception raised for errors in the input format."""
@@ -36,6 +38,13 @@ def check_cell_string(cell='r1[2:27]'):
     start, end = int(start), int(end)
 
     return read_group, start, end
+
+@contextmanager
+def conditional_track(sequence, description=None, silent=False):
+    if silent:
+        yield sequence
+    else:
+        yield track(sequence, description=description)
 
 def safety_check_eval(s, danger="();."):
     chars = set(list(s))
@@ -328,3 +337,39 @@ def group_intervals(arr, min_interval):
     intervals.append((start, end))
     
     return intervals
+
+def defragment_hdf5_file(input_file, output_file, dataset_name, chunk_size=None, compression=None):
+    """
+    Defragment an HDF5 file by copying the dataset to a new file with optimized chunks and compression.
+
+    Parameters:
+        input_file (str): The path to the original HDF5 file.
+        output_file (str): The path to the new optimized HDF5 file.
+        dataset_name (str): The name of the dataset to be defragmented.
+        chunk_size (tuple, optional): The chunk size to be used for the new dataset. Defaults to (1000,).
+        compression (str, optional): The compression method to be used for the new dataset. Defaults to None.
+
+    Returns:
+        None
+    """
+    import h5py
+
+    with h5py.File(input_file, 'r') as f_in, h5py.File(output_file, 'w') as f_out:
+        dset_in = f_in[dataset_name]
+        
+        if chunk_size:
+            chunks = chunk_size
+        else:
+            chunks = (min(1000, dset_in.shape[0]),)
+        
+        dset_out = f_out.create_dataset(dataset_name, shape=dset_in.shape, dtype=dset_in.dtype, chunks=chunks, compression=compression)
+
+        total_chunks = (dset_in.shape[0] + chunks[0] - 1) // chunks[0]
+        
+        for i in range(total_chunks):
+            start = i * chunks[0]
+            end = min((i + 1) * chunks[0], dset_in.shape[0])
+            dset_out[start:end] = dset_in[start:end]
+            logging.info(f'Processed chunk {i + 1}/{total_chunks}')
+            
+    logging.info('Defragmentation complete.')

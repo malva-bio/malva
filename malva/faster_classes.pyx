@@ -4,11 +4,13 @@
 cimport cython
 cimport numpy as np
 
-from libc.stdint cimport uint32_t, uint64_t
+from libc.stdint cimport uint16_t, uint32_t, uint64_t
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair
-from cython.operator cimport dereference as deref
+from libcpp.unordered_set cimport unordered_set
+from libcpp.unordered_map cimport unordered_map
+from cython.operator cimport dereference as deref, preincrement as inc
 
 import h5py
 import logging
@@ -26,7 +28,7 @@ from xopen import xopen
 from malva.fast_map cimport map
 from malva.kmer_processing import encode_kmer, get_kmers_numeric
 from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
-from malva.utils import binary_search, check_cell_string
+from malva.utils import check_cell_string
 from libcpp.utility cimport move
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
@@ -43,6 +45,26 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 ctypedef uint64_t kmer_t
 
+cdef tuple convert_map_to_arrays(map[uint32_t, uint16_t]& _in_map):
+    cdef:
+        vector[uint32_t] keys
+        vector[uint16_t] values
+        map[uint32_t, uint16_t].iterator it = _in_map.begin()
+        np.npy_intp dims[1]
+    
+    # Populate vectors with keys and values
+    while it != _in_map.end():
+        keys.push_back(deref(it).first)
+        values.push_back(deref(it).second)
+        inc(it)
+    
+    # Create NumPy arrays from vectors
+    dims[0] = keys.size()
+    cdef np.ndarray keys_array = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>keys.data())
+    cdef np.ndarray values_array = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT16, <void*>values.data())
+    
+    return keys_array, values_array
+
 cdef struct SpatialCoord:
     uint32_t x
     uint32_t y
@@ -53,7 +75,6 @@ cdef class MalvaIndex:
         public str index_file
         public int kmer_size
         public object index
-        public object _index_backed
         public tuple coord_lims
         public int n_chunks
         public list data_lengths
@@ -61,7 +82,7 @@ cdef class MalvaIndex:
         public np.ndarray spatial_coords
         public int _n_kmers_processed
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
-        public object binary_search
+        map[uint64_t, pair[uint32_t, uint32_t]] _index_backed
         SpatialIndex spatial_index
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=8):
@@ -73,6 +94,7 @@ cdef class MalvaIndex:
         self.spatial_index = SpatialIndex()
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
+        self._index_backed = map[uint64_t, pair[uint32_t, uint32_t]]()
 
         if rewrite:
             if os.path.exists(self.index_dir):
@@ -117,9 +139,6 @@ cdef class MalvaIndex:
 
     def open(self, str mode='r'):
         self.index = h5py.File(self.index_file, mode)
-        if self._index_backed is None or isinstance(self._index_backed, h5py.File):
-            self._index_backed = self.index
-
         if 'kmer_size' in self.index.attrs:
             self.kmer_size = self.index.attrs['kmer_size']
 
@@ -280,7 +299,8 @@ cdef class MalvaIndex:
         output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype='uint64')
         output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype='uint32')
 
-        for _ in track(range(0, max_kmer_chunk, chunksize), description='Merging sorted chunks'):
+        #for _ in track(range(0, max_kmer_chunk, chunksize), description='Merging sorted chunks'):
+        for _ in range(0, max_kmer_chunk, chunksize):
             _val_max_ix_0 = self.index[f'index_{which_index}_indices'][imin[0]:imax[0]][-1]
             imax = np.array([np.argwhere(self.index[f'index_{chunk}_indices'] <= _val_max_ix_0)[-1][0] for chunk in range(0, self.n_chunks)]) + 1
 
@@ -364,81 +384,84 @@ cdef class MalvaIndex:
         self._iter_seqs.clear()
         self._iter_seqs.swap(temp)
 
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+        # TODO: use unordered_map[uint64_t, unordered_set[uint32_t]]
+        # because the dictionaries are too slow!
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            pair[uint32_t, uint32_t] _indptr
+            uint64_t kmer
+            np.ndarray _res
+            uint32_t _res_item
+            unordered_set[uint32_t] _set
 
-    def _binary_search_np(self, arr, start, end, v):
-        return np.searchsorted(arr, v)
+        _data = self.index[f'index_{chunk_id}_data']
 
-    def _binary_search_malva(self, arr, start, end, v):
-        return binary_search(arr, start, end, v)
-    
-    def find_kmer(self, kmers, count_at_most=10_000, count_at_least=10):
-        vals = {k: set([-1]) for k in kmers}
-
-
-        for ch in range(self.n_chunks):
-            _data = self.index[f'index_{ch}_data']
-            _h5_indices = self._index_backed[f'index_{ch}_indices']
-            _h5_indptrs = self._index_backed[f'index_{ch}_indptr']
+        for kmer in kmers:
+            _indptr = self._index_backed[kmer]
             
-            # print("Searching on index")
-            # _loc = np.searchsorted(_h5_indices, kmers)
+            if ((_indptr.second - _indptr.first) >= count_at_most) or ((_indptr.second - _indptr.first) <= count_at_least):
+                continue
 
-            for i, kmer in track(enumerate(kmers), description=f"Querying chunk {ch}"):
-                try:
-                    _loc = _h5_indices.index(kmer)
-                except ValueError:
-                    continue
+            _res = _data[_indptr.first:_indptr.second]
+            _set = unordered_set[uint32_t]()
+            for _res_item in _res:
+                _set.insert(_res_item)
 
-                _indptr = _h5_indptrs[_loc:_loc+2]
-                if (len(_indptr) != 2):
-                    _indptr = [_indptr[0], self.data_lengths[ch]]
+            vals[kmer] = _set
 
-                if ((_indptr[1]-_indptr[0]) >= count_at_most) or ((_indptr[1]-_indptr[0]) <= count_at_least):
-                    continue
-                
-                _res = _data[_indptr[0]:_indptr[1]]
-
-                if len(_res) > 0:
-                    vals[kmer].update(set(_res))
-
-        vals = {k: np.array(list(v)) for k, v in vals.items()}
         return vals
 
-    def _load_index_to_memory(self):
-        # only load from memory when a file or None; skip if already a dict (assumes proper format)
-        if isinstance(self._index_backed, h5py.File) or self._index_backed is None:
-            self._index_backed = {f'index_{i}_indices': SortedList(self.index[f'index_{i}_indices'][:]) for i in range(self.n_chunks)}
-            self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
-            self.binary_search = self._binary_search_malva
+    cdef void _load_index_to_memory(self, int chunk_id = 0):
+        cdef:
+            np.ndarray _indices, _indptr
+            size_t i = 0
+            pair[uint32_t, uint32_t] value
 
-    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, count_at_most=10_000, count_at_least=10, query_jump=False):
+        if self.n_chunks > 1:
+            logging.warn(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
+
+        if not self._index_backed.empty():
+            return
+
+        # TODO: remove this because it is a subset (for testing)
+        _indices = self.index[f'index_{chunk_id}_indices'][:]
+        _indptr = self.index[f'index_{chunk_id}_indptr'][:]
+        
+        length = len(_indices)
+
+        for i in range(length - 1):
+            self._index_backed[_indices[i]] = pair[uint32_t, uint32_t](_indptr[i], _indptr[i+1])
+        
+        i += 1
+        self._index_backed[_indices[i]] = pair[uint32_t, uint32_t](_indptr[i], length - 1)
+
+    def where(self, sequence, sliding_size=128, pct_threshold=0.65, count_at_most=10_000, count_at_least=10, query_jump=False, chunk_id = 0, *args, **kwargs):
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
+            unordered_map[uint32_t, uint32_t] primary_map = unordered_map[uint32_t, uint32_t]()
+            unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
+            np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
+            float CONST_THRESHOLD = 0
+            uint32_t key
+            int seq_no = 0
+            int idx = 0
+            pair[uint32_t, uint32_t] item
+
         if len(sequence) < self.kmer_size:
             raise ValueError("Query sequence cannot be smaller than kmer size!")
 
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
 
-        # TODO: move into a context manager
-        self.open()
-        if not lazy_index:
-            logging.debug("Will not use lazy loading - the chunk indexes are loaded into memory")
-            self._load_index_to_memory()
+        self._load_index_to_memory(chunk_id=chunk_id)
 
-        # TODO: collapse seq_no and all_seq_no into one
-        all_oc = []
+        # TODO: reimplement seq_matches again
         seq_matches = [[0, 1]]
-        seq_no = 0
-        all_seq_no = 0
 
         def get_sliding_sequence(string, k):
             n = len(string)
-            sliding_seqs = []
-
-            for i in range(n - k + 1):
-                slide = string[i:i + k]
-                sliding_seqs.append(slide)
-
-            return sliding_seqs
+            return [string[i:i + k] for i in range(n - k + 1)]
         
         # get data for kmers
         all_kmer_list = []
@@ -449,54 +472,53 @@ cdef class MalvaIndex:
             all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
         all_kmer_list = np.unique(all_kmer_list)
-        # 0 is 'A'*kmer_size but also any low-complexity k-mer
+        # 0 is 'A'*kmer_size but also any low-complexity k-mer, when that filter is active
         all_kmer_list = all_kmer_list[all_kmer_list != 0]
 
         if len(all_kmer_list) == 0:
-            return (np.array([0]), np.array([0]), seq_matches)
+            return (kmer_locations, kmer_count, seq_matches)
 
-        all_kmer_dict = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least)
+        current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
-        for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
-            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not query_jump:
-                # TODO: store from previous and not rerun?
+        #for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
+        for subseq in sliding_sequences:
+            if seq_no <= self.kmer_size or seq_no <= int(len(subseq)/2) or not query_jump:
                 all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+                CONST_THRESHOLD = pct_threshold * len(all_kmer_list)
                 kmer_list = [i for i in all_kmer_list if i != 0]
-
+                
                 if len(kmer_list) == 0:
-                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
-                    seq_no += 1
-                    all_seq_no += 1
                     continue
-    
-                all_items = itemgetter(*kmer_list)(all_kmer_dict)
 
-                if len(all_items) == 0:
-                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
-                    seq_no += 1
-                    all_seq_no += 1
-                    continue
-                else:
-                    all_items = np.hstack(all_items)
+                for kmer in kmer_list:
+                    if current_kmers.find(kmer) != current_kmers.end():
+                        values = current_kmers[kmer]
+                        for value in values:
+                            if primary_map.find(value) != primary_map.end():
+                                primary_map[value] += 1
+                            else:
+                                primary_map[value] = 1
 
-                all_items = all_items[all_items != np.array(-1)]
-                all_items, counts = np.unique(all_items, return_counts=True)
-                props_ix = np.where(counts / len(all_kmer_list) >= pct_threshold)[0]
-                all_oc += [all_items[props_ix]]
-                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items[props_ix])] for k in range(len(all_kmer_list))]
+                for item in primary_map:
+                    key = item.first
+                    count = item.second
+                    if count >= CONST_THRESHOLD:
+                        if secondary_map.find(key) != secondary_map.end():
+                            secondary_map[key] += 1
+                        else:
+                            secondary_map[key] = 1
 
             seq_no += 1
-            all_seq_no += 1
-            if seq_no == sliding_size:
+            if seq_no == sliding_sequences:
                 seq_no = 0
-
-        logging.info("Counting unique spatial matches")
-        if len(all_oc) > 0:
-            kmer_locations, kmer_count = np.unique(np.concatenate(all_oc), return_counts=True)
-        else:
-            kmer_locations, kmer_count = np.array([0]), np.array([0])
         
-        self.close()
+        kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
+        kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
+
+        for item in secondary_map:
+            kmer_locations[idx] = item.first
+            kmer_count[idx] = item.second
+            idx += 1
 
         return (kmer_locations, kmer_count, seq_matches)
 
@@ -513,7 +535,8 @@ cdef class SpatialIndex:
         self.index[cell_bc] = i
         # self.num_coords += 1
 
-    cdef uint32_t get_key(self, uint64_t key) nogil:
+    # TODO: check if the noexcept has some performance penalty or not
+    cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
         return self.index[key]
 
     def set_bounds(self, uint32_t xmin, uint32_t xmax, uint32_t ymin, uint32_t ymax):
