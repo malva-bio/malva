@@ -439,7 +439,7 @@ cdef class MalvaIndex:
     def where(self, sequence, sliding_size=128, pct_threshold=0.65, count_at_most=10_000, count_at_least=10, query_jump=False, chunk_id = 0, *args, **kwargs):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
-            unordered_map[uint32_t, uint32_t] primary_map = unordered_map[uint32_t, uint32_t]()
+            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
             unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
             np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
             float CONST_THRESHOLD = 0
@@ -462,6 +462,9 @@ cdef class MalvaIndex:
         def get_sliding_sequence(string, k):
             n = len(string)
             return [string[i:i + k] for i in range(n - k + 1)]
+
+        def get_whole_sliding_sequence(string, k):
+            return [string[i:] for i in range(k)]
         
         # get data for kmers
         all_kmer_list = []
@@ -480,33 +483,38 @@ cdef class MalvaIndex:
 
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
+        whole_sliding_sequences = get_whole_sliding_sequence(sequence, self.kmer_size)
         #for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
-        for subseq in sliding_sequences:
+        for subseq in whole_sliding_sequences:
             if seq_no <= self.kmer_size or seq_no <= int(len(subseq)/2) or not query_jump:
                 all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
                 CONST_THRESHOLD = pct_threshold * len(all_kmer_list)
-                kmer_list = [i for i in all_kmer_list if i != 0]
+                kmer_list = [(i, k) for i, k in enumerate(all_kmer_list) if k != 0]
                 
                 if len(kmer_list) == 0:
                     continue
 
-                for kmer in kmer_list:
-                    if current_kmers.find(kmer) != current_kmers.end():
-                        values = current_kmers[kmer]
-                        for value in values:
-                            if primary_map.find(value) != primary_map.end():
-                                primary_map[value] += 1
-                            else:
-                                primary_map[value] = 1
+                for idx_kmer, kmer in kmer_list:
+                    if current_kmers.find(kmer) == current_kmers.end():
+                        continue
+    
+                    values = current_kmers[kmer]
+                    for value in values:
+                        if primary_map.find(value) == primary_map.end() or (idx * self.kmer_size) - primary_map[value].second > sliding_size:
+                            primary_map[value] = pair[uint32_t, uint32_t](1, idx_kmer)
+                        else:
+                            primary_map[value].first += 1
+                            primary_map[value].second = idx_kmer
 
                 for item in primary_map:
                     key = item.first
                     count = item.second
-                    if count >= CONST_THRESHOLD:
-                        if secondary_map.find(key) != secondary_map.end():
-                            secondary_map[key] += 1
-                        else:
-                            secondary_map[key] = 1
+                    if count < CONST_THRESHOLD:
+                        continue
+                    if secondary_map.find(key) != secondary_map.end():
+                        secondary_map[key] += 1
+                    else:
+                        secondary_map[key] = 1
 
             seq_no += 1
             if seq_no == sliding_sequences:
