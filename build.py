@@ -34,8 +34,8 @@ extensions = [
         extra_compile_args=["-std=c++17"],
     ),
     Extension(
-        "malva.faster_classes",
-        ["malva/faster_classes.pyx"],
+        "malva.indexes",
+        ["malva/indexes.pyx"],
         include_dirs=[unordered_dense_include, numpy.get_include()],
         language="c++",
         extra_compile_args=["-std=c++17"],
