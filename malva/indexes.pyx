@@ -54,6 +54,7 @@ cdef class MalvaIndex:
         public str index_dir
         public str index_file
         public int kmer_size
+        public bint verbose
         public object index
         public tuple coord_lims
         public int n_chunks
@@ -65,12 +66,13 @@ cdef class MalvaIndex:
         map[uint64_t, pair[uint32_t, uint32_t]] _index_backed
         SpatialIndex spatial_index
 
-    def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=8):
+    def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
         self.index_dir = index_dir
         self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
         self._n_kmers_processed = 0
+        self.verbose = True
         self.spatial_index = SpatialIndex()
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
@@ -250,8 +252,10 @@ cdef class MalvaIndex:
 
     @cython.wraparound(True)
     def merge_chunks(self, f: str, chunksize: int = 1_000_000):
-        # TODO: have in context manager so it closes gracefully upon error
-        # TODO: make this function run faster
+        # TODO: open/close in context manager so it closes gracefully upon error
+        # make this function run faster
+        # right now iterates k-mer by k-mer which can be too slow
+        # Resample and merge the chunk data into a single file
         self.open()
 
         _indices_lengths = [len(self.index[f'index_{chunk}_indices']) for chunk in range(0, self.n_chunks)]
@@ -280,7 +284,6 @@ cdef class MalvaIndex:
         output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype='uint64')
         output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype='uint32')
 
-        #for _ in track(range(0, max_kmer_chunk, chunksize), description='Merging sorted chunks'):
         for _ in range(0, max_kmer_chunk, chunksize):
             _val_max_ix_0 = self.index[f'index_{which_index}_indices'][imin[0]:imax[0]][-1]
             imax = np.array([np.argwhere(self.index[f'index_{chunk}_indices'] <= _val_max_ix_0)[-1][0] for chunk in range(0, self.n_chunks)]) + 1
@@ -308,8 +311,6 @@ cdef class MalvaIndex:
             chunks_labels = np.repeat(np.arange(self.n_chunks), [len(c) for c in chunk_indices])
             chunks_data = [self.index[f'index_{chunk}_data'][chunk_indptr_lo[chunk][0]:chunk_indptr_hi[chunk][-1]] for chunk in range(0, self.n_chunks) if len(chunk_indptr_hi[chunk]) > 0]
 
-            # TODO: this can run faster, right now iterates k-mer by k-mer which can be too slow
-            # Resample and merge the chunk data into a single file
             for ind, l, lo, hi in (zip(chunks_indices[_chunk_idx_sorted],
                                         chunks_labels[_chunk_idx_sorted],
                                         chunks_indptr_lo[_chunk_idx_sorted],
@@ -377,7 +378,12 @@ cdef class MalvaIndex:
 
         _data = self.index[f'index_{chunk_id}_data']
 
-        for kmer in kmers:
+        if self.verbose:
+            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}'):
+        else:
+            iterator = kmers
+
+        for kmer in iterator:
             _indptr = self._index_backed[kmer]
             
             if ((_indptr.second - _indptr.first) >= count_at_most) or ((_indptr.second - _indptr.first) <= count_at_least):
@@ -429,9 +435,7 @@ cdef class MalvaIndex:
                 total_length
             )
 
-    def where(self, sequence: Union[str, list], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, *args, **kwargs):
-        # TODO: support sequence as list, so these will be processed at once (AND matches, we could specify with a new `logical_operator` argument)
-        # TODO: this manner, we can process really large sequences (e.g., all the UTR from a gene) without computing all overlapping windows (can be too slow)
+    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, *args, **kwargs):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
             unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
@@ -443,27 +447,23 @@ cdef class MalvaIndex:
             int idx = 0
             pair[uint32_t, uint32_t] item
             pair[uint32_t, pair[uint32_t, uint32_t]] item_primary
-
-        if len(sequence) < self.kmer_size:
-            raise ValueError("Query sequence cannot be smaller than kmer size!")
+            list whole_sliding_sequences = []
 
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
 
-        self._load_index_to_memory(chunk_id=chunk_id)
-
-        CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
-
-        # TODO: reimplement seq_matches again
-        seq_matches = [[0, 1]]
+        if isinstance(sequence, str):
+            sequence = [sequence]
 
         def get_whole_sliding_sequence(string, k):
             return [string[i:] for i in range(k)]
         
-        # get data for kmers
+        for seq in sequence:
+            if len(seq) < self.kmer_size:
+                raise ValueError(f"Query sequence of length {len(seq)} cannot be smaller than kmer size {self.kmer_size}!")
+            whole_sliding_sequences.extend(get_whole_sliding_sequence(seq, self.kmer_size))
+
         all_kmer_list = []
-        whole_sliding_sequences = get_whole_sliding_sequence(sequence, self.kmer_size)
-    
         for subseq in whole_sliding_sequences:
             all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
@@ -473,11 +473,20 @@ cdef class MalvaIndex:
         if len(all_kmer_list) == 0:
             return (kmer_locations, kmer_count, seq_matches)
 
+        self._load_index_to_memory(chunk_id=chunk_id)
+
+        CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
+
+        # TODO: reimplement seq_matches again, supporting various sequences...
+        seq_matches = [[0, 1]]
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
-        # TODO: these progress bars can be configured (displayed or not, whatever the user prefers)
-        #for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
-        for subseq in whole_sliding_sequences:
+        if self.verbose:
+            iterator = track(whole_sliding_sequences, description='Counting occurrences at kmers'):
+        else:
+            iterator = whole_sliding_sequences
+    
+        for subseq in iterator:
             all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
 
             for idx_kmer, kmer in enumerate(all_kmer_list):
