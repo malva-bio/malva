@@ -367,8 +367,6 @@ cdef class MalvaIndex:
         self._iter_seqs.swap(temp)
 
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
-        # TODO: use unordered_map[uint64_t, unordered_set[uint32_t]]
-        # because the dictionaries are too slow!
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
             pair[uint32_t, uint32_t] _indptr
@@ -394,13 +392,12 @@ cdef class MalvaIndex:
 
         return vals
 
-    cdef void _load_index_to_memory(self, int chunk_id = 0):
-        # TODO: load by chunks, so it will not use a lot of memory
-        # e.g., for 1B reads file, it needs 4GB of memory (~200M kmers)
+    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=1_000_000):
         cdef:
-            np.ndarray _indices, _indptr
-            size_t i = 0
+            np.ndarray _indices_chunk, _indptr_chunk
+            size_t i = 0, start = 0, end = 0
             pair[uint32_t, uint32_t] value
+            size_t total_length, chunk_end
 
         if self.n_chunks > 1:
             logging.warn(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
@@ -408,19 +405,31 @@ cdef class MalvaIndex:
         if not self._index_backed.empty():
             return
 
-        # TODO: remove this because it is a subset (for testing)
-        _indices = self.index[f'index_{chunk_id}_indices'][:]
-        _indptr = self.index[f'index_{chunk_id}_indptr'][:]
-        
-        length = len(_indices)
+        total_length = len(self.index[f'index_{chunk_id}_indices'])
 
-        for i in range(length - 1):
-            self._index_backed[_indices[i]] = pair[uint32_t, uint32_t](_indptr[i], _indptr[i+1])
-        
-        i += 1
-        self._index_backed[_indices[i]] = pair[uint32_t, uint32_t](_indptr[i], length - 1)
+        while start < total_length - 1:
+            end = min(start + chunk_size, total_length)
+            chunk_end = min(end + 1, total_length)
 
-    def where(self, sequence: Union[str, list], sliding_size: int=128, pct_threshold: int=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, *args, **kwargs):
+            if chunk_end == end:
+                end = end - 1
+
+            _indices_chunk = self.index[f'index_{chunk_id}_indices'][start:end]
+            _indptr_chunk = self.index[f'index_{chunk_id}_indptr'][start:chunk_end]
+
+            for i in range(len(_indices_chunk)):
+                self._index_backed[_indices_chunk[i]] = pair[uint32_t, uint32_t](_indptr_chunk[i], _indptr_chunk[i+1])
+
+            start = end
+
+        if end == total_length:
+            last_index = total_length - 1
+            self._index_backed[self.index[f'index_{chunk_id}_indices'][last_index]] = pair[uint32_t, uint32_t](
+                self.index[f'index_{chunk_id}_indptr'][last_index],
+                total_length
+            )
+
+    def where(self, sequence: Union[str, list], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, *args, **kwargs):
         # TODO: support sequence as list, so these will be processed at once (AND matches, we could specify with a new `logical_operator` argument)
         # TODO: this manner, we can process really large sequences (e.g., all the UTR from a gene) without computing all overlapping windows (can be too slow)
         cdef:
@@ -489,8 +498,6 @@ cdef class MalvaIndex:
                 if (idx_kmer + 1) < (sliding_size//self.kmer_size) and (idx_kmer + 1) < len(all_kmer_list):
                     continue
 
-                # TODO: double check if that's correct
-                # because we need to set sliding_size = 24 for this to work...
                 for item_primary in primary_map:
                     value = item_primary.first
                     if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
@@ -512,7 +519,6 @@ cdef class MalvaIndex:
 
         return (kmer_locations, kmer_count, seq_matches)
 
-# TODO: separate spatial index to another class
 cdef class SpatialIndex:
     cdef:
         map[uint64_t, uint32_t] index
@@ -526,7 +532,7 @@ cdef class SpatialIndex:
         self.index[cell_bc] = i
         # self.num_coords += 1
 
-    # TODO: check if the noexcept has some performance penalty or not
+    # TODO: check if noexcept has performance penalty as suggested by compiler
     cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
         return self.index[key]
 
