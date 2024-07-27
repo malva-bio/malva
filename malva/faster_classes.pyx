@@ -419,7 +419,7 @@ cdef class MalvaIndex:
     def where(self, sequence, sliding_size=128, pct_threshold=0.65, count_at_most=10_000, count_at_least=10, chunk_id = 0, *args, **kwargs):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
-            unordered_map[uint32_t, uint32_t] primary_map = unordered_map[uint32_t, uint32_t]()
+            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
             unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
             np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
             float CONST_THRESHOLD = 0
@@ -427,6 +427,7 @@ cdef class MalvaIndex:
             int seq_no = 0
             int idx = 0
             pair[uint32_t, uint32_t] item
+            pair[uint32_t, pair[uint32_t, uint32_t]] item_primary
 
         if len(sequence) < self.kmer_size:
             raise ValueError("Query sequence cannot be smaller than kmer size!")
@@ -467,9 +468,6 @@ cdef class MalvaIndex:
         #for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
         for subseq in whole_sliding_sequences:
             all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-            
-            if len(kmer_list) == 0:
-                continue
 
             for idx_kmer, kmer in enumerate(all_kmer_list):
                 if current_kmers.find(kmer) == current_kmers.end():
@@ -479,19 +477,26 @@ cdef class MalvaIndex:
                 values = current_kmers[kmer] if kmer != 0 else []
                 for value in values:
                     if primary_map.find(value) == primary_map.end():
-                        primary_map[value] = 1
+                        primary_map[value].first = 1
                     else:
-                        primary_map[value] += 1
+                        primary_map[value].first += 1
+                    primary_map[value].second = idx_kmer
+
+                
+                # accumulate counts during first sliding_size - but process last iter
+                if (idx_kmer + 1) < (sliding_size//self.kmer_size) and (idx_kmer + 1) < len(all_kmer_list):
+                    continue
 
                 # TODO: double check if that's correct
-                for item in primary_map:
-                    value = item.first
-                    if (idx_kmer + 1) >= (sliding_size//self.kmer_size):
-                        if secondary_map.find(value) == secondary_map.end():
-                            secondary_map[value] = 0
-                        if primary_map[value] > CONST_THRESHOLD:
-                            secondary_map[value] += 1
-                        primary_map[value] = <uint32_t>max(0, (<int32_t>primary_map[value] - 1))
+                # because we need to set sliding_size = 24 for this to work...
+                for item_primary in primary_map:
+                    value = item_primary.first
+                    if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
+                        secondary_map[value] = 1
+                    elif primary_map[value].first > CONST_THRESHOLD:
+                        secondary_map[value] += 1
+                    if primary_map[value].second - idx_kmer > 1:
+                        primary_map[value] = min(<uint32_t>max(0, (<int32_t>(primary_map[value].first) - 1)), (sliding_size//self.kmer_size))
             
             primary_map.clear()
  
