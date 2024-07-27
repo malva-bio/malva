@@ -33,7 +33,9 @@ def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_comple
         sequence = mask_low_complexity(sequence, N=4, L=kmer_index.kmer_size)
 
     logging.info(f"Querying sequence '{sequence}'")
+    kmer_index.open()
     locs, ints, where_abundant = kmer_index.where(sequence, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False, count_at_most=countmaxkmer, count_at_least=countminkmer)
+    kmer_index.close()
     logging.info(f"Adding result to spatial file")
     add_kmer_to_netcdf_index(xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
 
@@ -51,10 +53,10 @@ def _run_serve(args):
     kmer_index.open() # TODO: when loading, if the index exists, instead of this
 
     _loc_all, _abu_all = np.unique(kmer_index.index[f'index_0_data'][0:MAX_LOAD_ALL], return_counts=True)
-    kmer_index.close()
 
     logging.info("Loading the pointers into memory. Might take a while.")
     kmer_index.where("A"*kmer_index.kmer_size, lazy_index=args.lazy_index)
+    kmer_index.close()
     where_abundant = []
     query_seq = ""
     query_term = ""
