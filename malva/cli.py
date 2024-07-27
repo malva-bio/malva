@@ -38,11 +38,13 @@ def get_index_parser():
         "--flavor",
         type=str,
         default="openst",
-        choices=['openst', 'stereo_seq', 'slide_seq', 'visium', 'seq_scope_v1', '*.yaml'], # TODO: formatting of the .yaml is acceptable, or move validation to the function
         help="""Spatial transcriptomics technology. 
         These are default configurations to read from the paired FASTQ (or BAM) files.
         Other configurations can be provided as a properly formatted `.yaml` file - see
-        documentation.""",
+        documentation.
+        
+        Currently, flavors 'openst', 'stereo_seq', 'slide_seq', 'visium', 
+        'seq_scope_v1', or a path to a .yaml file, are supported""",
     )
     parser.add_argument(
         "--kmer-length",

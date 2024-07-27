@@ -9,17 +9,27 @@ N_REPORT = 1_000_000
 
 
 def load_flavor(flavor, flavors_config_path):
-    with open(flavors_config_path) as stream:
-        try:
-            flavor_config = yaml.safe_load(stream)
-        except yaml.YAMLError as exc:
-            raise yaml.YAMLError(exc)
-    
-    if flavor not in flavor_config['barcode_flavors']:
-        raise ValueError(f"Flavor `{flavor}` could not be found")
-    
-    current_flavor_config = flavor_config['barcode_flavors'][flavor]
-    return current_flavor_config
+    if flavor.lower().endswith('.yaml'):
+        if not os.path.isfile(flavor):
+            raise FileNotFoundError(f"Custom flavor file '{flavor}' not found.")
+        with open(flavor, 'r') as stream:
+            try:
+                custom_flavor_config = yaml.safe_load(stream)
+                return custom_flavor_config
+            except yaml.YAMLError as exc:
+                raise yaml.YAMLError(f"Error parsing custom flavor file: {exc}")
+    else:
+        with open(flavors_config_path, 'r') as stream:
+            try:
+                flavor_config = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                raise yaml.YAMLError(f"Error parsing flavors config file: {exc}")
+        
+        if flavor not in flavor_config['barcode_flavors']:
+            raise ValueError(f"Flavor `{flavor}` could not be found")
+        
+        current_flavor_config = flavor_config['barcode_flavors'][flavor]
+        return current_flavor_config
 
 
 def _run_index(args):
