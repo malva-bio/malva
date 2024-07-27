@@ -12,7 +12,7 @@ from libcpp.vector cimport vector
 cdef uint32_t[65536] KMER_ENCODE_TABLE
 
 # Initialize the lookup table
-cdef void init_kmer_encode_table() nogil:
+cdef int init_kmer_encode_table() nogil:
     cdef:
         uint32_t i, encoded
         unsigned char b1, b2

@@ -1,4 +1,4 @@
-# fastq_parser.pxd
+# cython: language_level=3
 
 from libcpp.vector cimport vector
 from libc.stdint cimport uint64_t, uint32_t
