@@ -251,6 +251,7 @@ cdef class MalvaIndex:
     @cython.wraparound(True)
     def merge_chunks(self, f: str, chunksize: int = 1_000_000):
         # TODO: have in context manager so it closes gracefully upon error
+        # TODO: make this function run faster
         self.open()
 
         _indices_lengths = [len(self.index[f'index_{chunk}_indices']) for chunk in range(0, self.n_chunks)]
@@ -307,6 +308,7 @@ cdef class MalvaIndex:
             chunks_labels = np.repeat(np.arange(self.n_chunks), [len(c) for c in chunk_indices])
             chunks_data = [self.index[f'index_{chunk}_data'][chunk_indptr_lo[chunk][0]:chunk_indptr_hi[chunk][-1]] for chunk in range(0, self.n_chunks) if len(chunk_indptr_hi[chunk]) > 0]
 
+            # TODO: this can run faster, right now iterates k-mer by k-mer which can be too slow
             # Resample and merge the chunk data into a single file
             for ind, l, lo, hi in (zip(chunks_indices[_chunk_idx_sorted],
                                         chunks_labels[_chunk_idx_sorted],
@@ -393,6 +395,8 @@ cdef class MalvaIndex:
         return vals
 
     cdef void _load_index_to_memory(self, int chunk_id = 0):
+        # TODO: load by chunks, so it will not use a lot of memory
+        # e.g., for 1B reads file, it needs 4GB of memory (~200M kmers)
         cdef:
             np.ndarray _indices, _indptr
             size_t i = 0
@@ -416,7 +420,9 @@ cdef class MalvaIndex:
         i += 1
         self._index_backed[_indices[i]] = pair[uint32_t, uint32_t](_indptr[i], length - 1)
 
-    def where(self, sequence, sliding_size=128, pct_threshold=0.65, count_at_most=10_000, count_at_least=10, chunk_id = 0, *args, **kwargs):
+    def where(self, sequence: Union[str, list], sliding_size: int=128, pct_threshold: int=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, *args, **kwargs):
+        # TODO: support sequence as list, so these will be processed at once (AND matches, we could specify with a new `logical_operator` argument)
+        # TODO: this manner, we can process really large sequences (e.g., all the UTR from a gene) without computing all overlapping windows (can be too slow)
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
             unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
@@ -441,10 +447,6 @@ cdef class MalvaIndex:
 
         # TODO: reimplement seq_matches again
         seq_matches = [[0, 1]]
-
-        def get_sliding_sequence(string, k):
-            n = len(string)
-            return [string[i:i + k] for i in range(n - k + 1)]
 
         def get_whole_sliding_sequence(string, k):
             return [string[i:] for i in range(k)]
@@ -510,6 +512,7 @@ cdef class MalvaIndex:
 
         return (kmer_locations, kmer_count, seq_matches)
 
+# TODO: separate spatial index to another class
 cdef class SpatialIndex:
     cdef:
         map[uint64_t, uint32_t] index

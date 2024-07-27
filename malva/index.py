@@ -3,7 +3,7 @@ import os
 import yaml
 
 from malva.utils import check_file_exists, check_directory_exists, get_module_path
-from malva.faster_classes import MalvaIndex, SpatialIndex, create_spatial_index
+from malva.indexes import MalvaIndex, SpatialIndex, create_spatial_index
 
 N_REPORT = 1_000_000
 
