@@ -72,7 +72,7 @@ cdef class MalvaIndex:
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
         self._n_kmers_processed = 0
-        self.verbose = True
+        self.verbose = verbose
         self.spatial_index = SpatialIndex()
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
