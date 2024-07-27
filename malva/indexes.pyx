@@ -379,7 +379,7 @@ cdef class MalvaIndex:
         _data = self.index[f'index_{chunk_id}_data']
 
         if self.verbose:
-            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}'):
+            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
         else:
             iterator = kmers
 
@@ -482,7 +482,7 @@ cdef class MalvaIndex:
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
         if self.verbose:
-            iterator = track(whole_sliding_sequences, description='Counting occurrences at kmers'):
+            iterator = track(whole_sliding_sequences, description='Counting occurrences at kmers')
         else:
             iterator = whole_sliding_sequences
     
