@@ -436,6 +436,7 @@ cdef class MalvaIndex:
             )
 
     def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, *args, **kwargs):
+        # TODO: reimplement seq_matches again, supporting various sequences...
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
             unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
@@ -448,6 +449,7 @@ cdef class MalvaIndex:
             pair[uint32_t, uint32_t] item
             pair[uint32_t, pair[uint32_t, uint32_t]] item_primary
             list whole_sliding_sequences = []
+            list seq_matches = [[0, 1]]
 
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
@@ -477,8 +479,6 @@ cdef class MalvaIndex:
 
         CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
 
-        # TODO: reimplement seq_matches again, supporting various sequences...
-        seq_matches = [[0, 1]]
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
         if self.verbose:
