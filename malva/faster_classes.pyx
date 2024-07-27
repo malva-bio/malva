@@ -4,7 +4,7 @@
 cimport cython
 cimport numpy as np
 
-from libc.stdint cimport uint16_t, uint32_t, uint64_t
+from libc.stdint cimport uint16_t, uint32_t, int32_t, uint64_t
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair
@@ -44,26 +44,6 @@ np.import_array()
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 ctypedef uint64_t kmer_t
-
-cdef tuple convert_map_to_arrays(map[uint32_t, uint16_t]& _in_map):
-    cdef:
-        vector[uint32_t] keys
-        vector[uint16_t] values
-        map[uint32_t, uint16_t].iterator it = _in_map.begin()
-        np.npy_intp dims[1]
-    
-    # Populate vectors with keys and values
-    while it != _in_map.end():
-        keys.push_back(deref(it).first)
-        values.push_back(deref(it).second)
-        inc(it)
-    
-    # Create NumPy arrays from vectors
-    dims[0] = keys.size()
-    cdef np.ndarray keys_array = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>keys.data())
-    cdef np.ndarray values_array = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT16, <void*>values.data())
-    
-    return keys_array, values_array
 
 cdef struct SpatialCoord:
     uint32_t x
@@ -436,10 +416,10 @@ cdef class MalvaIndex:
         i += 1
         self._index_backed[_indices[i]] = pair[uint32_t, uint32_t](_indptr[i], length - 1)
 
-    def where(self, sequence, sliding_size=128, pct_threshold=0.65, count_at_most=10_000, count_at_least=10, query_jump=False, chunk_id = 0, *args, **kwargs):
+    def where(self, sequence, sliding_size=128, pct_threshold=0.65, count_at_most=10_000, count_at_least=10, chunk_id = 0, *args, **kwargs):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
-            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
+            unordered_map[uint32_t, uint32_t] primary_map = unordered_map[uint32_t, uint32_t]()
             unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
             np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
             float CONST_THRESHOLD = 0
@@ -456,6 +436,8 @@ cdef class MalvaIndex:
 
         self._load_index_to_memory(chunk_id=chunk_id)
 
+        CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
+
         # TODO: reimplement seq_matches again
         seq_matches = [[0, 1]]
 
@@ -468,14 +450,12 @@ cdef class MalvaIndex:
         
         # get data for kmers
         all_kmer_list = []
-        _necessary = np.ceil((len(sequence)-self.kmer_size)/np.floor(len(sequence)/self.kmer_size)).astype(int)
-        sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
+        whole_sliding_sequences = get_whole_sliding_sequence(sequence, self.kmer_size)
     
-        for subseq in sliding_sequences:
+        for subseq in whole_sliding_sequences:
             all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
-        all_kmer_list = np.unique(all_kmer_list)
-        # 0 is 'A'*kmer_size but also any low-complexity k-mer, when that filter is active
+        all_kmer_list = np.unique(np.concatenate(all_kmer_list))
         all_kmer_list = all_kmer_list[all_kmer_list != 0]
 
         if len(all_kmer_list) == 0:
@@ -483,45 +463,37 @@ cdef class MalvaIndex:
 
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
-        whole_sliding_sequences = get_whole_sliding_sequence(sequence, self.kmer_size)
         # TODO: these progress bars can be configured (displayed or not, whatever the user prefers)
         #for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
         for subseq in whole_sliding_sequences:
             all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-            CONST_THRESHOLD = pct_threshold * sliding_size
-            kmer_list = [(i, k) for i, k in enumerate(all_kmer_list) if k != 0]
-            
-            # TODO: remove this - it is here so there will not be compilation-runtime issues
-            continue
             
             if len(kmer_list) == 0:
                 continue
 
-            for idx_kmer, kmer in kmer_list:
+            for idx_kmer, kmer in enumerate(all_kmer_list):
                 if current_kmers.find(kmer) == current_kmers.end():
                     continue
                 
-                # TODO: we want to implement an algorithm that scans the array and computes 
-                # the number of chunks that have at least CONST_THRESHOLD matches across the array
-                # - this will avoid recomputing the kmer presence, as it is done serially in O(n)
-                values = current_kmers[kmer]
+                # we do not add occurrence to low complexity kmers
+                values = current_kmers[kmer] if kmer != 0 else []
                 for value in values:
                     if primary_map.find(value) == primary_map.end():
-                        primary_map[value] = pair[uint32_t, uint32_t](1, idx_kmer)
-                    elif idx_kmer - primary_map[value].second == 1:
-                        primary_map[value].first += 1
-                        primary_map[value].second = idx_kmer
+                        primary_map[value] = 1
                     else:
-                        primary_map[value].first = max(0, primary_map[value].first - (idx_kmer - primary_map[value].second))
-                        primary_map[value].second = idx_kmer
+                        primary_map[value] += 1
 
-                for p_pair in primary_map:
-                    value = p_pair.first
-                    if idx_kmer * self.kmer_size >= sliding_size:
+                # TODO: double check if that's correct
+                for item in primary_map:
+                    value = item.first
+                    if (idx_kmer + 1) >= (sliding_size//self.kmer_size):
                         if secondary_map.find(value) == secondary_map.end():
                             secondary_map[value] = 0
-                        elif primary_map[value] > CONST_THRESHOLD:
+                        if primary_map[value] > CONST_THRESHOLD:
                             secondary_map[value] += 1
+                        primary_map[value] = <uint32_t>max(0, (<int32_t>primary_map[value] - 1))
+            
+            primary_map.clear()
  
         kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
         kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
