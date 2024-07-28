@@ -102,6 +102,8 @@ def _run_show(args):
             print(multi_out_np.shape)
 
             tifffile.imwrite(_multi_out_file, multi_out_np, metadata={"axes": "CYX", "Labels": list(multi_out.keys())}, imagej=True, bigtiff=True)
+
+    logging.info("SUCCESS!")
     
 
 if __name__ == "__main__":
