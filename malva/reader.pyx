@@ -1,7 +1,5 @@
 # distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
-
-import pysam
 import io
 
 from xopen import xopen
@@ -41,3 +39,14 @@ def iterate_flavor(list reads_in,
 
     else:
         raise ValueError("`--reads-in` must point to paired FASTQ files")
+
+
+def iterate_fasta(filename):
+    try:
+        import dnaio
+    except ImportError:
+        raise ImportError("Please install dnaio: `pip install dnaio`")
+
+    with dnaio.open(filename) as reader:
+        for record in reader:
+            yield record.name, record.sequence

@@ -31,7 +31,7 @@ def get_index_parser():
         type=str,
         required=True,
         help="""Valid directory where the malva index (and metadata) will be written into.
-        If the directory exists, it must not contain files called `index.kst` and `index_metadata.json`.
+        If the directory exists, it must not contain files called `malva_index.h5`.
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
@@ -124,7 +124,7 @@ def get_show_parser():
         "--index-in",
         type=str,
         help="""Valid directory where the malva index (and metadata) is located.
-        The directory must contain the file `index.kst` and `index_metadata.json`.
+        The directory must contain the file `malva_index.h5`.
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
@@ -190,6 +190,60 @@ def cmd_run_show(args):
 
     _run_show(args)
 
+QUANT_HELP = "Pseudo-quantification of gene expression profiles"
+def get_quant_parser():
+    parser = argparse.ArgumentParser(
+        description=QUANT_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+
+    parser.add_argument(
+        "--index-in",
+        type=str,
+        help="""Valid directory where the malva index (and metadata) is located.
+        The directory must contain the file `malva_index.h5`.
+        Otherwise, an exception will be thrown.""",
+    )
+    parser.add_argument(
+        "--reference",
+        type=str,
+        required=True,
+        options=['human_utr', 'mouse_utr'],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr'""",
+    )
+    parser.add_argument(
+        "--folder-out",
+        type=str,
+        required=True,
+        help="""Directory where the gene expression pseudoquantification. 
+        
+        Three files will be created, similar to cellranger output: 
+        barcodes.txt.gz, features.txt.gz, and matrix.mtx""",
+    )
+    parser.add_argument(
+        "--h5ad",
+        action="store_true",
+        help="""Resaves matrix.mtx to AnnData format, at --folder-out""",
+    )
+    return parser
+
+
+def setup_quant_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "quant",
+        help=QUANT_HELP,
+        parents=[get_quant_parser()],
+    )
+    parser.set_defaults(func=cmd_run_quant)
+
+    return parser
+
+
+def cmd_run_quant(args):
+    from malva.quant import _run_quant
+
+    _run_quant(args)
 
 SERVE_HELP = "Webserver for interactive spatial querying of malva indexes"
 def get_serve_parser():
@@ -203,7 +257,7 @@ def get_serve_parser():
         "--index-in",
         type=str,
         help="""Valid directory where the malva index (and metadata) is located.
-        The directory must contain the file `index.kst` and `index_metadata.json`.
+        The directory must contain the file `malva_index.h5`.
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
