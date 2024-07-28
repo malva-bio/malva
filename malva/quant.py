@@ -21,6 +21,7 @@ def write_mtx_header(file, shape):
 
 def process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col):
     locs, counts, _ = kmer_index.where(utrs_gene, sliding_size=128, pct_threshold=0.4)
+    # TODO: maybe we can normalize counts by the # of utrs?
     
     for loc, count in zip(locs, counts):
         mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
@@ -49,7 +50,6 @@ def resave_h5ad(folder):
 
     adata = ad.read_mtx(matrix_file)
     adata.var_names = pd.read_csv(features_file, header=None, sep='\t')[0]
-    adata.obs_names = np.arange(0, n_spatial).astype(str)
 
     n_spatial = (kmer_index.coord_lims[1] + 1) * (kmer_index.coord_lims[3] + 1)
     xy = np.unravel_index(np.arange(n_spatial), (kmer_index.coord_lims[1] + 1, kmer_index.coord_lims[3] + 1), order='C')

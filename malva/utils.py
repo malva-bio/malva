@@ -423,7 +423,7 @@ def download_url_to_file(url, dst, progress=True):
         if os.path.exists(f.name):
             os.remove(f.name)
 
-EXISTING_REFERENCES = {'human_utr': 'human_utr.fa.gz', 'mouse_utr.fa.gz'}
+EXISTING_REFERENCES = {'human_utr': 'human_utr.fa.gz'}#, 'mouse_utr': 'mouse_utr.fa.gz'}
 REFERENCES_DIR = pathlib.Path.home().joinpath(".malva", "references")
 _MODEL_URL = "http://bimsbstatic.mdc-berlin.de/rajewsky/malva/references"
 def get_reference_cache(reference):

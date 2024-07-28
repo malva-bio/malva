@@ -208,8 +208,9 @@ def get_quant_parser():
     parser.add_argument(
         "--reference",
         type=str,
-        required=True,
-        options=['human_utr', 'mouse_utr'],
+        required=False,
+        default='human_utr',
+        options=['human_utr'],# 'mouse_utr'],
         help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr'""",
     )
     parser.add_argument(
