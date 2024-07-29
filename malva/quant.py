@@ -1,4 +1,3 @@
-import dnaio
 import numpy as np
 import logging
 import os
@@ -8,7 +7,7 @@ from rich.progress import track
 
 from malva.index import MalvaIndex
 from malva.show import MalvaPlot
-from malva.utils import check_directory_exists, check_file_exists, get_module_path, get_reference_cache
+from malva.utils import check_directory_exists, check_file_exists, get_reference_cache
 from malva.reader import iterate_fasta
 
 class MalvaReferenceNotFound(Exception):
@@ -19,9 +18,11 @@ def write_mtx_header(file, shape):
     file.write(b"%\n")
     file.write(f"{shape[0]} {shape[1]} {shape[2]}\n".encode())  # We'll update the nnz at the end
 
-def process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col):
-    locs, counts, _ = kmer_index.where(utrs_gene, sliding_size=128, pct_threshold=0.4)
+def process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col, sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, single_count: bool = False):
+    # TODO: configurable pct_threshold
+    locs, counts, _ = kmer_index.where(utrs_gene, sliding_size=sliding_size, pct_threshold=pct_threshold, count_at_most=count_at_most, count_at_least=count_at_least, single_count=single_count)
     # TODO: maybe we can normalize counts by the # of utrs?
+    counts = np.clip((counts / len(utrs_gene)).astype(int), 1, 10_000)
     
     for loc, count in zip(locs, counts):
         mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
@@ -30,7 +31,7 @@ def process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, cu
     
     return len(locs)
 
-def resave_h5ad(folder):
+def resave_h5ad(folder, kmer_index):
     try:
         import anndata as ad
     except ImportError:
@@ -58,7 +59,7 @@ def resave_h5ad(folder):
 
     adata.write_h5ad(h5ad_file)
 
-def process_reference(kmer_index, reference_file, folder_out, verbose=True):
+def process_reference(kmer_index, reference_file, folder_out, verbose=True, sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, single_count: bool = False):
     kmer_index.verbose = False
     kmer_index.open()
     with open(os.path.join(folder_out, "matrix.mtx"), "wb") as mtx_file, \
@@ -111,7 +112,6 @@ def process_reference(kmer_index, reference_file, folder_out, verbose=True):
 
 def _run_quant(args):
     kmer_index = MalvaIndex(args.index_in)
-    plotter = MalvaPlot(kmer_index)
 
     # the output directory must not exist
     check_directory_exists(args.folder_out, except_when=True)
@@ -120,11 +120,11 @@ def _run_quant(args):
     logging.info(f"Will load reference '{args.reference}'")
 
     logging.info(f"Running pseudo-quantification")
-    process_reference(kmer_index, reference_file, args.folder_out)
+    process_reference(kmer_index, reference_file, args.folder_out, sliding_size=args.sliding_size, pct_threshold=args.pct_threshold, count_at_most=args.kmer_max, count_at_least=args.kmer_min, single_count=args.single_count)
 
     if args.h5ad:
         logging.info("Resaving pseudoquantification as AnnData (h5ad)")
-        resave_h5ad(folder)
+        resave_h5ad(args.folder_out, kmer_index)
 
     # TODO: add to all _run_* fns
     logging.info("SUCCESS!")

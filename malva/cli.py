@@ -210,14 +210,14 @@ def get_quant_parser():
         type=str,
         required=False,
         default='human_utr',
-        options=['human_utr'],# 'mouse_utr'],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr'""",
+        choices=['human_utr', 'mouse_utr'],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--folder-out",
         type=str,
         required=True,
-        help="""Directory where the gene expression pseudoquantification. 
+        help="""Directory where the gene expression pseudoquantification.
         
         Three files will be created, similar to cellranger output: 
         barcodes.txt.gz, features.txt.gz, and matrix.mtx""",
@@ -225,7 +225,41 @@ def get_quant_parser():
     parser.add_argument(
         "--h5ad",
         action="store_true",
-        help="""Resaves matrix.mtx to AnnData format, at --folder-out""",
+        help="""When specified, Resaves matrix.mtx to AnnData format, at --folder-out.""",
+    )
+    parser.add_argument(
+        "--sliding-size",
+        type=int,
+        required=False,
+        default=128,
+        help="""Quantification sliding window size; should match average indexed read length. Default: 128""",
+    )
+    parser.add_argument(
+        "--pct-threshold",
+        type=int,
+        required=False,
+        default=65,
+        help="""Percentage of indexed k-mers that should match per coordinates for considering match. Default: 65 (percent)""",
+    )
+    parser.add_argument(
+        "--kmer-min",
+        type=int,
+        required=False,
+        default=10,
+        help="""k-mers occurring less than --kmer-min times are ignored""",
+    )
+    parser.add_argument(
+        "--kmer-max",
+        type=int,
+        required=False,
+        default=10_000,
+        help="""k-mers occurring more than --kmer-max times are ignored""",
+    )
+    parser.add_argument(
+        "--single-count",
+        action="store_true",
+        help="""When specified, malva counts whether the query sequence was found or not
+        for a specific sequence.""",
     )
     return parser
 
@@ -318,6 +352,7 @@ def cmdline_args():
     setup_index_parser(parent_parser_subparsers)
     setup_show_parser(parent_parser_subparsers)
     setup_serve_parser(parent_parser_subparsers)
+    setup_quant_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
 
