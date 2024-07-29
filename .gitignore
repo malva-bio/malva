@@ -18,6 +18,8 @@
 *.tsv
 *.csv
 *.pickle
+
+*notebooks/
 *.ipynb
 
 # notebook tests
