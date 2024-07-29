@@ -435,7 +435,7 @@ cdef class MalvaIndex:
                 total_length
             )
 
-    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, *args, **kwargs):
+    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, *args, **kwargs):
         # TODO: reimplement seq_matches again, supporting various sequences...
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
@@ -511,7 +511,7 @@ cdef class MalvaIndex:
                     value = item_primary.first
                     if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
                         secondary_map[value] = 1
-                    elif primary_map[value].first > CONST_THRESHOLD:
+                    elif primary_map[value].first > CONST_THRESHOLD and not single_count:
                         secondary_map[value] += 1
                     if primary_map[value].second - idx_kmer > 1:
                         primary_map[value] = min(<uint32_t>max(0, (<int32_t>(primary_map[value].first) - 1)), (sliding_size//self.kmer_size))
