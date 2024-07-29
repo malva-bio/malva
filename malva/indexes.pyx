@@ -436,6 +436,27 @@ cdef class MalvaIndex:
             )
 
     def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, *args, **kwargs):
+       """
+        Locate the positions of a given sequence or list of sequences within the index.
+
+        Args:
+            sequence (Union[str, List[str]]): The input sequence(s) to search for in the index.
+            sliding_size (int): The size of the sliding window for k-mer matching. Default is 128.
+            pct_threshold (float): The percentage threshold for k-mer matching within the sliding window. Default is 0.65.
+            count_at_most (int): k-mer with more than count_at_most occurrences in the index are ignored. Default is 10,000.
+            count_at_least (int): k-mer with more less count_at_least occurrences in the index are ignored. Default is 10.
+            chunk_id (int): The ID of the chunk to search in the index. Default is 0.
+            single_count (bool): If True, count each query only once across all sliding windows. Default is False.
+
+        Returns:
+            Tuple[np.ndarray, np.ndarray, List[List[int]]]: A tuple containing:
+                - An array of k-mer locations.
+                - An array of k-mer counts.
+                - A list of where in the query sequence the matches are found.
+
+        Raises:
+            ValueError: If the input sequence is shorter than the k-mer size or if pct_threshold is not between 0 and 1.
+        """
         # TODO: reimplement seq_matches again, supporting various sequences...
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
