@@ -73,7 +73,7 @@ def process_reference(kmer_index, reference_file, folder_out, verbose=True):
             iterator = track(iterate_fasta(reference_file), description=f'Running pseudo-quantification')
         else:
             iterator = iterate_fasta(reference_file)
-        for seq in :
+        for seq in iterator:
             it_gene_name = seq[0].split(":")[0]
             
             if it_gene_name != current_gene:
