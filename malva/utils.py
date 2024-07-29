@@ -20,7 +20,7 @@ def check_cell_string(cell='r1[2:27]'):
     Validates and parses the 'cell' string parameter to ensure it
     follows the expected format and extracts the read group and index range.
 
-    Parameters:
+    Args:
         cell (str): A string specifying the read group and index range 
         in the format 'r1[start:end]' or 'r2[start:end]'. Default is 'r1[2:27]'.
 
@@ -62,7 +62,7 @@ def save_pickle(obj, file_path):
     """
     Save an object to a pickle file.
 
-    Parameters:
+    Args:
         obj (any): The object to be saved.
         file_path (str): The path to the pickle file.
 
@@ -77,7 +77,7 @@ def load_pickle(file_path):
     """
     Load an object from a pickle file.
 
-    Parameters:
+    Args:
         file_path (str): The path to the pickle file.
 
     Returns:
@@ -110,7 +110,7 @@ def check_directory_exists(path, except_when=None) -> bool:
     """
     Check if a file exists, or if its parent directory exists.
 
-    Parameters:
+    Args:
         path (str): Path to the file or directory.
         except_when (bool): Throw exception when file exists (or not). Default: None
 
@@ -273,7 +273,7 @@ def h5_to_dict(adata) -> dict:
     """
     Recursively converts an h5py.Group object and its nested datasets into a nested dictionary structure.
 
-    Parameters:
+    Args:
         adata (h5py.Group): An h5py Group object to be converted.
 
     Returns:
@@ -343,7 +343,7 @@ def defragment_hdf5_file(input_file, output_file, dataset_name, chunk_size=None,
     """
     Defragment an HDF5 file by copying the dataset to a new file with optimized chunks and compression.
 
-    Parameters:
+    Args:
         input_file (str): The path to the original HDF5 file.
         output_file (str): The path to the new optimized HDF5 file.
         dataset_name (str): The name of the dataset to be defragmented.

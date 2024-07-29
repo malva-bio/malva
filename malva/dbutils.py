@@ -10,11 +10,11 @@ def process_dna_string(sequence):
     """
     Validates and parses a DNA sequence or a FASTA-like format sequence.
     
-    Parameters:
-    sequence (str): The input DNA sequence or FASTA-like format sequence.
+    Args:
+        sequence (str): The input DNA sequence or FASTA-like format sequence.
     
     Returns:
-    str: A single line DNA sequence with only ATCG characters, other nucleotides replaced by A, and U replaced by T.
+        str: A single line DNA sequence with only ATCG characters, other nucleotides replaced by A, and U replaced by T.
     """
     sequence = sequence.strip()
     
@@ -40,11 +40,11 @@ def handle_sequence(input_string, recursion=True):
     """
     Checks the input string for specific conditions and routes it accordingly.
     
-    Parameters:
-    input_string (str): The input string to check and handle.
+    Args:
+        input_string (str): The input string to check and handle.
     
     Returns:
-    str: the parsed DNA sequence for the input_string feature
+        str: the parsed DNA sequence for the input_string feature
     """
     input_string = input_string.strip()
     seq_out = ""
@@ -89,11 +89,11 @@ def process_gene_string(gene_string):
     """
     Processes a string that starts with 'gene:' and extracts the gene ID, species, and split parameter.
     
-    Parameters:
-    gene_string (str): The input string starting with 'gene:'.
+    Args:
+        gene_string (str): The input string starting with 'gene:'.
     
     Returns:
-    dict: A dictionary with keys 'gene_id', 'species', and 'split'.
+        dict: A dictionary with keys 'gene_id', 'species', and 'split'.
     """
     gene_info = gene_string.strip()
     
@@ -136,11 +136,11 @@ def process_ensembl_string(ensembl_string):
     """
     Processes a string that starts with 'ensembl:' and extracts the Ensembl ID.
     
-    Parameters:
-    ensembl_string (str): The input string starting with 'ensembl:'.
+    Args:
+        ensembl_string (str): The input string starting with 'ensembl:'.
     
     Returns:
-    dict: A dictionary with the key 'ensembl_id'.
+        dict: A dictionary with the key 'ensembl_id'.
     """
     ensembl_string = ensembl_string.strip()
     
