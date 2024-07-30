@@ -2,6 +2,8 @@ import argparse
 import logging
 
 INDEX_HELP = "Build a malva index from spatial transcriptomic sequencing reads"
+
+
 def get_index_parser():
     parser = argparse.ArgumentParser(
         description=INDEX_HELP,
@@ -113,6 +115,8 @@ def cmd_run_index(args):
 
 
 SHOW_HELP = "Query a DNA/RNA sequence against a malva index and visualize spatial distribution"
+
+
 def get_show_parser():
     parser = argparse.ArgumentParser(
         description=SHOW_HELP,
@@ -145,7 +149,7 @@ def get_show_parser():
     parser.add_argument(
         "--multichannel",
         action="store_true",
-        help="""Will save a single image where channels are the individual query sequences (named)"""
+        help="""Will save a single image where channels are the individual query sequences (named)""",
     )
     parser.add_argument(
         "--save-npy",
@@ -190,7 +194,10 @@ def cmd_run_show(args):
 
     _run_show(args)
 
+
 QUANT_HELP = "Pseudo-quantification of gene expression profiles"
+
+
 def get_quant_parser():
     parser = argparse.ArgumentParser(
         description=QUANT_HELP,
@@ -209,8 +216,8 @@ def get_quant_parser():
         "--reference",
         type=str,
         required=False,
-        default='human_utr',
-        choices=['human_utr', 'mouse_utr'],
+        default="human_utr",
+        choices=["human_utr", "mouse_utr"],
         help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr'. Default: 'human_utr'""",
     )
     parser.add_argument(
@@ -280,7 +287,10 @@ def cmd_run_quant(args):
 
     _run_quant(args)
 
+
 SERVE_HELP = "Webserver for interactive spatial querying of malva indexes"
+
+
 def get_serve_parser():
     parser = argparse.ArgumentParser(
         description=SERVE_HELP,
@@ -345,9 +355,7 @@ def cmdline_args():
     )
 
     parent_parser_subparsers = parent_parser.add_subparsers(title="commands", dest="subcommand")
-    parent_parser.add_argument(
-    '--version',
-    action = 'store_true')
+    parent_parser.add_argument("--version", action="store_true")
 
     setup_index_parser(parent_parser_subparsers)
     setup_show_parser(parent_parser_subparsers)
@@ -361,15 +369,16 @@ def cmdline_args():
 
 def cmdline_main():
     import importlib.metadata
-    import setproctitle
     import sys
 
-    setproctitle.setproctitle('malva ' + " ".join(sys.argv[1:]))
+    import setproctitle
+
+    setproctitle.setproctitle("malva " + " ".join(sys.argv[1:]))
 
     parser, args = cmdline_args()
 
     if args.version and args.subcommand is None:
-        print(importlib.metadata.version('malva'))
+        print(importlib.metadata.version("malva"))
         return 0
     else:
         del args.version

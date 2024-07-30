@@ -4,13 +4,11 @@ This code is adapted from spacemake
 TODO: description and document uniformly (wrt rest of malva)
 """
 
-import numpy as np
-
-import pandas as pd
-import numpy as np
 import anndata
+import numpy as np
+import pandas as pd
+from scipy.sparse import csc_matrix, csr_matrix, dok_matrix, vstack
 
-from scipy.sparse import csr_matrix, csc_matrix, vstack, dok_matrix
 
 def nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
     """
@@ -149,12 +147,8 @@ def binning_hexagon(x, y, gridsize, extent=None, last_row=False):
     iy2 = np.floor(iy).astype(int)
 
     # flat indices, plus one so that out-of-range points go to position 0.
-    i1 = np.where(
-        (0 <= ix1) & (ix1 < nx1) & (0 <= iy1) & (iy1 < ny1), ix1 * ny1 + iy1 + 1, 0
-    )
-    i2 = np.where(
-        (0 <= ix2) & (ix2 < nx2) & (0 <= iy2) & (iy2 < ny2), ix2 * ny2 + iy2 + 1, 0
-    )
+    i1 = np.where((0 <= ix1) & (ix1 < nx1) & (0 <= iy1) & (iy1 < ny1), ix1 * ny1 + iy1 + 1, 0)
+    i2 = np.where((0 <= ix2) & (ix2 < nx2) & (0 <= iy2) & (iy2 < ny2), ix2 * ny2 + iy2 + 1, 0)
 
     d1 = (ix - ix1) ** 2 + 3.0 * (iy - iy1) ** 2
     d2 = (ix - ix2 - 0.5) ** 2 + 3.0 * (iy - iy2 - 0.5) ** 2
@@ -183,25 +177,16 @@ def binning_hexagon(x, y, gridsize, extent=None, last_row=False):
     return coordinates, accumulated
 
 
-def aggregate_adata_by_indices(
-    adata, idx_to_aggregate, idx_aggregated, coordinates_aggregated
-):
+def aggregate_adata_by_indices(adata, idx_to_aggregate, idx_aggregated, coordinates_aggregated):
     joined_C = adata.X[idx_to_aggregate]
 
     # at which indices does the index in the newly created matrix change
     change_ix = np.where(idx_aggregated[:-1] != idx_aggregated[1:])[0] + 1
 
     # array of indices, split by which row they should go together
-    ix_array = np.asarray(
-        np.split(np.arange(idx_aggregated.shape[0]), change_ix, axis=0), dtype="object"
-    )
+    ix_array = np.asarray(np.split(np.arange(idx_aggregated.shape[0]), change_ix, axis=0), dtype="object")
 
-    joined_C_sumed = vstack(
-        [
-            csr_matrix(joined_C[ix_array[n].astype(int), :].sum(0))
-            for n in range(len(ix_array))
-        ]
-    )
+    joined_C_sumed = vstack([csr_matrix(joined_C[ix_array[n].astype(int), :].sum(0)) for n in range(len(ix_array))])
 
     aggregated_adata = anndata.AnnData(
         csc_matrix(joined_C_sumed),
@@ -234,7 +219,6 @@ def create_meshed_adata(
     optimized_binning=True,
 ):
     import numpy as np
-
     from sklearn.metrics.pairwise import euclidean_distances
 
     if not mesh_type in ["circle", "hexagon"]:
@@ -321,9 +305,7 @@ def create_meshed_adata(
 
     if mesh_type == "circle":
         if optimized_binning:
-            grid_x, grid_y, _extent, _last_row = _create_optimized_hex_mesh_properties(
-                mesh_px
-            )
+            grid_x, grid_y, _extent, _last_row = _create_optimized_hex_mesh_properties(mesh_px)
             mesh_px, accum = binning_hexagon(
                 coords[:, 0],
                 coords[:, 1],
@@ -354,9 +336,7 @@ def create_meshed_adata(
             new_ilocs, original_ilocs = np.nonzero(distance_M < max_distance_px)
     elif mesh_type == "hexagon":
         if optimized_binning:
-            grid_x, grid_y, _extent, _last_row = _create_optimized_hex_mesh_properties(
-                mesh_px
-            )
+            grid_x, grid_y, _extent, _last_row = _create_optimized_hex_mesh_properties(mesh_px)
             mesh_px, accum = binning_hexagon(
                 coords[:, 0],
                 coords[:, 1],
