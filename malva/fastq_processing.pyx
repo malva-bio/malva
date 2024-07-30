@@ -27,7 +27,6 @@ cdef inline uint64_t encode_kmer(const unsigned char* sequence, int length) nogi
     cdef:
         uint64_t result = 0
         int i = 0
-        uint32_t chunk
     
     for i in range(i, length):
         result = (result << 2) | ((sequence[i] >> 1) & 3)
@@ -220,7 +219,7 @@ cdef class KmerFastqParser:
                 self.number_of_records += 1
                 self.record_start = qualities_end + 1
                 return kmer_array
-            except:
+            except Exception:
                 kmer_array.clear()
                 raise
 
@@ -333,7 +332,6 @@ cdef class SequenceFastqParser:
             char *buffer_end
             size_t remaining_bytes
             Py_ssize_t sequence_length
-            char base
             uint64_t result = 0
 
         while True:

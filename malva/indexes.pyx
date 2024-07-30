@@ -4,13 +4,13 @@
 cimport cython
 cimport numpy as np
 
-from libc.stdint cimport uint16_t, uint32_t, int32_t, uint64_t
+from libc.stdint cimport uint32_t, int32_t, uint64_t
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
 from libcpp.vector cimport vector
-from libcpp.utility cimport pair
+from libcpp.utility cimport pair, move
 from libcpp.unordered_set cimport unordered_set
 from libcpp.unordered_map cimport unordered_map
-from cython.operator cimport dereference as deref, preincrement as inc
+from cython.operator cimport dereference as deref
 
 import h5py
 import logging
@@ -20,16 +20,13 @@ import time
 import numpy as np
 import pandas as pd
 
-from operator import itemgetter
 from rich.progress import track
-from sortedcontainers import SortedList
 from xopen import xopen
 
 from malva.fast_map cimport map
 from malva.kmer_processing import encode_kmer, get_kmers_numeric
 from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
 from malva.utils import check_cell_string
-from libcpp.utility cimport move
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
@@ -402,7 +399,6 @@ cdef class MalvaIndex:
         cdef:
             np.ndarray _indices_chunk, _indptr_chunk
             size_t i = 0, start = 0, end = 0
-            pair[uint32_t, uint32_t] value
             size_t total_length, chunk_end
 
         if self.n_chunks > 1:
@@ -443,8 +439,7 @@ cdef class MalvaIndex:
             unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
             np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
             float CONST_THRESHOLD = 0
-            uint32_t key, idx_kmer
-            int seq_no = 0
+            uint32_t idx_kmer
             int idx = 0
             pair[uint32_t, uint32_t] item
             pair[uint32_t, pair[uint32_t, uint32_t]] item_primary
