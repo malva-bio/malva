@@ -19,7 +19,7 @@ class MalvaReferenceNotFound(Exception):
 def write_mtx_header(file, shape):
     file.write(b"%%MatrixMarket matrix coordinate real general\n")
     file.write(b"%\n")
-    file.write(f"{shape[0]} {shape[1]} {shape[2]}\n".encode())  # We'll update the nnz at the end
+    file.write(f"{shape[0]:>20} {shape[1]:>20} {shape[2]:>20}\n".encode())  # We'll update the nnz at the end
 
 
 def process_gene(
@@ -35,7 +35,6 @@ def process_gene(
     count_at_least: int = 10,
     single_count: bool = False,
 ):
-    # TODO: configurable pct_threshold
     locs, counts, _ = kmer_index.where(
         utrs_gene,
         sliding_size=sliding_size,
@@ -44,7 +43,6 @@ def process_gene(
         count_at_least=count_at_least,
         single_count=single_count,
     )
-    # TODO: maybe we can normalize counts by the # of utrs?
     counts = np.clip((counts / len(utrs_gene)).astype(int), 1, 10_000)
 
     for loc, count in zip(locs, counts):
@@ -144,7 +142,7 @@ def process_reference(
 
     with open("matrix.mtx", "r+b") as mtx_file:
         mtx_file.seek(0)
-        write_mtx_header(mtx_file, (n_spatial, current_col, total_nnz - 5))
+        write_mtx_header(mtx_file, (n_spatial, current_col, total_nnz))
 
     print(f"MTX file created with shape: {n_spatial} x {current_col}, non-zero elements: {total_nnz}")
 
