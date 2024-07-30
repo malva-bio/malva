@@ -436,27 +436,6 @@ cdef class MalvaIndex:
             )
 
     def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, *args, **kwargs):
-       """
-        Locate the positions of a given sequence or list of sequences within the index.
-
-        Args:
-            sequence (Union[str, List[str]]): The input sequence(s) to search for in the index.
-            sliding_size (int): The size of the sliding window for k-mer matching. Default is 128.
-            pct_threshold (float): The percentage threshold for k-mer matching within the sliding window. Default is 0.65.
-            count_at_most (int): k-mer with more than count_at_most occurrences in the index are ignored. Default is 10,000.
-            count_at_least (int): k-mer with more less count_at_least occurrences in the index are ignored. Default is 10.
-            chunk_id (int): The ID of the chunk to search in the index. Default is 0.
-            single_count (bool): If True, count each query only once across all sliding windows. Default is False.
-
-        Returns:
-            Tuple[np.ndarray, np.ndarray, List[List[int]]]: A tuple containing:
-                - An array of k-mer locations.
-                - An array of k-mer counts.
-                - A list of where in the query sequence the matches are found.
-
-        Raises:
-            ValueError: If the input sequence is shorter than the k-mer size or if pct_threshold is not between 0 and 1.
-        """
         # TODO: reimplement seq_matches again, supporting various sequences...
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
@@ -464,7 +443,7 @@ cdef class MalvaIndex:
             unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
             np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
             float CONST_THRESHOLD = 0
-            uint32_t key
+            uint32_t key, idx_kmer
             int seq_no = 0
             int idx = 0
             pair[uint32_t, uint32_t] item
@@ -521,10 +500,13 @@ cdef class MalvaIndex:
                         primary_map[value].first = 1
                     else:
                         primary_map[value].first += 1
+                    
                     primary_map[value].second = idx_kmer
+                    # when the value is updated, we check for a max bound, so the comparison to CONST_THRESHOLD makes sense
+                    primary_map[value].first = min(primary_map[value].first, <uint32_t>(sliding_size//self.kmer_size))
 
-                
                 # accumulate counts during first sliding_size - but process last iter
+                # note to my future self: this makes sense
                 if (idx_kmer + 1) < (sliding_size//self.kmer_size) and (idx_kmer + 1) < len(all_kmer_list):
                     continue
 
@@ -534,8 +516,10 @@ cdef class MalvaIndex:
                         secondary_map[value] = 1
                     elif primary_map[value].first > CONST_THRESHOLD and not single_count:
                         secondary_map[value] += 1
-                    if primary_map[value].second - idx_kmer > 1:
-                        primary_map[value] = min(<uint32_t>max(0, (<int32_t>(primary_map[value].first) - 1)), (sliding_size//self.kmer_size))
+                    # TODO: this is faulty (messing up quantification, underestimating values...)
+                    # when the value is not updated, .second != idx_kmer, thus we need to subtract
+                    if primary_map[value].second - idx_kmer > 0:
+                        primary_map[value].first = max(<uint32_t>0, (<int32_t>(primary_map[value].first) - 1))
             
             primary_map.clear()
  
