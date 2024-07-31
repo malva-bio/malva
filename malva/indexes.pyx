@@ -805,9 +805,9 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
     xcoord = np.floor(_xcoord).astype(np.uint32)
     ycoord = np.floor(_ycoord).astype(np.uint32)
 
-    xmin = xcoord.max()
+    xmin = xcoord.min()
     xmax = xcoord.max()
-    ymin = ycoord.max()
+    ymin = ycoord.min()
     ymax = ycoord.max()
 
     if xmax >= 65535 or ymax >= 65535:
