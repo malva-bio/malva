@@ -106,6 +106,9 @@ def process_reference(
         current_col = 0
         total_nnz = 0
 
+        # we reserve the size of the header
+        write_mtx_header(mtx_file, (0, 0, 0))
+
         if verbose:
             iterator = track(iterate_fasta(reference_file), description=f"Running pseudo-quantification")
         else:

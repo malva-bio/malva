@@ -463,3 +463,56 @@ def get_reference_cache(reference):
         download_url_to_file(url, f"{cached_file}.tar.xz", progress=True)
 
     return cached_file
+
+
+def convert_to_bytes(max_mem: str) -> int:
+    """Convert a memory size string to its equivalent in bytes.
+
+    Args:
+    max_mem (str): A string representing memory size, e.g., '100M', '2G', '500K'.
+                   Supports units 'K', 'M', 'G', 'T' (case-insensitive).
+                   The 'B' suffix for bytes is optional.
+                   If no unit is specified, the input is assumed to be in bytes.
+
+    Returns:
+    int: The equivalent size in bytes.
+
+    Raises:
+    ValueError: If the input string format is invalid.
+
+    Examples:
+    >>> convert_to_bytes('100M')
+    104857600
+    >>> convert_to_bytes('2G')
+    2147483648
+    >>> convert_to_bytes('500K')
+    512000
+    >>> convert_to_bytes('1024')
+    1024
+    """
+    
+    import re
+
+    if not max_mem:
+        return None
+    
+    pattern = r'^(\d+(\.\d+)?)\s*([kKmMgGtT])?[bB]?$'
+    match = re.match(pattern, max_mem.strip())
+    
+    if not match:
+        raise ValueError(f"Invalid memory string format: {max_mem}")
+    
+    value, _, unit = match.groups()
+    value = float(value)
+    
+    units = {
+        'k': 1024,
+        'm': 1024 ** 2,
+        'g': 1024 ** 3,
+        't': 1024 ** 4
+    }
+    
+    if unit:
+        return int(value * units[unit.lower()])
+    else:
+        return int(value)
