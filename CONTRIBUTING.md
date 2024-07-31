@@ -1,4 +1,4 @@
-# Contributing to `katoste`
+# Contributing to `malva`
 We want to make contributing to this project as easy and transparent as possible, whether it's:
 
 - Reporting a bug
@@ -23,7 +23,7 @@ Pull requests are the best way to propose changes to the codebase (we use [Githu
 ## Any contributions you make will be under the GNU Software License
 When you submit code changes, your submissions are understood to be under the same [GNU License](http://choosealicense.com/licenses/gnu/) that covers the project. Feel free to contact the maintainers if that's a concern.
 
-## Report bugs using Github's [issues](https://github.com/rajewsky-lab/katoste/issues)
+## Report bugs using Github's [issues](https://github.com/rajewsky-lab/malva/issues)
 We use GitHub issues to track public bugs. Report a bug by [opening a new issue](https://github.com/rajewsky-lab/openst/issues/new?assignees=&labels=&template=bug-report.md&title=).; it's that easy!
 
 ## Write bug reports with detail, background, and sample code

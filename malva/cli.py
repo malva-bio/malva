@@ -1,7 +1,9 @@
 import argparse
 import logging
 
-INDEX_HELP = "Build a katoste index from spatial transcriptomic sequencing reads"
+INDEX_HELP = "Build a malva index from spatial transcriptomic sequencing reads"
+
+
 def get_index_parser():
     parser = argparse.ArgumentParser(
         description=INDEX_HELP,
@@ -30,19 +32,21 @@ def get_index_parser():
         "--index-out",
         type=str,
         required=True,
-        help="""Valid directory where the katoste index (and metadata) will be written into.
-        If the directory exists, it must not contain files called `index.kst` and `index_metadata.json`.
+        help="""Valid directory where the malva index (and metadata) will be written into.
+        If the directory exists, it must not contain files called `malva_index.h5`.
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
         "--flavor",
         type=str,
         default="openst",
-        choices=['openst', 'stereo_seq', 'slide_seq', 'visium', 'seq_scope_v1', '*.yaml'], # TODO: formatting of the .yaml is acceptable, or move validation to the function
         help="""Spatial transcriptomics technology. 
         These are default configurations to read from the paired FASTQ (or BAM) files.
         Other configurations can be provided as a properly formatted `.yaml` file - see
-        documentation.""",
+        documentation.
+        
+        Currently, flavors 'openst', 'stereo_seq', 'slide_seq', 'visium', 
+        'seq_scope_v1', or a path to a .yaml file, are supported""",
     )
     parser.add_argument(
         "--kmer-length",
@@ -75,7 +79,7 @@ def get_index_parser():
         "--index-resolution",
         type=float,
         default=10,
-        help="Spatial resolution of the katoste index, in microns.",
+        help="Spatial resolution of the malva index, in microns.",
     )
     parser.add_argument(
         "--no-recenter",
@@ -86,7 +90,7 @@ def get_index_parser():
     )
     parser.add_argument(
         "--threads",
-        type=float,
+        type=int,
         default=1,
         help="""Number of threads used for parallel processing""",
     )
@@ -105,12 +109,14 @@ def setup_index_parser(parent_parser):
 
 
 def cmd_run_index(args):
-    from katoste.index import _run_index
+    from malva.index import _run_index
 
     _run_index(args)
 
 
-SHOW_HELP = "Query a DNA/RNA sequence against a katoste index and visualize spatial distribution"
+SHOW_HELP = "Query a DNA/RNA sequence against a malva index and visualize spatial distribution"
+
+
 def get_show_parser():
     parser = argparse.ArgumentParser(
         description=SHOW_HELP,
@@ -121,8 +127,8 @@ def get_show_parser():
     parser.add_argument(
         "--index-in",
         type=str,
-        help="""Valid directory where the katoste index (and metadata) is located.
-        The directory must contain the file `index.kst` and `index_metadata.json`.
+        help="""Valid directory where the malva index (and metadata) is located.
+        The directory must contain the file `malva_index.h5`.
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
@@ -143,7 +149,7 @@ def get_show_parser():
     parser.add_argument(
         "--multichannel",
         action="store_true",
-        help="""Will save a single image where channels are the individual query sequences (named)"""
+        help="""Will save a single image where channels are the individual query sequences (named)""",
     )
     parser.add_argument(
         "--save-npy",
@@ -184,12 +190,107 @@ def setup_show_parser(parent_parser):
 
 
 def cmd_run_show(args):
-    from katoste.show import _run_show
+    from malva.show import _run_show
 
     _run_show(args)
 
 
-SERVE_HELP = "Webserver for interactive spatial querying of katoste indexes"
+QUANT_HELP = "Pseudo-quantification of gene expression profiles"
+
+
+def get_quant_parser():
+    parser = argparse.ArgumentParser(
+        description=QUANT_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+
+    parser.add_argument(
+        "--index-in",
+        type=str,
+        help="""Valid directory where the malva index (and metadata) is located.
+        The directory must contain the file `malva_index.h5`.
+        Otherwise, an exception will be thrown.""",
+    )
+    parser.add_argument(
+        "--reference",
+        type=str,
+        required=False,
+        default="human_utr",
+        choices=["human_utr", "mouse_utr"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr'. Default: 'human_utr'""",
+    )
+    parser.add_argument(
+        "--folder-out",
+        type=str,
+        required=True,
+        help="""Directory where the gene expression pseudoquantification.
+        
+        Three files will be created, similar to cellranger output: 
+        barcodes.txt.gz, features.txt.gz, and matrix.mtx""",
+    )
+    parser.add_argument(
+        "--h5ad",
+        action="store_true",
+        help="""When specified, Resaves matrix.mtx to AnnData format, at --folder-out.""",
+    )
+    parser.add_argument(
+        "--sliding-size",
+        type=int,
+        required=False,
+        default=128,
+        help="""Quantification sliding window size; should match average indexed read length. Default: 128""",
+    )
+    parser.add_argument(
+        "--pct-threshold",
+        type=int,
+        required=False,
+        default=65,
+        help="""Percentage of indexed k-mers that should match per coordinates for considering match. Default: 65 (percent)""",
+    )
+    parser.add_argument(
+        "--kmer-min",
+        type=int,
+        required=False,
+        default=10,
+        help="""k-mers occurring less than --kmer-min times are ignored""",
+    )
+    parser.add_argument(
+        "--kmer-max",
+        type=int,
+        required=False,
+        default=10_000,
+        help="""k-mers occurring more than --kmer-max times are ignored""",
+    )
+    parser.add_argument(
+        "--single-count",
+        action="store_true",
+        help="""When specified, malva counts whether the query sequence was found or not
+        for a specific sequence.""",
+    )
+    return parser
+
+
+def setup_quant_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "quant",
+        help=QUANT_HELP,
+        parents=[get_quant_parser()],
+    )
+    parser.set_defaults(func=cmd_run_quant)
+
+    return parser
+
+
+def cmd_run_quant(args):
+    from malva.quant import _run_quant
+
+    _run_quant(args)
+
+
+SERVE_HELP = "Webserver for interactive spatial querying of malva indexes"
+
+
 def get_serve_parser():
     parser = argparse.ArgumentParser(
         description=SERVE_HELP,
@@ -200,8 +301,8 @@ def get_serve_parser():
     parser.add_argument(
         "--index-in",
         type=str,
-        help="""Valid directory where the katoste index (and metadata) is located.
-        The directory must contain the file `index.kst` and `index_metadata.json`.
+        help="""Valid directory where the malva index (and metadata) is located.
+        The directory must contain the file `malva_index.h5`.
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
@@ -242,7 +343,7 @@ def setup_serve_parser(parent_parser):
 
 
 def cmd_run_serve(args):
-    from katoste.serve.serve import _run_serve
+    from malva.serve.serve import _run_serve
 
     _run_serve(args)
 
@@ -250,17 +351,16 @@ def cmd_run_serve(args):
 def cmdline_args():
     parent_parser = argparse.ArgumentParser(
         allow_abbrev=False,
-        description="katoste: fast indexing and querying of genomic sequences from spatial transcriptomics data",
+        description="malva: fast indexing and querying of genomic sequences from spatial transcriptomics data",
     )
 
     parent_parser_subparsers = parent_parser.add_subparsers(title="commands", dest="subcommand")
-    parent_parser.add_argument(
-    '--version',
-    action = 'store_true')
+    parent_parser.add_argument("--version", action="store_true")
 
     setup_index_parser(parent_parser_subparsers)
     setup_show_parser(parent_parser_subparsers)
     setup_serve_parser(parent_parser_subparsers)
+    setup_quant_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
 
@@ -269,21 +369,22 @@ def cmdline_args():
 
 def cmdline_main():
     import importlib.metadata
-    import setproctitle
     import sys
 
-    setproctitle.setproctitle('katoste ' + " ".join(sys.argv[1:]))
+    import setproctitle
+
+    setproctitle.setproctitle("malva " + " ".join(sys.argv[1:]))
 
     parser, args = cmdline_args()
 
     if args.version and args.subcommand is None:
-        print(importlib.metadata.version('katoste'))
+        print(importlib.metadata.version("malva"))
         return 0
     else:
         del args.version
 
     if "func" in args:
-        logging.info(f"katoste {args.subcommand} - running with the following parameters:")
+        logging.info(f"malva {args.subcommand} - running with the following parameters:")
         logging.info(args.__dict__)
         args.func(args)
     else:

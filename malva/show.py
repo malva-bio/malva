@@ -5,13 +5,13 @@ import os
 import re
 import tifffile
 
-from katoste.index import KatosteIndex
-from katoste.utils import check_directory_exists
+from malva.index import MalvaIndex
+from malva.utils import check_directory_exists
 
-class KatostePlot:
+class MalvaPlot:
     def __init__(self, index):
-        if not isinstance(index, KatosteIndex):
-            raise ValueError("argument `index` has to be of type `KatosteIndex`")
+        if not isinstance(index, MalvaIndex):
+            raise ValueError("argument `index` has to be of type `MalvaIndex`")
 
         self.index = index
 
@@ -21,7 +21,9 @@ class KatostePlot:
 
         self.xmax = self.index.coord_lims[1]+1
         self.ymax = self.index.coord_lims[3]+1
-        self.n_spatial = self.index.n_spatial
+        self.xmin = self.index.coord_lims[0]
+        self.ymin = self.index.coord_lims[2]
+        self.n_spatial = (self.xmax - self.xmin) * (self.ymax - self.ymin)
 
         xy = np.unravel_index(np.arange(self.n_spatial), (self.xmax, self.ymax), order='C')
         self.xy = np.vstack(xy).T
@@ -46,7 +48,7 @@ class KatostePlot:
 
         xy = self.xy[locations]
         im, _, _ = np.histogram2d(xy[:, 0], xy[:, 1],
-                                  range=[[0, self.xmax], [0, self.ymax]],
+                                  range=[[self.xmin, self.xmax], [self.ymin, self.ymax]],
                                   bins=tuple((_im_shape * render_scale).astype(int)))
 
         if render_scale != 1 or render_smoothing != 1:
@@ -64,8 +66,8 @@ class KatostePlot:
 
 
 def _run_show(args):
-    kmer_index = KatosteIndex(args.index_in)
-    plotter = KatostePlot(kmer_index)
+    kmer_index = MalvaIndex(args.index_in)
+    plotter = MalvaPlot(kmer_index)
 
     outdir_exists = check_directory_exists(args.image_out)
     if not outdir_exists:
@@ -91,20 +93,22 @@ def _run_show(args):
                 multi_out[record.name] = im
             else:
                 _out_name = re.sub(r'[^\w_. -]', '_', record.name)
-                _out_file = os.path.join(args.image_out, f"katoste_{_out_name}.tif")
+                _out_file = os.path.join(args.image_out, f"malva_{_out_name}.tif")
                 tifffile.imwrite(_out_file, im, metadata={"axes": "YX", "Labels": [_out_name]}, imagej=True, bigtiff=True)
         
         if args.multichannel and len(multi_out) > 0:
-            _multi_out_file = os.path.join(args.image_out, "katoste_multichannel.tif")
+            _multi_out_file = os.path.join(args.image_out, "malva_multichannel.tif")
             logging.info(f"Saving multichannel file into {_multi_out_file}")
 
             multi_out_np = np.vstack([l[np.newaxis] for l in list(multi_out.values())])
             print(multi_out_np.shape)
 
             tifffile.imwrite(_multi_out_file, multi_out_np, metadata={"axes": "CYX", "Labels": list(multi_out.keys())}, imagej=True, bigtiff=True)
+
+    logging.info("SUCCESS!")
     
 
 if __name__ == "__main__":
-    from katoste.cli import get_show_parser
+    from malva.cli import get_show_parser
     args = get_show_parser().parse_args()
     _run_show()

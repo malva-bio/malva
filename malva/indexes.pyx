@@ -4,11 +4,14 @@
 cimport cython
 cimport numpy as np
 
-from libc.stdint cimport uint32_t, uint64_t
+from libc.stdint cimport uint32_t, int32_t, uint64_t
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
+from libcpp.algorithm cimport lower_bound
 from libcpp.vector cimport vector
-from libcpp.utility cimport pair
-from cython.operator cimport dereference as deref
+from libcpp.utility cimport pair, move
+from libcpp.unordered_set cimport unordered_set
+from libcpp.unordered_map cimport unordered_map
+from cython.operator cimport dereference as deref, predecrement as dec
 
 import h5py
 import logging
@@ -18,16 +21,13 @@ import time
 import numpy as np
 import pandas as pd
 
-from operator import itemgetter
 from rich.progress import track
-from sortedcontainers import SortedList
 from xopen import xopen
 
-from katoste.fast_map cimport map
-from katoste.kmer_processing import encode_kmer, get_kmers_numeric
-from katoste.fastq_processing cimport SequenceFastqParser, KmerFastqParser
-from katoste.utils import binary_search, check_cell_string
-from libcpp.utility cimport move
+from malva.fast_map cimport map
+from malva.kmer_processing import encode_kmer, get_kmers_numeric
+from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
+from malva.utils import check_cell_string, convert_to_bytes
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
@@ -36,6 +36,43 @@ cdef extern from "<algorithm>" namespace "std" nogil:
 
 cdef int compare_indexed_value(const pair[uint64_t, uint32_t]& a, const pair[uint64_t, uint32_t]& b) nogil:
     return a.first < b.first
+
+cdef extern from *:
+    """
+    struct CompareFirst {
+        bool operator()(const std::pair<uint64_t, std::pair<uint64_t, uint64_t>>& lhs, const uint64_t& rhs) const {
+            return lhs.first < rhs;
+        }
+    };
+    """
+    struct CompareFirst:
+        pass
+
+cdef pair[uint64_t, pair[uint64_t, uint64_t]] binary_search(vector[pair[uint64_t, pair[uint64_t, uint64_t]]] vec, uint64_t target):
+    cdef vector[pair[uint64_t, pair[uint64_t, uint64_t]]].iterator result
+
+    result = lower_bound(vec.begin(), vec.end(), target, CompareFirst())
+    
+    if result == vec.end():
+        return vec.back()
+    elif deref(result).first != target and result != vec.begin():
+        dec(result)
+    
+    return deref(result)
+
+# TODO: docstring for this function
+cdef int backed_binary_search_int(object arr, uint64_t low, uint64_t high, uint64_t x):
+    if high >= low:
+        mid = (high + low) // 2
+        if arr[mid] == x:
+            return mid
+        elif arr[mid] > x:
+            return backed_binary_search_int(arr, low, mid - 1, x)
+        else:
+            return backed_binary_search_int(arr, mid + 1, high, x)
+ 
+    else:
+        return -1
 
 np.import_array()
 
@@ -47,13 +84,13 @@ cdef struct SpatialCoord:
     uint32_t x
     uint32_t y
 
-cdef class KatosteIndex:
+cdef class MalvaIndex:
     cdef:
         public str index_dir
         public str index_file
         public int kmer_size
+        public bint verbose
         public object index
-        public object _index_backed
         public tuple coord_lims
         public int n_chunks
         public list data_lengths
@@ -61,18 +98,22 @@ cdef class KatosteIndex:
         public np.ndarray spatial_coords
         public int _n_kmers_processed
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
-        public object binary_search
+        map[uint64_t, pair[uint32_t, uint32_t]] _index_backed
+        vector[pair[uint64_t, pair[uint64_t, uint64_t]]] _cindex
         SpatialIndex spatial_index
 
-    def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=8):
+    def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
         self.index_dir = index_dir
-        self.index_file = os.path.join(self.index_dir, 'katoste_index.h5')
+        self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
         self._n_kmers_processed = 0
+        self.verbose = verbose
         self.spatial_index = SpatialIndex()
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
+        self._index_backed = map[uint64_t, pair[uint32_t, uint32_t]]()
+        self._cindex = vector[pair[uint64_t, pair[uint64_t, uint64_t]]]()
 
         if rewrite:
             if os.path.exists(self.index_dir):
@@ -83,7 +124,7 @@ cdef class KatosteIndex:
             logging.info("The index exists. Will load now.")
             self.open()
         else:
-            logging.info(f"Will create katoste index at `{self.index_file}` with {kmer_size_initialize}-mers")
+            logging.info(f"Will create malva index at `{self.index_file}` with {kmer_size_initialize}-mers")
             self.initialize(kmer_size=kmer_size_initialize)
 
     @staticmethod
@@ -117,9 +158,6 @@ cdef class KatosteIndex:
 
     def open(self, str mode='r'):
         self.index = h5py.File(self.index_file, mode)
-        if self._index_backed is None or isinstance(self._index_backed, h5py.File):
-            self._index_backed = self.index
-
         if 'kmer_size' in self.index.attrs:
             self.kmer_size = self.index.attrs['kmer_size']
 
@@ -251,7 +289,10 @@ cdef class KatosteIndex:
 
     @cython.wraparound(True)
     def merge_chunks(self, f: str, chunksize: int = 1_000_000):
-        # TODO: have in context manager so it closes gracefully upon error
+        # TODO: open/close in context manager so it closes gracefully upon error
+        # make this function run faster
+        # right now iterates k-mer by k-mer which can be too slow
+        # Resample and merge the chunk data into a single file
         self.open()
 
         _indices_lengths = [len(self.index[f'index_{chunk}_indices']) for chunk in range(0, self.n_chunks)]
@@ -280,7 +321,7 @@ cdef class KatosteIndex:
         output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype='uint64')
         output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype='uint32')
 
-        for _ in track(range(0, max_kmer_chunk, chunksize), description='Merging sorted chunks'):
+        for _ in range(0, max_kmer_chunk, chunksize):
             _val_max_ix_0 = self.index[f'index_{which_index}_indices'][imin[0]:imax[0]][-1]
             imax = np.array([np.argwhere(self.index[f'index_{chunk}_indices'] <= _val_max_ix_0)[-1][0] for chunk in range(0, self.n_chunks)]) + 1
 
@@ -307,7 +348,6 @@ cdef class KatosteIndex:
             chunks_labels = np.repeat(np.arange(self.n_chunks), [len(c) for c in chunk_indices])
             chunks_data = [self.index[f'index_{chunk}_data'][chunk_indptr_lo[chunk][0]:chunk_indptr_hi[chunk][-1]] for chunk in range(0, self.n_chunks) if len(chunk_indptr_hi[chunk]) > 0]
 
-            # Resample and merge the chunk data into a single file
             for ind, l, lo, hi in (zip(chunks_indices[_chunk_idx_sorted],
                                         chunks_labels[_chunk_idx_sorted],
                                         chunks_indptr_lo[_chunk_idx_sorted],
@@ -364,139 +404,274 @@ cdef class KatosteIndex:
         self._iter_seqs.clear()
         self._iter_seqs.swap(temp)
 
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            pair[uint32_t, uint32_t] _indptr
+            uint64_t kmer
+            np.ndarray _res
+            uint32_t _res_item
+            unordered_set[uint32_t] _set
 
-    def _binary_search_np(self, arr, start, end, v):
-        return np.searchsorted(arr, v)
+        # TODO: move _data outside of here?
+        _data = self.index[f'index_{chunk_id}_data']
 
-    def _binary_search_katoste(self, arr, start, end, v):
-        return binary_search(arr, start, end, v)
-    
-    def find_kmer(self, kmers, count_at_most=10_000, count_at_least=10):
-        vals = {k: set([-1]) for k in kmers}
+        # TODO: move iterator out of here (at find_kmer)
+        if self.verbose:
+            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
+        else:
+            iterator = kmers
 
-
-        for ch in range(self.n_chunks):
-            _data = self.index[f'index_{ch}_data']
-            _h5_indices = self._index_backed[f'index_{ch}_indices']
-            _h5_indptrs = self._index_backed[f'index_{ch}_indptr']
+        for kmer in iterator:
+            _indptr = self._index_backed[kmer]
             
-            # print("Searching on index")
-            # _loc = np.searchsorted(_h5_indices, kmers)
+            if ((_indptr.second - _indptr.first) >= count_at_most) or ((_indptr.second - _indptr.first) <= count_at_least):
+                continue
 
-            for i, kmer in track(enumerate(kmers), description=f"Querying chunk {ch}"):
-                try:
-                    _loc = _h5_indices.index(kmer)
-                except ValueError:
-                    continue
+            _res = _data[_indptr.first:_indptr.second]
+            _set = unordered_set[uint32_t]()
+            for _res_item in _res:
+                _set.insert(_res_item)
 
-                _indptr = _h5_indptrs[_loc:_loc+2]
-                if (len(_indptr) != 2):
-                    _indptr = [_indptr[0], self.data_lengths[ch]]
+            vals[kmer] = _set
 
-                if ((_indptr[1]-_indptr[0]) >= count_at_most) or ((_indptr[1]-_indptr[0]) <= count_at_least):
-                    continue
-                
-                _res = _data[_indptr[0]:_indptr[1]]
-
-                if len(_res) > 0:
-                    vals[kmer].update(set(_res))
-
-        vals = {k: np.array(list(v)) for k, v in vals.items()}
         return vals
+    
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+        # TODO: does not work! something is off here - what is returned by the binary_search function?
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            pair[uint64_t, pair[uint64_t, uint64_t]] _cindex_res
+            pair[uint32_t, uint32_t] _indptr
+            uint64_t kmer, _start, _end
+            int chunk_len
+            np.ndarray _res
+            uint32_t _res_item
+            unordered_set[uint32_t] _set
 
-    def _load_index_to_memory(self):
-        # only load from memory when a file or None; skip if already a dict (assumes proper format)
-        if isinstance(self._index_backed, h5py.File) or self._index_backed is None:
-            self._index_backed = {f'index_{i}_indices': SortedList(self.index[f'index_{i}_indices'][:]) for i in range(self.n_chunks)}
-            self._index_backed.update({f'index_{i}_indptr': self.index[f'index_{i}_indptr'][:] for i in range(self.n_chunks)})
-            self.binary_search = self._binary_search_katoste
+        _data = self.index[f'index_{chunk_id}_data']
+        _index_chunk = self.index[f'index_{chunk_id}_indices']
+        chunk_len = len(self.index[f'index_{chunk_id}_indices'])
 
-    def where(self, sequence, sliding_size=128, pct_threshold=0.65, lazy_index=True, count_at_most=10_000, count_at_least=10, query_jump=False):
-        if len(sequence) < self.kmer_size:
-            raise ValueError("Query sequence cannot be smaller than kmer size!")
+        if self.verbose:
+            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
+        else:
+            iterator = kmers
+
+        for kmer in iterator:
+            # find the approximate location using cindex (on memory)
+            _cindex_res = binary_search(self._cindex, kmer)
+            _start, _end = _cindex_res.second.first, _cindex_res.second.second
+
+            # find the exact location in the index file (on disk)
+            # we need _start and _end to define a _high and _low
+            _index_idx = backed_binary_search_int(_index_chunk, _start, _end, kmer)
+
+            # when binary search does not succeed
+            if _index_idx == -1:
+                continue
+            
+            # we get the indptrs (on disk) using the location
+            _indptr_first = self.index[f'index_{chunk_id}_indptr'][_index_idx]
+            _indptr_second = self.index[f'index_{chunk_id}_indptr'][_index_idx+1] if _index_idx < chunk_len else chunk_len
+            
+            # this is the same as for self._find_kmer(...), output datastructure should be compatible!
+            if ((_indptr_second - _indptr_first) >= count_at_most) or ((_indptr_second - _indptr_first) <= count_at_least):
+                continue
+
+            _res = _data[_indptr_first:_indptr_second]
+            _set = unordered_set[uint32_t]()
+            for _res_item in _res:
+                _set.insert(_res_item)
+
+            vals[kmer] = _set
+
+        return vals
+    
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+        if not self._index_backed.empty():
+            return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
+        elif not self._cindex.empty():
+            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
+        else:
+            raise Exception("ERROR: index not found in memory.")
+
+    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=1_000_000):
+        cdef:
+            np.ndarray _indices_chunk, _indptr_chunk
+            size_t i = 0, start = 0, end = 0
+            size_t total_length, chunk_end
+
+        if self.n_chunks > 1:
+            logging.warn(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
+
+        total_length = len(self.index[f'index_{chunk_id}_indices'])
+
+        while start < total_length - 1:
+            end = min(start + chunk_size, total_length)
+            chunk_end = min(end + 1, total_length)
+
+            if chunk_end == end:
+                end = end - 1
+
+            _indices_chunk = self.index[f'index_{chunk_id}_indices'][start:end]
+            _indptr_chunk = self.index[f'index_{chunk_id}_indptr'][start:chunk_end]
+
+            for i in range(len(_indices_chunk)):
+                self._index_backed[_indices_chunk[i]] = pair[uint32_t, uint32_t](_indptr_chunk[i], _indptr_chunk[i+1])
+
+            start = end
+
+        if end == total_length:
+            last_index = total_length - 1
+            self._index_backed[self.index[f'index_{chunk_id}_indices'][last_index]] = pair[uint32_t, uint32_t](
+                self.index[f'index_{chunk_id}_indptr'][last_index],
+                total_length
+            )
+
+    cdef void _load_index_to_constrained_memory(self, int chunk_id = 0, int max_mem_bytes = 0):
+        # calculate the size of the constrained index (cindex)
+        # each element will at least 3*64bit integers, plus some data-structure overhead
+        cdef:
+            int OVERHEAD = 2
+            int cindex_size = max_mem_bytes//(24*OVERHEAD)
+            int chunk_len, chunk_each
+            size_t i = 0
+            np.ndarray _cindex_indices, _cindex_indptr
+
+        chunk_len = len(self.index[f'index_{chunk_id}_indices']) - 1
+        
+        chunk_each = chunk_len//cindex_size
+        if chunk_each == 1:
+            logging.debug("Maximum memory compatible with chunk length - falling back to loading entire index (no cindex)")
+            self._load_index_to_memory(chunk_id)
+            return
+
+        _cindex_indices = self.index[f'index_{chunk_id}_indices'][::chunk_each]
+        _cindex_indptr = np.arange(0, chunk_len, chunk_each)
+
+        # TODO: remove this in runtime
+        assert len(_cindex_indices) == len(_cindex_indptr)
+
+        for i in range(len(_cindex_indices)-1):
+            self._cindex.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](_cindex_indices[i], pair[uint64_t, uint64_t](_cindex_indptr[i], _cindex_indptr[i+1])))
+
+        # we add the last position
+        _last_cindex_indices = self.index[f'index_{chunk_id}_indices'][chunk_len]
+        _last_cindex_indptr = self.index[f'index_{chunk_id}_indptr'][chunk_len]
+        self._cindex.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](_last_cindex_indices, pair[uint64_t, uint64_t](_cindex_indptr[i+1], _last_cindex_indices)))
+
+    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 1_000_000, max_mem: str = None, force: bool = False):
+        max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
+
+        # TODO: double check this
+        if (not self._index_backed.empty() or not self._cindex.empty()) and not force:
+            return
+        
+        # we make sure to clear both backed and constrained index
+        # in case we load different modes at different times
+        self._index_backed.clear()
+        self._cindex.clear()
+
+        if max_mem_bytes <= 0:
+            self._load_index_to_memory(chunk_id, chunk_size)
+        else:
+            self._load_index_to_constrained_memory(chunk_id, max_mem_bytes)
+
+    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, *args, **kwargs):
+        # TODO: reimplement seq_matches again, supporting various sequences...
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
+            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
+            unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
+            np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
+            float CONST_THRESHOLD = 0
+            uint32_t idx_kmer
+            int idx = 0
+            pair[uint32_t, uint32_t] item
+            pair[uint32_t, pair[uint32_t, uint32_t]] item_primary
+            list whole_sliding_sequences = []
+            list seq_matches = [[0, 1]]
 
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
 
-        # TODO: move into a context manager
-        self.open()
-        if not lazy_index:
-            logging.debug("Will not use lazy loading - the chunk indexes are loaded into memory")
-            self._load_index_to_memory()
+        if isinstance(sequence, str):
+            sequence = [sequence]
 
-        # TODO: collapse seq_no and all_seq_no into one
-        all_oc = []
-        seq_matches = [[0, 1]]
-        seq_no = 0
-        all_seq_no = 0
-
-        def get_sliding_sequence(string, k):
-            n = len(string)
-            sliding_seqs = []
-
-            for i in range(n - k + 1):
-                slide = string[i:i + k]
-                sliding_seqs.append(slide)
-
-            return sliding_seqs
+        def get_whole_sliding_sequence(string, k):
+            return [string[i:] for i in range(k)]
         
-        # get data for kmers
+        for seq in sequence:
+            if len(seq) < self.kmer_size:
+                raise ValueError(f"Query sequence of length {len(seq)} cannot be smaller than kmer size {self.kmer_size}!")
+            whole_sliding_sequences.extend(get_whole_sliding_sequence(seq, self.kmer_size))
+
         all_kmer_list = []
-        _necessary = np.ceil((len(sequence)-self.kmer_size)/np.floor(len(sequence)/self.kmer_size)).astype(int)
-        sliding_sequences = get_sliding_sequence(sequence, min(len(sequence) - _necessary, sliding_size))
-    
-        for subseq in sliding_sequences:
+        for subseq in whole_sliding_sequences:
             all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
-        all_kmer_list = np.unique(all_kmer_list)
-        # 0 is 'A'*kmer_size but also any low-complexity k-mer
+        all_kmer_list = np.unique(np.concatenate(all_kmer_list))
         all_kmer_list = all_kmer_list[all_kmer_list != 0]
 
         if len(all_kmer_list) == 0:
-            return (np.array([0]), np.array([0]), seq_matches)
+            return (kmer_locations, kmer_count, seq_matches)
 
-        all_kmer_dict = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least)
+        self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload)
 
-        for subseq in track(sliding_sequences, description='Counting kmers per sequence chunk'):
-            if seq_no <= self.kmer_size or seq_no == int(len(subseq)/2) or not query_jump:
-                # TODO: store from previous and not rerun?
-                all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-                kmer_list = [i for i in all_kmer_list if i != 0]
+        CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
 
-                if len(kmer_list) == 0:
-                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
-                    seq_no += 1
-                    all_seq_no += 1
-                    continue
-    
-                all_items = itemgetter(*kmer_list)(all_kmer_dict)
+        current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
-                if len(all_items) == 0:
-                    seq_matches += [[all_seq_no + k*self.kmer_size, 0] for k in range(len(all_kmer_list))]
-                    seq_no += 1
-                    all_seq_no += 1
-                    continue
-                else:
-                    all_items = np.hstack(all_items)
-
-                all_items = all_items[all_items != np.array(-1)]
-                all_items, counts = np.unique(all_items, return_counts=True)
-                props_ix = np.where(counts / len(all_kmer_list) >= pct_threshold)[0]
-                all_oc += [all_items[props_ix]]
-                seq_matches += [[all_seq_no + k*self.kmer_size, len(all_items[props_ix])] for k in range(len(all_kmer_list))]
-
-            seq_no += 1
-            all_seq_no += 1
-            if seq_no == sliding_size:
-                seq_no = 0
-
-        logging.info("Counting unique spatial matches")
-        if len(all_oc) > 0:
-            kmer_locations, kmer_count = np.unique(np.concatenate(all_oc), return_counts=True)
+        if self.verbose:
+            iterator = track(whole_sliding_sequences, description='Counting occurrences at kmers')
         else:
-            kmer_locations, kmer_count = np.array([0]), np.array([0])
-        
-        self.close()
+            iterator = whole_sliding_sequences
+    
+        for subseq in iterator:
+            all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+
+            for idx_kmer, kmer in enumerate(all_kmer_list):
+                if current_kmers.find(kmer) == current_kmers.end():
+                    continue
+                
+                # we do not add occurrence to low complexity kmers
+                values = current_kmers[kmer] if kmer != 0 else []
+                for value in values:
+                    if primary_map.find(value) == primary_map.end():
+                        primary_map[value].first = 1
+                    else:
+                        primary_map[value].first += 1
+                    
+                    primary_map[value].second = idx_kmer
+                    # when the value is updated, we check for a max bound, so the comparison to CONST_THRESHOLD makes sense
+                    primary_map[value].first = min(primary_map[value].first, <uint32_t>(sliding_size//self.kmer_size))
+
+                # accumulate counts during first sliding_size - but process last iter
+                # note to my future self: this makes sense
+                if (idx_kmer + 1) < (sliding_size//self.kmer_size) and (idx_kmer + 1) < len(all_kmer_list):
+                    continue
+
+                for item_primary in primary_map:
+                    value = item_primary.first
+                    if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
+                        secondary_map[value] = 1
+                    elif primary_map[value].first > CONST_THRESHOLD and not single_count:
+                        secondary_map[value] += 1
+                    # TODO: this is faulty (messing up quantification, underestimating values...)
+                    # when the value is not updated, .second != idx_kmer, thus we need to subtract
+                    if primary_map[value].second - idx_kmer > 0:
+                        primary_map[value].first = max(<uint32_t>0, (<int32_t>(primary_map[value].first) - 1))
+            
+            primary_map.clear()
+ 
+        kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
+        kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
+
+        for item in secondary_map:
+            kmer_locations[idx] = item.first
+            kmer_count[idx] = item.second
+            idx += 1
 
         return (kmer_locations, kmer_count, seq_matches)
 
@@ -513,7 +688,8 @@ cdef class SpatialIndex:
         self.index[cell_bc] = i
         # self.num_coords += 1
 
-    cdef uint32_t get_key(self, uint64_t key) nogil:
+    # TODO: check if noexcept has performance penalty as suggested by compiler
+    cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
         return self.index[key]
 
     def set_bounds(self, uint32_t xmin, uint32_t xmax, uint32_t ymin, uint32_t ymax):
