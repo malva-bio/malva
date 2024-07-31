@@ -6,11 +6,12 @@ cimport numpy as np
 
 from libc.stdint cimport uint32_t, int32_t, uint64_t
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
+from libcpp.algorithm cimport lower_bound
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair, move
 from libcpp.unordered_set cimport unordered_set
 from libcpp.unordered_map cimport unordered_map
-from cython.operator cimport dereference as deref
+from cython.operator cimport dereference as deref, predecrement as dec
 
 import h5py
 import logging
@@ -26,7 +27,7 @@ from xopen import xopen
 from malva.fast_map cimport map
 from malva.kmer_processing import encode_kmer, get_kmers_numeric
 from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
-from malva.utils import check_cell_string
+from malva.utils import check_cell_string, convert_to_bytes
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
@@ -35,6 +36,43 @@ cdef extern from "<algorithm>" namespace "std" nogil:
 
 cdef int compare_indexed_value(const pair[uint64_t, uint32_t]& a, const pair[uint64_t, uint32_t]& b) nogil:
     return a.first < b.first
+
+cdef extern from *:
+    """
+    struct CompareFirst {
+        bool operator()(const std::pair<uint64_t, std::pair<uint64_t, uint64_t>>& lhs, const uint64_t& rhs) const {
+            return lhs.first < rhs;
+        }
+    };
+    """
+    struct CompareFirst:
+        pass
+
+cdef pair[uint64_t, pair[uint64_t, uint64_t]] binary_search(vector[pair[uint64_t, pair[uint64_t, uint64_t]]] vec, uint64_t target):
+    cdef vector[pair[uint64_t, pair[uint64_t, uint64_t]]].iterator result
+
+    result = lower_bound(vec.begin(), vec.end(), target, CompareFirst())
+    
+    if result == vec.end():
+        return vec.back()
+    elif deref(result).first != target and result != vec.begin():
+        dec(result)
+    
+    return deref(result)
+
+# TODO: docstring for this function
+cdef int backed_binary_search_int(object arr, uint64_t low, uint64_t high, uint64_t x):
+    if high >= low:
+        mid = (high + low) // 2
+        if arr[mid] == x:
+            return mid
+        elif arr[mid] > x:
+            return backed_binary_search_int(arr, low, mid - 1, x)
+        else:
+            return backed_binary_search_int(arr, mid + 1, high, x)
+ 
+    else:
+        return -1
 
 np.import_array()
 
@@ -61,6 +99,7 @@ cdef class MalvaIndex:
         public int _n_kmers_processed
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
         map[uint64_t, pair[uint32_t, uint32_t]] _index_backed
+        vector[pair[uint64_t, pair[uint64_t, uint64_t]]] _cindex
         SpatialIndex spatial_index
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
@@ -74,6 +113,7 @@ cdef class MalvaIndex:
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
         self._index_backed = map[uint64_t, pair[uint32_t, uint32_t]]()
+        self._cindex = vector[pair[uint64_t, pair[uint64_t, uint64_t]]]()
 
         if rewrite:
             if os.path.exists(self.index_dir):
@@ -364,7 +404,7 @@ cdef class MalvaIndex:
         self._iter_seqs.clear()
         self._iter_seqs.swap(temp)
 
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
             pair[uint32_t, uint32_t] _indptr
@@ -373,8 +413,10 @@ cdef class MalvaIndex:
             uint32_t _res_item
             unordered_set[uint32_t] _set
 
+        # TODO: move _data outside of here?
         _data = self.index[f'index_{chunk_id}_data']
 
+        # TODO: move iterator out of here (at find_kmer)
         if self.verbose:
             iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
         else:
@@ -394,6 +436,65 @@ cdef class MalvaIndex:
             vals[kmer] = _set
 
         return vals
+    
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+        # TODO: does not work! something is off here - what is returned by the binary_search function?
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            pair[uint64_t, pair[uint64_t, uint64_t]] _cindex_res
+            pair[uint32_t, uint32_t] _indptr
+            uint64_t kmer, _start, _end
+            int chunk_len
+            np.ndarray _res
+            uint32_t _res_item
+            unordered_set[uint32_t] _set
+
+        _data = self.index[f'index_{chunk_id}_data']
+        _index_chunk = self.index[f'index_{chunk_id}_indices']
+        chunk_len = len(self.index[f'index_{chunk_id}_indices'])
+
+        if self.verbose:
+            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
+        else:
+            iterator = kmers
+
+        for kmer in iterator:
+            # find the approximate location using cindex (on memory)
+            _cindex_res = binary_search(self._cindex, kmer)
+            _start, _end = _cindex_res.second.first, _cindex_res.second.second
+
+            # find the exact location in the index file (on disk)
+            # we need _start and _end to define a _high and _low
+            _index_idx = backed_binary_search_int(_index_chunk, _start, _end, kmer)
+
+            # when binary search does not succeed
+            if _index_idx == -1:
+                continue
+            
+            # we get the indptrs (on disk) using the location
+            _indptr_first = self.index[f'index_{chunk_id}_indptr'][_index_idx]
+            _indptr_second = self.index[f'index_{chunk_id}_indptr'][_index_idx+1] if _index_idx < chunk_len else chunk_len
+            
+            # this is the same as for self._find_kmer(...), output datastructure should be compatible!
+            if ((_indptr_second - _indptr_first) >= count_at_most) or ((_indptr_second - _indptr_first) <= count_at_least):
+                continue
+
+            _res = _data[_indptr_first:_indptr_second]
+            _set = unordered_set[uint32_t]()
+            for _res_item in _res:
+                _set.insert(_res_item)
+
+            vals[kmer] = _set
+
+        return vals
+    
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+        if not self._index_backed.empty():
+            return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
+        elif not self._cindex.empty():
+            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
+        else:
+            raise Exception("ERROR: index not found in memory.")
 
     cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=1_000_000):
         cdef:
@@ -403,9 +504,6 @@ cdef class MalvaIndex:
 
         if self.n_chunks > 1:
             logging.warn(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
-
-        if not self._index_backed.empty():
-            return
 
         total_length = len(self.index[f'index_{chunk_id}_indices'])
 
@@ -431,7 +529,56 @@ cdef class MalvaIndex:
                 total_length
             )
 
-    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, *args, **kwargs):
+    cdef void _load_index_to_constrained_memory(self, int chunk_id = 0, int max_mem_bytes = 0):
+        # calculate the size of the constrained index (cindex)
+        # each element will at least 3*64bit integers, plus some data-structure overhead
+        cdef:
+            int OVERHEAD = 2
+            int cindex_size = max_mem_bytes//(24*OVERHEAD)
+            int chunk_len, chunk_each
+            size_t i = 0
+            np.ndarray _cindex_indices, _cindex_indptr
+
+        chunk_len = len(self.index[f'index_{chunk_id}_indices']) - 1
+        
+        chunk_each = chunk_len//cindex_size
+        if chunk_each == 1:
+            logging.debug("Maximum memory compatible with chunk length - falling back to loading entire index (no cindex)")
+            self._load_index_to_memory(chunk_id)
+            return
+
+        _cindex_indices = self.index[f'index_{chunk_id}_indices'][::chunk_each]
+        _cindex_indptr = np.arange(0, chunk_len, chunk_each)
+
+        # TODO: remove this in runtime
+        assert len(_cindex_indices) == len(_cindex_indptr)
+
+        for i in range(len(_cindex_indices)-1):
+            self._cindex.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](_cindex_indices[i], pair[uint64_t, uint64_t](_cindex_indptr[i], _cindex_indptr[i+1])))
+
+        # we add the last position
+        _last_cindex_indices = self.index[f'index_{chunk_id}_indices'][chunk_len]
+        _last_cindex_indptr = self.index[f'index_{chunk_id}_indptr'][chunk_len]
+        self._cindex.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](_last_cindex_indices, pair[uint64_t, uint64_t](_cindex_indptr[i+1], _last_cindex_indices)))
+
+    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 1_000_000, max_mem: str = None, force: bool = False):
+        max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
+
+        # TODO: double check this
+        if (not self._index_backed.empty() or not self._cindex.empty()) and not force:
+            return
+        
+        # we make sure to clear both backed and constrained index
+        # in case we load different modes at different times
+        self._index_backed.clear()
+        self._cindex.clear()
+
+        if max_mem_bytes <= 0:
+            self._load_index_to_memory(chunk_id, chunk_size)
+        else:
+            self._load_index_to_constrained_memory(chunk_id, max_mem_bytes)
+
+    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, *args, **kwargs):
         # TODO: reimplement seq_matches again, supporting various sequences...
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
@@ -470,7 +617,7 @@ cdef class MalvaIndex:
         if len(all_kmer_list) == 0:
             return (kmer_locations, kmer_count, seq_matches)
 
-        self._load_index_to_memory(chunk_id=chunk_id)
+        self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload)
 
         CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
 

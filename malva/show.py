@@ -21,7 +21,9 @@ class MalvaPlot:
 
         self.xmax = self.index.coord_lims[1]+1
         self.ymax = self.index.coord_lims[3]+1
-        self.n_spatial = self.index.n_spatial
+        self.xmin = self.index.coord_lims[0]
+        self.ymin = self.index.coord_lims[2]
+        self.n_spatial = (self.xmax - self.xmin) * (self.ymax - self.ymin)
 
         xy = np.unravel_index(np.arange(self.n_spatial), (self.xmax, self.ymax), order='C')
         self.xy = np.vstack(xy).T
@@ -46,7 +48,7 @@ class MalvaPlot:
 
         xy = self.xy[locations]
         im, _, _ = np.histogram2d(xy[:, 0], xy[:, 1],
-                                  range=[[0, self.xmax], [0, self.ymax]],
+                                  range=[[self.xmin, self.xmax], [self.ymin, self.ymax]],
                                   bins=tuple((_im_shape * render_scale).astype(int)))
 
         if render_scale != 1 or render_smoothing != 1:
