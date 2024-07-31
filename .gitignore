@@ -9,6 +9,7 @@
 
 # C files
 *.c
+*.cpp
 
 # genome sequences
 *.fa
@@ -18,6 +19,10 @@
 *.csv
 *.pickle
 *.ipynb
+
+# notebook tests
+notebooks/test*
+notebooks/parallel_processing*
 
 # Spatial index
 *.nc

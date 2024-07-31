@@ -1,10 +1,10 @@
 [build-system]
-requires = ["poetry", "Cython", "setuptools", "wheel"]
+requires = ["poetry", "Cython", "setuptools", "wheel", "numpy"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "katoste"
-version = "0.1.0"
+version = "0.2.0"
 description = "katoste: fast indexing and querying of genomic sequences from spatial transcriptomics data"
 license = "GPL-2.0"
 authors = [
@@ -43,7 +43,7 @@ generate-setup-file = true
 python = ">3.8,<3.12"
 numpy = ">=1.17.0"
 pandas = ">=1.0"
-tqdm = "*"
+polars = ">=1.2.1"
 dnaio = ">1.0.0"
 h5py = ">=3"
 sortedcontainers = ">1.0.0"
@@ -56,6 +56,8 @@ netCDF4 = ">1.6.0"
 xarray = ">2022.11.0"
 datashader = ">0.15.0"
 flask = ">2.3.0"
+biopython = ">=1.83"
+scikit-image = ">=0.24.0"
 
 [tool.poetry.dev-dependencies]
 Cython = "^0.29.21"  # Latest version at time of publishing
