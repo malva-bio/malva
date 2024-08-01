@@ -686,9 +686,7 @@ cdef class SpatialIndex:
 
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
         self.index[cell_bc] = i
-        # self.num_coords += 1
 
-    # TODO: check if noexcept has performance penalty as suggested by compiler
     cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
         return self.index[key]
 
