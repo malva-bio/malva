@@ -428,16 +428,21 @@ def download_url_to_file(url, dst, progress=True):
     dst_dir = os.path.dirname(dst)
     f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
     try:
-        # TODO: use track instead of tqdm
-        # track(iterate_fasta(reference_file), description=f'Downloading file')
-        with tqdm(total=file_size, disable=not progress, unit="B", unit_scale=True, unit_divisor=1024) as pbar:
-            while True:
-                buffer = u.read(8192)
-                if len(buffer) == 0:
-                    break
-                f.write(buffer)
-                pbar.update(len(buffer))
-        f.close()
+        with open(dst, 'wb') as f:
+            chunk_size = 8192
+            chunks = iter(lambda: u.read(chunk_size), b'')
+            
+            for chunk in track(
+                chunks,
+                total=file_size // chunk_size + (1 if file_size % chunk_size else 0),
+                description="Downloading",
+                disable=not progress,
+                unit="B",
+                unit_scale=True,
+                total_format="{total:.2f}B"
+            ):
+                f.write(chunk)
+        
         shutil.move(f.name, dst)
     finally:
         f.close()
