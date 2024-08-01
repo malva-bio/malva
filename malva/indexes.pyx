@@ -5,13 +5,17 @@ cimport cython
 cimport numpy as np
 
 from libc.stdint cimport uint32_t, int32_t, uint64_t
-from libc.stdio cimport FILE, fopen, fwrite, fread, fclose
+from libc.math cimport floor
+from libc.stdlib cimport malloc, free
+from libc.string cimport memcpy
+from libc.stdio cimport FILE, fopen, fwrite, fread, fclose, getline
 from libcpp.algorithm cimport lower_bound
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair, move
 from libcpp.unordered_set cimport unordered_set
 from libcpp.unordered_map cimport unordered_map
 from cython.operator cimport dereference as deref, predecrement as dec
+from cpython.exc cimport PyErr_CheckSignals
 
 import h5py
 import logging
@@ -33,6 +37,9 @@ cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
 cdef extern from "<algorithm>" namespace "std" nogil:
     void sort[Iter, Compare](Iter first, Iter last, Compare comp)
+
+cdef extern from "<cstdio>" nogil:
+    double atof(const char* nptr)
 
 cdef int compare_indexed_value(const pair[uint64_t, uint32_t]& a, const pair[uint64_t, uint32_t]& b) nogil:
     return a.first < b.first
@@ -675,6 +682,11 @@ cdef class MalvaIndex:
 
         return (kmer_locations, kmer_count, seq_matches)
 
+cdef struct LineData:
+    double x
+    double y
+    uint64_t cell_bc
+
 cdef class SpatialIndex:
     cdef:
         map[uint64_t, uint32_t] index
@@ -756,67 +768,146 @@ cdef class SpatialIndex:
 
         fclose(file)
 
+cdef void process_line(const char* line, int line_length, LineData* data, bint encode = True) noexcept nogil:
+    cdef int field = 0
+    cdef int start = 0
+    cdef int i
+    cdef char c
+    cdef char[64] kmer
+    for i in range(line_length):
+        c = line[i]
+        if c == b',' or c == b'\t' or c == b'\n':
+            if field == 0:  # cell_bc
+                memcpy(kmer, &line[start], i - start)
+                kmer[i - start] = b'\0'
+                if encode:
+                    with gil:
+                        data.cell_bc = encode_kmer(kmer.decode("ascii")[:i])
+            elif field == 1:  # x coordinate
+                data.x = atof(&line[start])
+            elif field == 2:  # y coordinate
+                data.y = atof(&line[start])
+                break
+            field += 1
+            start = i + 1
+
+cdef void update_bounds(double* xmin, double* xmax, double* ymin, double* ymax, double x, double y) noexcept nogil:
+    if x < xmin[0]:
+        xmin[0] = x
+    if x > xmax[0]:
+        xmax[0] = x
+    if y < ymin[0]:
+        ymin[0] = y
+    if y > ymax[0]:
+        ymax[0] = y
 
 def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float index_resolution=1, bint recenter=True):
     cdef:
         SpatialIndex sindex = SpatialIndex()
-        np.ndarray[np.float64_t, ndim=1] _xcoord, _ycoord
-        np.ndarray[np.uint32_t, ndim=1] xcoord, ycoord
-        np.ndarray[np.uint64_t, ndim=1] cell_bc
-        Py_ssize_t i, n
-        double xmin, ymin
-        uint32_t x, y
+        FILE* file
+        char* line = NULL
+        size_t len = 0
+        ssize_t read
+        LineData data
+        double xmin_d = 1e300, xmax_d = -1e300, ymin_d = 1e300, ymax_d = -1e300
+        uint32_t xmin, xmax, ymin, ymax
+        uint32_t x, y, coord_idx
+        Py_ssize_t line_count = 0
+        Py_ssize_t total_lines = 0
+        Py_ssize_t report_interval = 10000000
 
-    if spatial_barcode_file.endswith('.csv'):
-        sep = ','
-    elif spatial_barcode_file.endswith('.tsv'):
-        sep = '\t'
-    else:
-        raise ValueError("Unsupported file format. The file must be either a .csv or .tsv file")
+    logging.info("Starting spatial index creation...")
 
-    spatial_index = pd.read_csv(spatial_barcode_file, sep=sep)
-    spatial_index.drop_duplicates(subset='cell_bc')
+    # First pass: Calculate bounds
+    file = fopen(spatial_barcode_file.encode('ascii'), "r")
+    if file == NULL:
+        raise IOError(f"Cannot open file {spatial_barcode_file} for reading")
 
-    spatial_index['cell_bc_encoded'] = spatial_index.apply(lambda x: encode_kmer(x['cell_bc']), axis=1)
+    # Skip header (assume that we have one, otherwise it has to be added!)
+    getline(&line, &len, file)
 
-    _xcoord = spatial_index['xcoord'].values.astype(np.float64)
-    _ycoord = spatial_index['ycoord'].values.astype(np.float64)
-    cell_bc = spatial_index['cell_bc_encoded'].values.astype(np.uint64)
+    while True:
+        read = getline(&line, &len, file)
+        if read == -1:
+            break
+        process_line(line, read, &data, encode=False)
+        update_bounds(&xmin_d, &xmax_d, &ymin_d, &ymax_d, data.x, data.y)
+        total_lines += 1
 
-    if rescale_coords <= 0 or index_resolution <= 0:
-        raise ValueError("`rescale_coords` and `index_resolution` must be greater than 0")
+        if total_lines % report_interval == 0:
+            PyErr_CheckSignals()
+            logging.info(f"Detected {total_lines:,} spatial barcodes in first pass.")
+
+    fclose(file)
+
+    logging.info(f"First pass completed. Total spatial barcodes detected: {total_lines:,}")
 
     if recenter:
-        xmin = _xcoord.min()
-        ymin = _ycoord.min()
-        _xcoord -= xmin
-        _ycoord -= ymin
+        xmax_d -= xmin_d
+        ymax_d -= ymin_d
 
     if rescale_coords != 1:
-        _xcoord *= rescale_coords
-        _ycoord *= rescale_coords
+        xmax_d *= rescale_coords
+        ymax_d *= rescale_coords
+        xmin_d *= rescale_coords
+        ymin_d *= rescale_coords
 
     if index_resolution != 1:
-        _xcoord /= index_resolution
-        _ycoord /= index_resolution
+        xmax_d /= index_resolution
+        ymax_d /= index_resolution
+        xmin_d /= index_resolution
+        ymin_d /= index_resolution
 
-    xcoord = np.floor(_xcoord).astype(np.uint32)
-    ycoord = np.floor(_ycoord).astype(np.uint32)
+    xmax = <uint32_t>floor(xmax_d)
+    ymax = <uint32_t>floor(ymax_d)
+    xmin = <uint32_t>floor(xmin_d)
+    ymin = <uint32_t>floor(ymin_d)
 
-    xmin = xcoord.min()
-    xmax = xcoord.max()
-    ymin = ycoord.min()
-    ymax = ycoord.max()
-
-    if xmax >= 65535 or ymax >= 65535:
+    if (xmax - xmin) >= 65535 or (ymax - ymin) >= 65535:
         raise ValueError("Spatial coordinates must be between 0 and 65,535")
 
     sindex.set_bounds(xmin, xmax, ymin, ymax)
-    n = len(xcoord)
-    for i in track(range(n), description='Spatial indexing'):
-        x = xcoord[i]
-        y = ycoord[i]
-        coord_idx = np.ravel_multi_index([x, y], (xmax+1, ymax+1), order='C')
-        sindex.add(cell_bc[i], coord_idx)
+
+    logging.info("Starting second pass: generating spatial index...")
+
+    # Second pass: Generate spatial index
+    file = fopen(spatial_barcode_file.encode('ascii'), "r")
+    if file == NULL:
+        raise IOError(f"Cannot open file {spatial_barcode_file} for reading")
+
+    getline(&line, &len, file)
+
+    while True:
+        read = getline(&line, &len, file)
+        if read == -1:
+            break
+        process_line(line, read, &data)
+        
+        if recenter:
+            data.x -= xmin_d
+            data.y -= ymin_d
+        if rescale_coords != 1:
+            data.x *= rescale_coords
+            data.y *= rescale_coords
+        if index_resolution != 1:
+            data.x /= index_resolution
+            data.y /= index_resolution
+
+        x = <uint32_t>floor(data.x)
+        y = <uint32_t>floor(data.y)
+
+        coord_idx = (x - xmin) * (ymax + 1) + (y - ymin)
+        sindex.add(data.cell_bc, coord_idx)
+
+        line_count += 1
+        if line_count % report_interval == 0:
+            PyErr_CheckSignals()
+            progress = (line_count / total_lines) * 100
+            logging.info(f"Processed {line_count:,}/{total_lines:,} spatial barcodes.")
+
+    free(line)
+    fclose(file)
+
+    logging.info(f"Spatial index creation completed.")
 
     return sindex
