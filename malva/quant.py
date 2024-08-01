@@ -11,6 +11,7 @@ from malva.show import MalvaPlot
 from malva.utils import (check_directory_exists, check_file_exists,
                          get_reference_cache)
 
+N_EACH_REPORT = 100
 
 class MalvaReferenceNotFound(Exception):
     pass
@@ -108,12 +109,7 @@ def process_reference(
 
         # we reserve the size of the header
         write_mtx_header(mtx_file, (0, 0, 0))
-
-        if verbose:
-            iterator = track(iterate_fasta(reference_file), description=f"Running pseudo-quantification")
-        else:
-            iterator = iterate_fasta(reference_file)
-        for seq in iterator:
+        for seq in iterate_fasta(reference_file):
             it_gene_name = seq[0].split(":")[0]
 
             if it_gene_name != current_gene:
@@ -121,7 +117,8 @@ def process_reference(
                     nnz = process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count)
                     total_nnz += nnz
                     current_col += 1
-
+                    if (current_col % N_EACH_REPORT) == 0 and verbose:
+                        logging.info(f"Processed {current_col} entries. Last sequence ID: {current_gene}")
                 utrs_gene = []
                 current_gene = it_gene_name
 
@@ -143,11 +140,11 @@ def process_reference(
     # TODO: check in indexes.pyx if this is correct (how to compute n_spatial)
     n_spatial = (kmer_index.coord_lims[1] + 1) * (kmer_index.coord_lims[3] + 1)
 
-    with open("matrix.mtx", "r+b") as mtx_file:
+    with open(os.path.join(folder_out, "matrix.mtx"), "r+b") as mtx_file:
         mtx_file.seek(0)
         write_mtx_header(mtx_file, (n_spatial, current_col, total_nnz))
 
-    print(f"MTX file created with shape: {n_spatial} x {current_col}, non-zero elements: {total_nnz}")
+    logging.info(f"MTX file created at {folder_out} \n\twith shape: {n_spatial} x {current_col}, non-zero elements: {total_nnz}")
 
 
 def _run_quant(args):
