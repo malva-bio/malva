@@ -1,7 +1,5 @@
 """
 This code is adapted from spacemake
-
-TODO: description and document uniformly (wrt rest of malva)
 """
 
 import anndata
