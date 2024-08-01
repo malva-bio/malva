@@ -410,8 +410,6 @@ def download_url_to_file(url, dst, progress=True):
     import tempfile
     from urllib.request import urlopen
 
-    from tqdm import tqdm
-
     file_size = None
 
     ssl._create_default_https_context = ssl._create_unverified_context
