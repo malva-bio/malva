@@ -460,7 +460,7 @@ def get_reference_cache(reference):
     if not os.path.exists(cached_file):
         url = f"{_MODEL_URL}/{reference}.fa.gz"
         logging.info('Downloading: "{}" to {}'.format(url, cached_file))
-        download_url_to_file(url, f"{cached_file}.tar.xz", progress=True)
+        download_url_to_file(url, f"{cached_file}.fa.gz", progress=True)
 
     return cached_file
 

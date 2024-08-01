@@ -118,7 +118,7 @@ def process_reference(
 
             if it_gene_name != current_gene:
                 if utrs_gene:
-                    nnz = process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col + 1)
+                    nnz = process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count)
                     total_nnz += nnz
                     current_col += 1
 
@@ -154,7 +154,10 @@ def _run_quant(args):
     kmer_index = MalvaIndex(args.index_in)
 
     # the output directory must not exist
-    check_directory_exists(args.folder_out, except_when=True)
+    outdir_exists = check_directory_exists(args.folder_out)
+    if not outdir_exists:
+        logging.warn("The specified output directory did not exist. Creating...")
+        os.mkdir(args.folder_out)
 
     reference_file = get_reference_cache(args.reference)
     logging.info(f"Will load reference '{args.reference}'")
@@ -175,7 +178,6 @@ def _run_quant(args):
         logging.info("Resaving pseudoquantification as AnnData (h5ad)")
         resave_h5ad(args.folder_out, kmer_index)
 
-    # TODO: add to all _run_* fns
     logging.info("SUCCESS!")
 
 
