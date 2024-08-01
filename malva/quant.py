@@ -98,7 +98,7 @@ def process_reference(
     kmer_index.verbose = False
     kmer_index.open()
     with open(os.path.join(folder_out, "matrix.mtx"), "wb") as mtx_file, gzip.open(
-        os.path.join("features.tsv.gz"), "wb"
+        os.path.join(folder_out, "features.tsv.gz"), "wb"
     ) as feature_file:
 
         current_gene = ""

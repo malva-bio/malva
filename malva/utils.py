@@ -456,7 +456,7 @@ def get_reference_cache(reference):
         exit(1)
 
     REFERENCES_DIR.mkdir(parents=True, exist_ok=True)
-    cached_file = os.fspath(REFERENCES_DIR.joinpath(reference))
+    cached_file = os.fspath(REFERENCES_DIR.joinpath(f"{reference}.fa.gz"))
     if not os.path.exists(cached_file):
         url = f"{_MODEL_URL}/{reference}.fa.gz"
         logging.info('Downloading: "{}" to {}'.format(url, cached_file))

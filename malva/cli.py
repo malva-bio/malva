@@ -243,10 +243,10 @@ def get_quant_parser():
     )
     parser.add_argument(
         "--pct-threshold",
-        type=int,
+        type=float,
         required=False,
-        default=65,
-        help="""Percentage of indexed k-mers that should match per coordinates for considering match. Default: 65 (percent)""",
+        default=0.65,
+        help="""Percentage of indexed k-mers (0-1 range) that should match per coordinates for considering match. Default: 65 (percent)""",
     )
     parser.add_argument(
         "--kmer-min",
