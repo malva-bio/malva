@@ -78,7 +78,7 @@ def get_index_parser():
     parser.add_argument(
         "--index-resolution",
         type=float,
-        default=10,
+        default=1,
         help="Spatial resolution of the malva index, in microns.",
     )
     parser.add_argument(
