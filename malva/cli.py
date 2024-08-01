@@ -15,9 +15,9 @@ def get_index_parser():
         "--reads-in",
         type=str,
         required=True,
-        nargs="+",
-        help="""FASTQ(s) or BAM file containing the transcriptomic information, 
-        UMI and cell (spatial) barcode (in R1/R2 structure, or in a single file)""",
+        nargs=2,
+        help="""Pair of FASTQ files containing the transcriptomic information, 
+        UMI and cell (spatial) barcode (in R1/R2 structure, paired-end)""",
     )
     parser.add_argument(
         "--spatial-bc-in",
