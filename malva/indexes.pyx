@@ -55,8 +55,8 @@ cdef extern from *:
     struct CompareFirst:
         pass
 
-cdef pair[uint64_t, pair[uint64_t, uint64_t]] binary_search(vector[pair[uint64_t, pair[uint64_t, uint64_t]]] vec, uint64_t target):
-    cdef vector[pair[uint64_t, pair[uint64_t, uint64_t]]].iterator result
+cdef pair[uint64_t, pair[uint32_t, uint32_t]] binary_search(vector[pair[uint64_t, pair[uint32_t, uint32_t]]] vec, uint64_t target):
+    cdef vector[pair[uint64_t, pair[uint32_t, uint32_t]]].iterator result
 
     result = lower_bound(vec.begin(), vec.end(), target, CompareFirst())
     
@@ -105,8 +105,8 @@ cdef class MalvaIndex:
         public np.ndarray spatial_coords
         public int _n_kmers_processed
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
-        map[uint64_t, pair[uint32_t, uint32_t]] _index_backed
-        vector[pair[uint64_t, pair[uint64_t, uint64_t]]] _cindex
+        map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
+        vector[pair[uint64_t, pair[uint32_t, uint32_t]]] _cindex
         SpatialIndex spatial_index
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
@@ -119,8 +119,8 @@ cdef class MalvaIndex:
         self.spatial_index = SpatialIndex()
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
-        self._index_backed = map[uint64_t, pair[uint32_t, uint32_t]]()
-        self._cindex = vector[pair[uint64_t, pair[uint64_t, uint64_t]]]()
+        self._index_backed = map[uint64_t, pair[uint64_t, uint64_t]]()
+        self._cindex = vector[pair[uint64_t, pair[uint32_t, uint32_t]]]()
 
         if rewrite:
             if os.path.exists(self.index_dir):
@@ -187,7 +187,7 @@ cdef class MalvaIndex:
             np.npy_intp dims_b[2]
             int _chunk
             vector[uint64_t] k_unique
-            vector[uint32_t] k_change
+            vector[uint64_t] k_change
             size_t i, n = kmer_coords.size()
             uint64_t current_kmer
             pair[uint64_t, uint32_t]* data_ptr = &kmer_coords[0] if n > 0 else NULL
@@ -215,7 +215,7 @@ cdef class MalvaIndex:
         # create a numpy arrays
         dims[0] = k_unique.size()
         cdef np.ndarray k_unique_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_unique[0])
-        cdef np.ndarray k_change_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&k_change[0])
+        cdef np.ndarray k_change_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_change[0])
 
         dims_b[0] = n
         dims_b[1] = 4
@@ -223,7 +223,7 @@ cdef class MalvaIndex:
 
         self.open(mode='r+')
         self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique_view, dtype=np.uint64)
-        self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change_view, dtype=np.uint32)
+        self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change_view, dtype=np.uint64)
         self.index.create_dataset(f"index_{_chunk}_data", data=coords_view[:, 0], dtype=np.uint32)
     
         self.n_chunks += 1
@@ -314,21 +314,21 @@ cdef class MalvaIndex:
 
         _intm_result = [0, 0]
 
-        output_file = h5py.File(f, 'w')
+        with h5py.File(f, 'w') as output_file:
+            for key, value in self.index.attrs.items():
+                output_file.attrs[key] = value
+            
+            output_file.attrs['n_chunks'] = 1
 
-        # Copying attributes to the output file
-        for key, value in self.index.attrs.items():
-            output_file.attrs[key] = value
-        
-        # ... except for chunk size, which is 1
-        output_file.attrs['n_chunks'] = 1
+            output_file.create_dataset('index_0_indices', (0,), maxshape=(None,), dtype=np.uint64, chunks=True)
+            output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype=np.uint64, chunks=True)
+            output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype=np.uint32, chunks=True)
 
-        # Create datasets in the output file
-        output_file.create_dataset('index_0_indices', (0,), maxshape=(None,), dtype='uint64')
-        output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype='uint64')
-        output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype='uint32')
-
-        for _ in range(0, max_kmer_chunk, chunksize):
+        if self.verbose:
+            iterator = track(range(0, max_kmer_chunk, chunksize), description=f'Merging chunks')
+        else:
+            iterator = range(0, max_kmer_chunk, chunksize)
+        for _ in iterator:
             _val_max_ix_0 = self.index[f'index_{which_index}_indices'][imin[0]:imax[0]][-1]
             imax = np.array([np.argwhere(self.index[f'index_{chunk}_indices'] <= _val_max_ix_0)[-1][0] for chunk in range(0, self.n_chunks)]) + 1
 
@@ -373,20 +373,21 @@ cdef class MalvaIndex:
                 result_data.append(_data)
 
             result_data = np.concatenate(result_data)
-
+            
             # Write the merged chunk to the output file
-            current_indices_length = output_file['index_0_indices'].shape[0]
-            current_indptr_length = output_file['index_0_indptr'].shape[0]
-            current_data_length = output_file['index_0_data'].shape[0]
+            with h5py.File(f, 'r+') as output_file:
+                current_indices_length = output_file['index_0_indices'].shape[0]
+                current_indptr_length = output_file['index_0_indptr'].shape[0]
+                current_data_length = output_file['index_0_data'].shape[0]
+    
+                output_file['index_0_indices'].resize((current_indices_length + len(result_indices),))
+                output_file['index_0_indices'][current_indices_length:] = np.array(result_indices, dtype=np.uint64)
 
-            output_file['index_0_indices'].resize((current_indices_length + len(result_indices),))
-            output_file['index_0_indices'][current_indices_length:] = result_indices
+                output_file['index_0_indptr'].resize((current_indptr_length + len(result_indptr),))
+                output_file['index_0_indptr'][current_indptr_length:] = np.array(result_indptr, dtype=np.uint64)
 
-            output_file['index_0_indptr'].resize((current_indptr_length + len(result_indptr),))
-            output_file['index_0_indptr'][current_indptr_length:] = result_indptr
-
-            output_file['index_0_data'].resize((current_data_length + len(result_data),))
-            output_file['index_0_data'][current_data_length:] = result_data
+                output_file['index_0_data'].resize((current_data_length + len(result_data),))
+                output_file['index_0_data'][current_data_length:] = result_data.astype(np.uint32)
 
             result_indices = [None]
             result_indptr = [0]
@@ -395,7 +396,6 @@ cdef class MalvaIndex:
             imin = imax.copy()
             imax = imin + chunksize
         
-        output_file.close()
         self.close()
 
     def write(self):
@@ -414,7 +414,7 @@ cdef class MalvaIndex:
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
-            pair[uint32_t, uint32_t] _indptr
+            pair[uint64_t, uint64_t] _indptr
             uint64_t kmer
             np.ndarray _res
             uint32_t _res_item
@@ -448,9 +448,9 @@ cdef class MalvaIndex:
         # TODO: does not work! something is off here - what is returned by the binary_search function?
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
-            pair[uint64_t, pair[uint64_t, uint64_t]] _cindex_res
-            pair[uint32_t, uint32_t] _indptr
-            uint64_t kmer, _start, _end
+            pair[uint64_t, pair[uint32_t, uint32_t]] _cindex_res
+            pair[uint64_t, uint64_t] _indptr
+            uint64_t kmer, _start, _end, _indptr_first, _indptr_second
             int chunk_len
             np.ndarray _res
             uint32_t _res_item
@@ -525,13 +525,13 @@ cdef class MalvaIndex:
             _indptr_chunk = self.index[f'index_{chunk_id}_indptr'][start:chunk_end]
 
             for i in range(len(_indices_chunk)):
-                self._index_backed[_indices_chunk[i]] = pair[uint32_t, uint32_t](_indptr_chunk[i], _indptr_chunk[i+1])
+                self._index_backed[_indices_chunk[i]] = pair[uint64_t, uint64_t](_indptr_chunk[i], _indptr_chunk[i+1])
 
             start = end
 
         if end == total_length:
             last_index = total_length - 1
-            self._index_backed[self.index[f'index_{chunk_id}_indices'][last_index]] = pair[uint32_t, uint32_t](
+            self._index_backed[self.index[f'index_{chunk_id}_indices'][last_index]] = pair[uint64_t, uint64_t](
                 self.index[f'index_{chunk_id}_indptr'][last_index],
                 total_length
             )
@@ -545,6 +545,7 @@ cdef class MalvaIndex:
             int chunk_len, chunk_each
             size_t i = 0
             np.ndarray _cindex_indices, _cindex_indptr
+            uint64_t _last_cindex_indices
 
         chunk_len = len(self.index[f'index_{chunk_id}_indices']) - 1
         
@@ -561,12 +562,11 @@ cdef class MalvaIndex:
         assert len(_cindex_indices) == len(_cindex_indptr)
 
         for i in range(len(_cindex_indices)-1):
-            self._cindex.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](_cindex_indices[i], pair[uint64_t, uint64_t](_cindex_indptr[i], _cindex_indptr[i+1])))
+            self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_cindex_indices[i], pair[uint32_t, uint32_t](_cindex_indptr[i], _cindex_indptr[i+1])))
 
         # we add the last position
         _last_cindex_indices = self.index[f'index_{chunk_id}_indices'][chunk_len]
-        _last_cindex_indptr = self.index[f'index_{chunk_id}_indptr'][chunk_len]
-        self._cindex.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](_last_cindex_indices, pair[uint64_t, uint64_t](_cindex_indptr[i+1], _last_cindex_indices)))
+        self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_last_cindex_indices, pair[uint32_t, uint32_t](_cindex_indptr[i+1], chunk_len)))
 
     def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 1_000_000, max_mem: str = None, force: bool = False):
         max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
@@ -860,8 +860,12 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
 
     xmax = <uint32_t>floor(xmax_d)
     ymax = <uint32_t>floor(ymax_d)
-    xmin = <uint32_t>floor(xmin_d)
-    ymin = <uint32_t>floor(ymin_d)
+    if recenter:
+        xmin = 0
+        ymin = 0
+    else:
+        xmin = <uint32_t>floor(xmin_d)
+        ymin = <uint32_t>floor(ymin_d)
 
     if (xmax - xmin) >= 65535 or (ymax - ymin) >= 65535:
         raise ValueError("Spatial coordinates must be between 0 and 65,535")
@@ -896,7 +900,7 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
         x = <uint32_t>floor(data.x)
         y = <uint32_t>floor(data.y)
 
-        coord_idx = (x - xmin) * (ymax + 1) + (y - ymin)
+        coord_idx = np.ravel_multi_index([x, y], (xmax+1, ymax+1), order='C')
         sindex.add(data.cell_bc, coord_idx)
 
         line_count += 1
