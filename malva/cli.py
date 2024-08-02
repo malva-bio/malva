@@ -321,11 +321,6 @@ def cmd_run_combine(args):
     _run_combine(args)
 
 
-parser = argparse.ArgumentParser(description="Combine multiple malva index folders into a single virtual index")
-    parser.add_argument("--index-dir", required=True, help="Directory containing index folders to merge. Will create the new index here.")
-    args = parser.parse_args()
-
-
 SERVE_HELP = "Webserver for interactive spatial querying of malva indexes"
 
 
