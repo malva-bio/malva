@@ -277,6 +277,55 @@ def cmd_run_quant(args):
     _run_quant(args)
 
 
+COMBINE_HELP = "Combine various sub-indexes from the same sample (e.g., processed in parallel) into a single index"
+
+
+def get_combine_parser():
+    parser = argparse.ArgumentParser(
+        description=COMBINE_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+
+    parser.add_argument(
+        "--index-in",
+        type=str,
+        help="""Valid directory where the malva indices are located as subdirectories.
+        The new combined index (and metadata) will be stored at this folder.""",
+    )
+    parser.add_argument(
+        "--merge-chunks",
+        action="store_true",
+        help="""When the chunk size is less than the number of total reads, there will be
+        several separate chunks in the index file. When this option is provided, the different
+        chunks are merged into a single one, which will reduce index size and improve query speed.
+        This adds a bit of time to the overall processing.""",
+    )
+    return parser
+
+
+def setup_combine_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "combine",
+        help=COMBINE_HELP,
+        parents=[get_combine_parser()],
+    )
+    parser.set_defaults(func=cmd_run_combine)
+
+    return parser
+
+
+def cmd_run_combine(args):
+    from malva.combine import _run_combine
+
+    _run_combine(args)
+
+
+parser = argparse.ArgumentParser(description="Combine multiple malva index folders into a single virtual index")
+    parser.add_argument("--index-dir", required=True, help="Directory containing index folders to merge. Will create the new index here.")
+    args = parser.parse_args()
+
+
 SERVE_HELP = "Webserver for interactive spatial querying of malva indexes"
 
 
@@ -356,6 +405,7 @@ def cmdline_args():
     setup_show_parser(parent_parser_subparsers)
     setup_serve_parser(parent_parser_subparsers)
     setup_quant_parser(parent_parser_subparsers)
+    setup_combine_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
 
