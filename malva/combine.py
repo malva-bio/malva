@@ -1,5 +1,6 @@
 import h5py
 import os
+import shutil
 import logging
 
 from rich.progress import track
