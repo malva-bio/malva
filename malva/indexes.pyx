@@ -235,7 +235,6 @@ cdef class MalvaIndex:
 
         dims[0] = self._n_kmers_processed
         cdef np.ndarray k_data_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&k_data[0])
-        logging.info(k_data_view.max())
 
         self.open(mode='a')
         self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique_view, dtype=np.uint64)
