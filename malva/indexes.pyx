@@ -111,6 +111,7 @@ cdef class MalvaIndex:
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
         self.index_dir = index_dir
+        self.index = None
         self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
@@ -136,7 +137,10 @@ cdef class MalvaIndex:
 
     @staticmethod
     def index_exists(self):
-        return os.path.exists(self.index_file)
+        # because we are using the driver 'split', to avoid corruption issues
+        # this is a very weird issue that took me too long to debug
+        # .. and I didn't find a solution :))))
+        return os.path.exists(f'{self.index_file}-m.h5') and os.path.exists(f'{self.index_file}-r.h5')
 
     def initialize(self, int kmer_size=8):
         if kmer_size < 8 or kmer_size > 32:
@@ -176,7 +180,7 @@ cdef class MalvaIndex:
         self.close()
 
     def open(self, str mode='r'):
-        self.index = h5py.File(self.index_file, mode)
+        self.index = h5py.File(self.index_file, mode, driver="split")
         if 'kmer_size' in self.index.attrs:
             self.kmer_size = self.index.attrs['kmer_size']
 
@@ -194,26 +198,23 @@ cdef class MalvaIndex:
             self.spatial_coord = self.index['spatial_coord']
 
     def close(self):
+        self.index.flush()
         self.index.close()
 
     cdef void process_kmer(self, vector[pair[uint64_t, uint32_t]] kmer_coords):
         cdef:
-            np.npy_intp dims[1]
-            np.npy_intp dims_b[2]
             int _chunk
             vector[uint64_t] k_unique
             vector[uint64_t] k_change
             vector[uint32_t] k_data
             size_t i
             uint64_t current_kmer
-            pair[uint64_t, uint32_t]* data_ptr
 
         if self._n_kmers_processed == 0:
             logging.warn("There are no kmers to process!")
             return
 
         _chunk = self.n_chunks
-        data_ptr = &kmer_coords[0]
 
         current_kmer = kmer_coords[0].first
         k_unique.push_back(current_kmer)
@@ -228,29 +229,24 @@ cdef class MalvaIndex:
                     current_kmer = kmer_coords[i].first
                 k_data.push_back(kmer_coords[i].second)
 
-        # create a numpy arrays
-        dims[0] = k_unique.size()
-        cdef np.ndarray k_unique_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_unique[0])
-        cdef np.ndarray k_change_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_change[0])
+        _index = h5py.File(self.index_file, 'a', driver="split")
 
-        dims[0] = self._n_kmers_processed
-        cdef np.ndarray k_data_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&k_data[0])
+        try:
+            temp_indices = _index.create_dataset(f"index_{_chunk}_indices", shape=(k_unique.size(),), dtype=np.uint64)
+            temp_indices[:] = np.asarray(<np.uint64_t[:k_unique.size()]>&k_unique[0])
+            temp_indices = _index.create_dataset(f"index_{_chunk}_indptr", shape=(k_change.size(),), dtype=np.uint64)
+            temp_indices[:] = np.asarray(<np.uint64_t[:k_change.size()]>&k_change[0])
+            temp_indices = _index.create_dataset(f"index_{_chunk}_data", shape=(k_data.size(),), dtype=np.uint32, chunks=True, compression=None)
+            temp_indices[:] = np.asarray(<np.uint32_t[:k_data.size()]>&k_data[0])
 
-        self.open(mode='a')
-        self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique_view, dtype=np.uint64)
-        self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change_view, dtype=np.uint64)
-        self.index.create_dataset(f"index_{_chunk}_data", data=k_data_view, dtype=np.uint32)
-    
-        self.n_chunks += 1
-        self.index.attrs['n_chunks'] = self.n_chunks
+            self.n_chunks += 1
+            _index.attrs['n_chunks'] = self.n_chunks
+            _index.flush()
+        finally:
+            _index.close()
         
-        # we have to flush the file, e.g., when it is on an external
-        # drive, there might be issues...
-        self.index.flush()
-        os.sync()
-        self.close()
 
-    cdef int add_kmers(self, vector[uint64_t]& kmers, uint64_t cell_bc) nogil:
+    cdef int add_kmers(self, vector[uint64_t] kmers, uint64_t cell_bc) nogil:
         cdef:
             uint32_t coord
             size_t n_kmers, i
@@ -334,7 +330,7 @@ cdef class MalvaIndex:
 
         _intm_result = [0, 0]
 
-        with h5py.File(f, 'w') as output_file:
+        with h5py.File(f, 'w', driver='split') as output_file:
             for key, value in self.index.attrs.items():
                 output_file.attrs[key] = value
             
@@ -398,7 +394,7 @@ cdef class MalvaIndex:
             result_data = np.concatenate(result_data)
             
             # Write the merged chunk to the output file
-            with h5py.File(f, 'r+') as output_file:
+            with h5py.File(f, 'r+', driver='split') as output_file:
                 current_indices_length = output_file['index_0_indices'].shape[0]
                 current_indptr_length = output_file['index_0_indptr'].shape[0]
                 current_data_length = output_file['index_0_data'].shape[0]
@@ -424,15 +420,12 @@ cdef class MalvaIndex:
     def write(self):
         cdef vector[pair[uint64_t, uint32_t]].iterator first = self._iter_seqs.begin()
         cdef vector[pair[uint64_t, uint32_t]].iterator last = self._iter_seqs.end()
-        # swap trick for out of scope memfree
-        cdef vector[pair[uint64_t, uint32_t]] temp
         sort(first, last, &compare_indexed_value)
         
         self.process_kmer(self._iter_seqs)
 
         self._n_kmers_processed = 0
         self._iter_seqs.clear()
-        self._iter_seqs.swap(temp)
 
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         cdef:
