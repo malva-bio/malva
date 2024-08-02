@@ -2,7 +2,7 @@ import h5py
 import os
 import logging
 
-from malva.utils import check_directory_exists
+from malva.utils import check_directory_exists, check_file_exists
 
 def combine_indices(combine_dirs, index_out):
     output_file = os.path.join(combine_dirs, "malva_index.h5")
