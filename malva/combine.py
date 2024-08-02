@@ -61,17 +61,18 @@ def _run_combine(args):
     check_file_exists(index_out, except_when=True)
     combine_indices(args.index_in, index_out)
 
-    if args.merge_chunks and kmer_index.n_chunks > 1:
-        logging.info("Consolidating malva index (merging)")
+    if args.merge_chunks:
         kmer_index = MalvaIndex(args.index_in)
-        logging.info(f"Now, {kmer_index.n_chunks} chunks will be merged")
-        
-        merged_file = f"{kmer_index.index_file}.merged"
-        kmer_index.merge_chunks(merged_file)
-        os.remove(f'{kmer_index.index_file}-r.h5')
-        os.remove(f'{kmer_index.index_file}-m.h5')
-        shutil.move(f'{merged_file}-r.h5', f'{kmer_index.index_file}-r.h5')
-        shutil.move(f'{merged_file}-m.h5', f'{kmer_index.index_file}-m.h5')
+
+        if kmer_index.n_chunks > 1:
+            logging.info(f"Now, {kmer_index.n_chunks} chunks will be merged")
+            
+            merged_file = f"{kmer_index.index_file}.merged"
+            kmer_index.merge_chunks(merged_file)
+            os.remove(f'{kmer_index.index_file}-r.h5')
+            os.remove(f'{kmer_index.index_file}-m.h5')
+            shutil.move(f'{merged_file}-r.h5', f'{kmer_index.index_file}-r.h5')
+            shutil.move(f'{merged_file}-m.h5', f'{kmer_index.index_file}-m.h5')
 
     logging.info("SUCCESS!")
         
