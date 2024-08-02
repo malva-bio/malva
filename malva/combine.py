@@ -11,12 +11,14 @@ def combine_indices(combine_dirs, index_out):
         n_chunks_total = 0
         spatial_coords = []
 
-        # Iterate over all folders in the base directory
-        for index_folder in os.listdir(combine_dirs):
+        for index_folder in track(os.listdir(combine_dirs), description=f'Processing sub-indices'):
             folder_path = os.path.join(combine_dirs, index_folder)
             index_file = os.path.join(folder_path, "malva_index.h5")
 
-            if not os.path.isdir(folder_path) or not os.path.exists(f'{index_file}-r.h5') or not os.path.exists(f'{index_file}-m.h5'):
+            if not os.path.isdir(folder_path):
+                continue
+            
+            if not os.path.exists(f'{index_file}-r.h5') or not os.path.exists(f'{index_file}-m.h5'):
                 raise FileNotFoundError(f"The malva index {folder_path} was not found")
 
             with h5py.File(index_file, 'r', driver="split") as index_f:
@@ -26,7 +28,6 @@ def combine_indices(combine_dirs, index_out):
                     indptr_dataset_name = f"index_{n_chunks_total}_indptr"
                     data_dataset_name = f"index_{n_chunks_total}_data"
 
-                    # Create new datasets in the virtual file
                     f.create_dataset(indices_dataset_name, data=index_f[f"index_{i}_indices"])
                     f.create_dataset(indptr_dataset_name, data=index_f[f"index_{i}_indptr"])
                     f.create_dataset(data_dataset_name, data=index_f[f"index_{i}_data"])
