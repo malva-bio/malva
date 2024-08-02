@@ -16,17 +16,17 @@ class MalvaPlot:
         self.index = index
 
         # load the metadata from the index file
+        # TODO: use a context manager
         self.index.open()
-        self.index.close()
-
         self.xmax = self.index.coord_lims[1]+1
         self.ymax = self.index.coord_lims[3]+1
         self.xmin = self.index.coord_lims[0]
         self.ymin = self.index.coord_lims[2]
-        self.n_spatial = (self.xmax - self.xmin) * (self.ymax - self.ymin)
-
-        xy = np.unravel_index(np.arange(self.n_spatial), (self.xmax, self.ymax), order='C')
-        self.xy = np.vstack(xy).T
+        self.n_spatial = self.index.n_spatial
+        # we load the coordinate vector here, which might be too big
+        # TODO: is it better to have it as backed?
+        self.xy = self.index.spatial_coord[:]
+        self.index.close()
 
     def scatter(self, locations, intensities):
         try:
@@ -43,13 +43,13 @@ class MalvaPlot:
 
     def image(self, locations, intensities,
               render_scale: int = 1, render_smoothing: float = 1.5):
-        _im_shape = np.array([self.xmax, self.ymax])
+        _im_shape = np.array([int((self.xmax - self.xmin) * render_scale), int((self.ymax - self.ymin) * render_scale)])
         locations = np.repeat(locations, intensities.astype(int)).astype(int)
 
         xy = self.xy[locations]
         im, _, _ = np.histogram2d(xy[:, 0], xy[:, 1],
                                   range=[[self.xmin, self.xmax], [self.ymin, self.ymax]],
-                                  bins=tuple((_im_shape * render_scale).astype(int)))
+                                  bins=tuple(_im_shape))
 
         if render_scale != 1 or render_smoothing != 1:
             try:
@@ -59,7 +59,6 @@ class MalvaPlot:
                 raise ImportError("Please install skimage: `pip install scikit-image`")
 
             im = gaussian(im, render_smoothing)
-            im = resize(im, tuple(_im_shape))
 
         im = ((im / im.max()) * 255).astype(np.uint8)
         return im.T

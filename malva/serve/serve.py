@@ -25,6 +25,7 @@ OUTFILE_NAME = "test.nc"
 app = Flask(__name__)
 map_bp = Blueprint('map', __name__)
 
+# TODO: adapt this so it works with the new coordinate storage method
 def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_complexity_filter=True, countmaxkmer=100_000, countminkmer=10):
     global kmer_index, xy, x_sarray, y_sarray, where_abundant
 
@@ -64,10 +65,8 @@ def _run_serve(args):
 
     xmax = kmer_index.coord_lims[1]+1
     ymax = kmer_index.coord_lims[3]+1
-    n_spatial = kmer_index.n_spatial+1
 
-    xy = np.unravel_index(np.arange(n_spatial), (xmax, ymax), order='C')
-    xy = np.vstack(xy).T
+    xy = kmer_index.spatial_coord[:]
 
     logging.info(f"Create temporary spatial plotter index as netCDF")    
     generate_netcdf_index(kmer_index, xy, xmax, ymax)
