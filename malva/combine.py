@@ -2,6 +2,8 @@ import h5py
 import os
 import logging
 
+from rich.progress import track
+
 from malva.utils import check_directory_exists, check_file_exists
 
 def combine_indices(combine_dirs, index_out):
