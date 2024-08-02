@@ -70,6 +70,7 @@ def _run_combine(args):
             
             merged_file = f"{kmer_index.index_file}.merged"
             kmer_index.merge_chunks(merged_file)
+            kmer_index.verbose = True
             os.remove(f'{kmer_index.index_file}-r.h5')
             os.remove(f'{kmer_index.index_file}-m.h5')
             shutil.move(f'{merged_file}-r.h5', f'{kmer_index.index_file}-r.h5')
