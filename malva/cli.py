@@ -57,7 +57,7 @@ def get_index_parser():
     parser.add_argument(
         "--chunksize",
         type=int,
-        default=1_000_000_000,
+        default=100_000_000,
         help="""Consecutive chunk that will be accumulated into RAM before writing.
         Consider reducing this number to reduce RAM usage (indexing might be slower).""",
     )
@@ -70,23 +70,12 @@ def get_index_parser():
         increases time to build the index and its size.""",
     )
     parser.add_argument(
-        "--rescale-coords",
-        type=float,
-        default=1,
-        help="Factor to convert from provided coordinate units into microns",
-    )
-    parser.add_argument(
-        "--index-resolution",
-        type=float,
-        default=1,
-        help="Spatial resolution of the malva index, in microns.",
-    )
-    parser.add_argument(
-        "--no-recenter",
+        "--merge-chunks",
         action="store_true",
-        help="""Spatial coordinates will be kept 'as is'. 
-        The x,y coordinate values must be in the range 0-65,535.
-        Otherwise, an exception will be thrown.""",
+        help="""When the chunk size is less than the number of total reads, there will be
+        several separate chunks in the index file. When this option is provided, the different
+        chunks are merged into a single one, which will reduce index size and improve query speed.
+        This adds a bit of time to the overall processing.""",
     )
     parser.add_argument(
         "--threads",
@@ -327,6 +316,12 @@ def get_serve_parser():
         type=int,
         default=1000,
         help="""Maximum allowed length for DNA/RNA queries""",
+    )
+    parser.add_argument(
+        "--rescale-coords",
+        type=float,
+        default=1,
+        help="Provided coordinate units (from the index) are rescaled by this factor",
     )
     return parser
 

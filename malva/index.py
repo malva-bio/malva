@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 
 import yaml
 
@@ -63,7 +64,7 @@ def _run_index(args):
     else:
         logging.info("Creating `cell (spot) barcode->spatial coordinate` index")
         sindex = create_spatial_index(
-            args.spatial_bc_in, args.rescale_coords, args.index_resolution, not args.no_recenter
+            args.spatial_bc_in
         )
         logging.info("Saving `cell (spot) barcode->spatial coordinate` index")
         sindex.save_binary(_sindex_loc)
@@ -72,11 +73,19 @@ def _run_index(args):
     kmer_index = MalvaIndex(args.index_out, kmer_size_initialize=args.kmer_length)
 
     logging.info("Adding spatial index to malva index")
-    kmer_index.append_spatial(sindex)
+    kmer_index.set_spatial_index(sindex)
 
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
     logging.info(f"Will write to disk every {args.chunksize:,} sequences, and once at the end (remaining sequences)")
     kmer_index.add_reads(args.reads_in, _bam_tags, _cell, chunksize=args.chunksize, threads=args.threads)
+
+    if args.merge_chunks and kmer_index.n_chunks > 1:
+        logging.info(f"Now, {kmer_index.n_chunks} chunks will be merged")
+        
+        merged_file = f"{kmer_index.index_file}.merged"
+        kmer_index.merge_chunks(merged_file)
+        os.remove(kmer_index.index_file)
+        shutil.move(merged_file, kmer_index.index_file)
 
     logging.info("SUCCESS!")
 
