@@ -4,6 +4,7 @@ import logging
 
 from rich.progress import track
 
+from malva.index import MalvaIndex
 from malva.utils import check_directory_exists, check_file_exists
 
 def combine_indices(combine_dirs, index_out):
