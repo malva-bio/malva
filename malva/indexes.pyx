@@ -101,8 +101,8 @@ cdef class MalvaIndex:
         public tuple coord_lims
         public int n_chunks
         public list data_lengths
+        public object spatial_coord
         public int n_spatial
-        public np.ndarray spatial_coords
         public int _n_kmers_processed
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
         map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
@@ -153,12 +153,24 @@ cdef class MalvaIndex:
         self.index.attrs['n_chunks'] = self.n_chunks
         self.close()
 
-    def append_spatial(self, SpatialIndex sindex):
+    # TODO: rename to BarcodeIndex
+    def set_spatial_index(self, SpatialIndex sindex):
         self.spatial_index = sindex
-        self.coord_lims = (sindex.xmin, sindex.xmax, sindex.ymin, sindex.ymax)
-        self.n_spatial = sindex.xmax * sindex.ymax
-        
+        self.set_spatial_coords(sindex.get_coords())
+
+    def set_spatial_coords(self, coords: np.ndarray):
+        xmin, xmax = coords[:, 0].min(), coords[:, 0].max()
+        ymin, ymax = coords[:, 1].min(), coords[:, 1].max()
+    
+        self.coord_lims = (xmin, xmax, ymin, ymax)
+        self.n_spatial = len(coords)
+
+        # TODO: this will be a context manager
         self.open(mode='r+')
+        if 'spatial_coord' in self.index:
+            del self.index['spatial_coord']
+
+        self.index['spatial_coord'] = coords
         self.index.attrs['coord_lims'] = self.coord_lims
         self.index.attrs['n_spatial'] = self.n_spatial
         self.close()
@@ -178,6 +190,9 @@ cdef class MalvaIndex:
             self.n_chunks = self.index.attrs['n_chunks']
             self.data_lengths = [len(self.index[f'index_{chunk}_data']) for chunk in range(self.n_chunks)]
 
+        if 'spatial_coord' in self.index:
+            self.spatial_coord = self.index['spatial_coord']
+
     def close(self):
         self.index.close()
 
@@ -188,46 +203,52 @@ cdef class MalvaIndex:
             int _chunk
             vector[uint64_t] k_unique
             vector[uint64_t] k_change
-            size_t i, n = kmer_coords.size()
+            vector[uint32_t] k_data
+            size_t i
             uint64_t current_kmer
-            pair[uint64_t, uint32_t]* data_ptr = &kmer_coords[0] if n > 0 else NULL
+            pair[uint64_t, uint32_t]* data_ptr
 
         if self._n_kmers_processed == 0:
             logging.warn("There are no kmers to process!")
             return
 
         _chunk = self.n_chunks
-
-        if n == 0:
-            return
+        data_ptr = &kmer_coords[0]
 
         current_kmer = kmer_coords[0].first
         k_unique.push_back(current_kmer)
         k_change.push_back(0)
+        k_data.push_back(kmer_coords[0].second)
 
         with nogil:
-            for i in range(1, n):
+            for i in range(1, self._n_kmers_processed):
                 if kmer_coords[i].first != current_kmer:
                     k_unique.push_back(kmer_coords[i].first)
                     k_change.push_back(i)
                     current_kmer = kmer_coords[i].first
+                k_data.push_back(kmer_coords[i].second)
 
         # create a numpy arrays
         dims[0] = k_unique.size()
         cdef np.ndarray k_unique_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_unique[0])
         cdef np.ndarray k_change_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT64, <void*>&k_change[0])
 
-        dims_b[0] = n
-        dims_b[1] = 4
-        cdef np.ndarray coords_view = np.PyArray_SimpleNewFromData(2, dims_b, np.NPY_UINT32, <void*>&(data_ptr[0].second))
+        dims[0] = self._n_kmers_processed
+        cdef np.ndarray k_data_view = np.PyArray_SimpleNewFromData(1, dims, np.NPY_UINT32, <void*>&k_data[0])
+        logging.info(k_data_view.max())
 
-        self.open(mode='r+')
+        self.open(mode='a')
         self.index.create_dataset(f"index_{_chunk}_indices", data=k_unique_view, dtype=np.uint64)
         self.index.create_dataset(f"index_{_chunk}_indptr", data=k_change_view, dtype=np.uint64)
-        self.index.create_dataset(f"index_{_chunk}_data", data=coords_view[:, 0], dtype=np.uint32)
+        self.index.create_dataset(f"index_{_chunk}_data", data=k_data_view, dtype=np.uint32)
     
         self.n_chunks += 1
         self.index.attrs['n_chunks'] = self.n_chunks
+        
+        # we have to flush the file, e.g., when it is on an external
+        # drive, there might be issues...
+        self.index.flush()
+        os.sync()
         self.close()
 
     cdef int add_kmers(self, vector[uint64_t]& kmers, uint64_t cell_bc) nogil:
@@ -323,6 +344,9 @@ cdef class MalvaIndex:
             output_file.create_dataset('index_0_indices', (0,), maxshape=(None,), dtype=np.uint64, chunks=True)
             output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype=np.uint64, chunks=True)
             output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype=np.uint32, chunks=True)
+
+            if 'spatial_coord' in self.index:
+                output_file.create_dataset('spatial_coord', data=self.index['spatial_coord'][:], dtype=np.float32)
 
         if self.verbose:
             iterator = track(range(0, max_kmer_chunk, chunksize), description=f'Merging chunks')
@@ -683,61 +707,52 @@ cdef class MalvaIndex:
         return (kmer_locations, kmer_count, seq_matches)
 
 cdef struct LineData:
-    double x
-    double y
+    float x
+    float y
     uint64_t cell_bc
 
+# TODO: rename and reorganize to BarcodeIndex
+# TODO: then there's a SpatialIndex class inherited from BarcodeIndex
 cdef class SpatialIndex:
     cdef:
         map[uint64_t, uint32_t] index
-        uint32_t xmin, xmax, ymin, ymax
-
-    def __cinit__(self):
-        self.xmin = self.ymin = 0xFFFFFFFF
-        self.xmax = self.ymax = 0
+        vector[pair[float, float]] coords
 
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
         self.index[cell_bc] = i
 
+    def get_coords(self):
+        cdef np.ndarray[np.float32_t, ndim=2] arr = np.empty((self.coords.size(), 2), dtype=np.float32)
+        cdef size_t i
+        for i in range(self.coords.size()):
+            arr[i, 0] = self.coords[i].first
+            arr[i, 1] = self.coords[i].second
+        return arr
+
     cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
         return self.index[key]
-
-    def set_bounds(self, uint32_t xmin, uint32_t xmax, uint32_t ymin, uint32_t ymax):
-        self.xmin = xmin
-        self.xmax = xmax
-        self.ymin = ymin
-        self.ymax = ymax
-
-    @property
-    def bounds(self):
-        return (self.xmin, self.xmax, self.ymin, self.ymax)
 
     def save_binary(self, str filename):
         cdef FILE* file = fopen(filename.encode('ascii'), "wb")
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for writing")
 
-        # Write bounds
-        fwrite(&self.xmin, sizeof(uint32_t), 1, file)
-        fwrite(&self.xmax, sizeof(uint32_t), 1, file)
-        fwrite(&self.ymin, sizeof(uint32_t), 1, file)
-        fwrite(&self.ymax, sizeof(uint32_t), 1, file)
-
         # Write size of the map
         cdef size_t size = self.index.size()
         fwrite(&size, sizeof(size_t), 1, file)
 
-        # Write map contents
+        # Write contents: key, x, y
         cdef uint64_t key
-        cdef uint32_t value
+        cdef float x, y
         cdef map[uint64_t, uint32_t].iterator it = self.index.begin()
         cdef map[uint64_t, uint32_t].iterator end = self.index.end()
-
         while it != end:
             key = move(deref(it).first)
-            value = deref(it).second
+            x = self.coords[deref(it).second].first
+            y = self.coords[deref(it).second].second
             fwrite(&key, sizeof(uint64_t), 1, file)
-            fwrite(&value, sizeof(uint32_t), 1, file)
+            fwrite(&x, sizeof(float), 1, file)
+            fwrite(&y, sizeof(float), 1, file)
             it += 1  # Correctly increment the iterator
 
         fclose(file)
@@ -747,24 +762,23 @@ cdef class SpatialIndex:
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for reading")
 
-        # Read bounds
-        fread(&self.xmin, sizeof(uint32_t), 1, file)
-        fread(&self.xmax, sizeof(uint32_t), 1, file)
-        fread(&self.ymin, sizeof(uint32_t), 1, file)
-        fread(&self.ymax, sizeof(uint32_t), 1, file)
-
         # Read size of the map
         cdef size_t size
         fread(&size, sizeof(size_t), 1, file)
 
-        # Clear existing map and read new contents
+        # Clear existing structures and read new contents
         self.index.clear()
+        self.coords.clear()
+
         cdef uint64_t key
-        cdef uint32_t value
-        for _ in range(size):
+        cdef float x, y
+        cdef uint32_t i
+        for i in range(size):
             fread(&key, sizeof(uint64_t), 1, file)
-            fread(&value, sizeof(uint32_t), 1, file)
-            self.index[key] = value
+            fread(&x, sizeof(float), 1, file)
+            fread(&y, sizeof(float), 1, file)
+            self.index[key] = i
+            self.coords.push_back(pair[float, float](x, y))
 
         fclose(file)
 
@@ -791,17 +805,7 @@ cdef void process_line(const char* line, int line_length, LineData* data, bint e
             field += 1
             start = i + 1
 
-cdef void update_bounds(double* xmin, double* xmax, double* ymin, double* ymax, double x, double y) noexcept nogil:
-    if x < xmin[0]:
-        xmin[0] = x
-    if x > xmax[0]:
-        xmax[0] = x
-    if y < ymin[0]:
-        ymin[0] = y
-    if y > ymax[0]:
-        ymax[0] = y
-
-def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float index_resolution=1, bint recenter=True):
+def create_spatial_index(str spatial_barcode_file):
     cdef:
         SpatialIndex sindex = SpatialIndex()
         FILE* file
@@ -809,72 +813,12 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
         size_t len = 0
         ssize_t read
         LineData data
-        double xmin_d = 1e300, xmax_d = -1e300, ymin_d = 1e300, ymax_d = -1e300
-        uint32_t xmin, xmax, ymin, ymax
-        uint32_t x, y, coord_idx
-        Py_ssize_t line_count = 0
-        Py_ssize_t total_lines = 0
+        vector[pair[float, float]] coords
+        uint32_t line_count = 0 # cannot index more than 4 billion locations/cells
         Py_ssize_t report_interval = 10000000
 
     logging.info("Starting spatial index creation...")
 
-    # First pass: Calculate bounds
-    file = fopen(spatial_barcode_file.encode('ascii'), "r")
-    if file == NULL:
-        raise IOError(f"Cannot open file {spatial_barcode_file} for reading")
-
-    # Skip header (assume that we have one, otherwise it has to be added!)
-    getline(&line, &len, file)
-
-    while True:
-        read = getline(&line, &len, file)
-        if read == -1:
-            break
-        process_line(line, read, &data, encode=False)
-        update_bounds(&xmin_d, &xmax_d, &ymin_d, &ymax_d, data.x, data.y)
-        total_lines += 1
-
-        if total_lines % report_interval == 0:
-            PyErr_CheckSignals()
-            logging.info(f"Detected {total_lines:,} spatial barcodes in first pass.")
-
-    fclose(file)
-
-    logging.info(f"First pass completed. Total spatial barcodes detected: {total_lines:,}")
-
-    if recenter:
-        xmax_d -= xmin_d
-        ymax_d -= ymin_d
-
-    if rescale_coords != 1:
-        xmax_d *= rescale_coords
-        ymax_d *= rescale_coords
-        xmin_d *= rescale_coords
-        ymin_d *= rescale_coords
-
-    if index_resolution != 1:
-        xmax_d /= index_resolution
-        ymax_d /= index_resolution
-        xmin_d /= index_resolution
-        ymin_d /= index_resolution
-
-    xmax = <uint32_t>floor(xmax_d)
-    ymax = <uint32_t>floor(ymax_d)
-    if recenter:
-        xmin = 0
-        ymin = 0
-    else:
-        xmin = <uint32_t>floor(xmin_d)
-        ymin = <uint32_t>floor(ymin_d)
-
-    if (xmax - xmin) >= 65535 or (ymax - ymin) >= 65535:
-        raise ValueError("Spatial coordinates must be between 0 and 65,535")
-
-    sindex.set_bounds(xmin, xmax, ymin, ymax)
-
-    logging.info("Starting second pass: generating spatial index...")
-
-    # Second pass: Generate spatial index
     file = fopen(spatial_barcode_file.encode('ascii'), "r")
     if file == NULL:
         raise IOError(f"Cannot open file {spatial_barcode_file} for reading")
@@ -887,27 +831,16 @@ def create_spatial_index(str spatial_barcode_file, float rescale_coords=1, float
             break
         process_line(line, read, &data)
         
-        if recenter:
-            data.x -= xmin_d
-            data.y -= ymin_d
-        if rescale_coords != 1:
-            data.x *= rescale_coords
-            data.y *= rescale_coords
-        if index_resolution != 1:
-            data.x /= index_resolution
-            data.y /= index_resolution
-
-        x = <uint32_t>floor(data.x)
-        y = <uint32_t>floor(data.y)
-
-        coord_idx = np.ravel_multi_index([x, y], (xmax+1, ymax+1), order='C')
-        sindex.add(data.cell_bc, coord_idx)
+        coords.push_back(pair[float, float](data.x, data.y))
+        sindex.add(data.cell_bc, line_count)
 
         line_count += 1
         if line_count % report_interval == 0:
             PyErr_CheckSignals()
-            progress = (line_count / total_lines) * 100
-            logging.info(f"Processed {line_count:,}/{total_lines:,} spatial barcodes.")
+            logging.info(f"Processed {line_count:,} spatial barcodes.")
+
+    # we also set the actual coordinate values
+    sindex.coords = coords
 
     free(line)
     fclose(file)

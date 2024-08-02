@@ -75,12 +75,9 @@ def resave_h5ad(folder, kmer_index):
     adata = ad.read_mtx(matrix_file)
     adata.var_names = pd.read_csv(features_file, header=None, sep="\t")[0]
 
-    n_spatial = (kmer_index.coord_lims[1] + 1) * (kmer_index.coord_lims[3] + 1)
-    xy = np.unravel_index(
-        np.arange(n_spatial), (kmer_index.coord_lims[1] + 1, kmer_index.coord_lims[3] + 1), order="C"
-    )
-
-    adata.obsm["spatial"] = np.vstack(xy).T
+    n_spatial = kmer_index.n_spatial
+    # TODO: load more efficiently when too large to reduce memory usage
+    adata.obsm["spatial"] = kmer_index.spatial_coord[:]
 
     adata.write_h5ad(h5ad_file)
 
