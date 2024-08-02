@@ -19,7 +19,7 @@ def combine_indices(combine_dirs, index_out):
             if not os.path.isdir(folder_path) or not os.path.exists(f'{index_file}-r.h5') or not os.path.exists(f'{index_file}-m.h5'):
                 raise FileNotFoundError(f"The malva index {folder_path} was not found")
 
-            with h5py.File(index_file, 'r') as index_f:
+            with h5py.File(index_file, 'r', driver="split") as index_f:
                 n_chunks = index_f.attrs['n_chunks']
                 for i in range(n_chunks):
                     indices_dataset_name = f"index_{n_chunks_total}_indices"
