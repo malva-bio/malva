@@ -310,112 +310,134 @@ cdef class MalvaIndex:
         read_group, start, end = check_cell_string(cell)
         self._add_reads(reads_in, bam_tags, read_group, [start, end], n_report, chunksize, threads)
 
+    def merge_chunks(self, file_out):
+        self._merge_chunks(file_out)
+    
     @cython.wraparound(True)
-    def merge_chunks(self, f: str, chunksize: int = 1_000_000):
-        # TODO: open/close in context manager so it closes gracefully upon error
-        # make this function run faster
-        # right now iterates k-mer by k-mer which can be too slow
-        # Resample and merge the chunk data into a single file
+    cdef void _merge_chunks(self, str file_out):
+        cdef:
+            uint32_t chunksize
+            list srt_pointer = [0]*self.n_chunks
+            list end_pointer = [0]*self.n_chunks
+            list srt_pointer_to_data = [0]*self.n_chunks
+            list end_pointer_to_data = [0]*self.n_chunks
+            uint64_t min_value
+            uint64_t curr_i_value
+            int i
+            size_t current_i_data_len
+            np.ndarray[uint64_t, ndim=1] k_unique
+            np.ndarray[uint64_t, ndim=1] k_change
+            np.ndarray[uint32_t, ndim=1] k_data
+            uint64_t current_kmer
+            size_t total_processed
+            size_t total_processed_data
+
         self.open()
+        # this is chosen like this so the memory usage is ~ the same as when building the data
+        # assuming that we run on the same cumputer
+        chunksize = len(self.index['index_0_indices']) // (self.n_chunks * 2)
+        logging.debug(f"Will use chunksize={chunksize}")
 
-        _indices_lengths = [len(self.index[f'index_{chunk}_indices']) for chunk in range(0, self.n_chunks)]
-        which_index = np.argmax(_indices_lengths)
-        max_kmer_chunk = _indices_lengths[which_index]
-        imin = np.array([0] * self.n_chunks)
-        imax = np.array([chunksize] * self.n_chunks)
+        # Initialize pointers
+        for i in range(self.n_chunks):
+            srt_pointer[i] = 0
+            end_pointer[i] = min(chunksize, len(self.index[f'index_{i}_indices']))
+            srt_pointer_to_data[i] = 0
+            end_pointer_to_data[i] = 0
 
-        result_indices = [None]
-        result_indptr = [0]
-        result_data = []
-
-        _intm_result = [0, 0]
-
-        with h5py.File(f, 'w', driver='split') as output_file:
+        with h5py.File(file_out, 'w', driver="split") as f_out:
             for key, value in self.index.attrs.items():
-                output_file.attrs[key] = value
+                f_out.attrs[key] = value
+                
+            f_out.attrs['n_chunks'] = 1
             
-            output_file.attrs['n_chunks'] = 1
-
-            output_file.create_dataset('index_0_indices', (0,), maxshape=(None,), dtype=np.uint64)
-            output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype=np.uint64)
-            output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype=np.uint32)
+            max_size = sum(len(self.index[f'index_{i}_indices']) for i in range(self.n_chunks))
+            max_size_data = sum(len(self.index[f'index_{i}_data']) for i in range(self.n_chunks))
+            indices_out = f_out.create_dataset('index_0_indices', shape=(0,), maxshape=(max_size,), dtype='uint64')
+            indptr_out = f_out.create_dataset('index_0_indptr', shape=(0,), maxshape=(max_size,), dtype='uint64')
+            data_out = f_out.create_dataset('index_0_data', shape=(max_size_data,), dtype='uint32')
 
             if 'spatial_coord' in self.index:
-                output_file.create_dataset('spatial_coord', (self.n_spatial,2), dtype=np.float32)
-                output_file['spatial_coord'][:] = self.index['spatial_coord']
+                f_out.create_dataset('spatial_coord', data=self.index['spatial_coord'], dtype=np.float32)
 
-        if self.verbose:
-            iterator = track(range(0, max_kmer_chunk, chunksize), description=f'Merging chunks')
-        else:
-            iterator = range(0, max_kmer_chunk, chunksize)
-        for _ in iterator:
-            _val_max_ix_0 = self.index[f'index_{which_index}_indices'][imin[0]:imax[0]][-1]
-            imax = np.array([np.argwhere(self.index[f'index_{chunk}_indices'] <= _val_max_ix_0)[-1][0] for chunk in range(0, self.n_chunks)]) + 1
+            total_processed = 0
+            total_processed_data = 0
+            indptr_out.resize(1, axis=0)
+            indptr_out[0] = 0
 
-            # process for the chunk of N kmers
-            chunk_indices = [self.index[f'index_{chunk}_indices'][imin[chunk]:imax[chunk]] for chunk in range(0, self.n_chunks)]
-            chunk_indptr_lo = [self.index[f'index_{chunk}_indptr'][imin[chunk]:imax[chunk]] for chunk in range(0, self.n_chunks)]
+            while True:
+                if all(srt_pointer[i] >= len(self.index[f'index_{i}_indices']) for i in range(self.n_chunks)):
+                    break
 
-            # We detect if this is the last chunk, and then we can process this
-            chunk_indptr_hi = []
-            for chunk in range(0, self.n_chunks):
-                _chunk_indptr_hi = self.index[f'index_{chunk}_indptr'][(imin[chunk]+1):(imax[chunk]+1)]
-                if len(_chunk_indptr_hi) < len(chunk_indptr_lo[chunk]):
-                    _chunk_indptr_hi = np.concatenate([_chunk_indptr_hi, [len(self.index[f'index_{chunk}_data'])]])
-                chunk_indptr_hi.append(_chunk_indptr_hi)
+                logging.info(f"Processed {total_processed_data:,}/{max_size_data:,} indexed locations")
 
-            # Compact for sorting
-            chunks_indices = np.concatenate(chunk_indices)
-            chunks_indptr_lo = np.concatenate(chunk_indptr_lo)
-            chunks_indptr_hi = np.concatenate(chunk_indptr_hi)
+                # find the smallest value across all chunks
+                # because we avoid overflowing to much more than assigned chunksize
+                min_value = 0xFFFFFFFFFFFFFFFF
+                for i in range(self.n_chunks):
+                    if end_pointer[i] < len(self.index[f'index_{i}_indices']):
+                        curr_i_value = self.index[f'index_{i}_indices'][end_pointer[i]]
+                        if curr_i_value < min_value:
+                            min_value = curr_i_value
 
-            # We do mergesort to keep the order between chunks
-            # The chunks *must* be sorted beforehand, otherwise this breaks!
-            _chunk_idx_sorted = np.argsort(chunks_indices, kind='mergesort')
-            chunks_labels = np.repeat(np.arange(self.n_chunks), [len(c) for c in chunk_indices])
-            chunks_data = [self.index[f'index_{chunk}_data'][chunk_indptr_lo[chunk][0]:chunk_indptr_hi[chunk][-1]] for chunk in range(0, self.n_chunks) if len(chunk_indptr_hi[chunk]) > 0]
+                k_unique = np.array([], dtype=np.uint64)
+                k_change = np.array([], dtype=np.uint64)
+                k_data = np.array([], dtype=np.uint32)
 
-            for ind, l, lo, hi in (zip(chunks_indices[_chunk_idx_sorted],
-                                        chunks_labels[_chunk_idx_sorted],
-                                        chunks_indptr_lo[_chunk_idx_sorted],
-                                        chunks_indptr_hi[_chunk_idx_sorted])):
+                for i in range(self.n_chunks):
+                    if srt_pointer[i] == end_pointer[i]:
+                        continue
 
-                if result_indices[-1] != ind:
-                    if result_indices[0] is None:
-                        result_indices[0] = ind
-                    else:
-                        result_indices.append(ind)
-                        result_indptr += [_intm_result[1]]
-                        _intm_result[0] = _intm_result[1]
-
-                _data = chunks_data[l][(lo-chunk_indptr_lo[l][0]):(hi-chunk_indptr_lo[l][0])]
-                _intm_result[1] += len(_data)
-                result_data.append(_data)
-
-            result_data = np.concatenate(result_data)
-            
-            # Write the merged chunk to the output file
-            with h5py.File(f, 'r+', driver='split') as output_file:
-                current_indices_length = output_file['index_0_indices'].shape[0]
-                current_indptr_length = output_file['index_0_indptr'].shape[0]
-                current_data_length = output_file['index_0_data'].shape[0]
+                    current_i_data_len = len(self.index[f'index_{i}_data'])
+                    end_pointer[i] = np.searchsorted(self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]], min_value, side='right') + srt_pointer[i]
+                    
+                    srt_pointer_to_data[i] = self.index[f'index_{i}_indptr'][srt_pointer[i]]
+                    # TODO: memoryview
+                    chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
+                    chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
     
-                output_file['index_0_indices'].resize((current_indices_length + len(result_indices),))
-                output_file['index_0_indices'][current_indices_length:] = np.array(result_indices, dtype=np.uint64)
+                    if (end_pointer[i] + 1) >= len(self.index[f'index_{i}_indptr']):
+                        end_pointer_to_data[i] = current_i_data_len
+                    else:
+                        end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][end_pointer[i]+1]
 
-                output_file['index_0_indptr'].resize((current_indptr_length + len(result_indptr),))
-                output_file['index_0_indptr'][current_indptr_length:] = np.array(result_indptr, dtype=np.uint64)
+                    chunk_indptr = np.diff(chunk_indptr, append=end_pointer_to_data[i])
+    
+                    k_unique = np.append(k_unique, np.repeat(chunk_indices, chunk_indptr.astype(np.int64)).astype(np.uint64))
+                    k_data = np.append(k_data, self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]])
 
-                output_file['index_0_data'].resize((current_data_length + len(result_data),))
-                output_file['index_0_data'][current_data_length:] = result_data.astype(np.uint32)
+                # sort indices and reorder data accordingly
+                # TODO: can be implemented more efficiently (reduce CPU time by 50%)
+                sort_idx = np.argsort(k_unique)
+                k_unique = k_unique[sort_idx]
+                k_data = k_data[sort_idx]
+                
+                # Find unique elements and their indices
+                unique_mask = np.ones(len(k_unique), dtype=bool)
+                unique_mask[1:] = np.diff(k_unique) != 0
 
-            result_indices = [None]
-            result_indptr = [0]
-            result_data = []
+                # Extract unique k-mers and their change points
+                k_unique = k_unique[unique_mask]
+                k_change = np.where(unique_mask)[0].astype(np.uint64)
 
-            imin = imax.copy()
-            imax = imin + chunksize
-        
+                new_size = total_processed_data + len(k_data)
+                data_out[total_processed_data:new_size] = k_data
+
+                last_indptr_out = indptr_out[-1]
+                new_size = total_processed + len(k_unique)
+                indices_out.resize(new_size, axis=0)
+                indptr_out.resize(new_size, axis=0)
+                indices_out[total_processed:] = k_unique
+                indptr_out[total_processed:] = k_change + last_indptr_out + 1
+
+                total_processed += len(k_unique)
+                total_processed_data += len(k_data)
+
+                # update index pointers
+                for i in range(self.n_chunks):
+                    srt_pointer[i] = end_pointer[i] + 1
+                    end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
+
         self.close()
 
     def write(self):
