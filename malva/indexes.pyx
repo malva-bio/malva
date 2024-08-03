@@ -26,12 +26,12 @@ import numpy as np
 import pandas as pd
 
 from rich.progress import track
-from xopen import xopen
 
 from malva.fast_map cimport map
-from malva.kmer_processing import encode_kmer, get_kmers_numeric
 from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
+from malva.kmer_processing import encode_kmer, get_kmers_numeric
 from malva.utils import check_cell_string, convert_to_bytes
+from malva.xopen import xopen
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
 
