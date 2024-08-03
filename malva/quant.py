@@ -43,6 +43,7 @@ def process_gene(
         count_at_most=count_at_most,
         count_at_least=count_at_least,
         single_count=single_count,
+        max_mem=None
     )
     counts = np.clip((counts / len(utrs_gene)).astype(int), 1, 10_000)
 
@@ -75,9 +76,10 @@ def resave_h5ad(folder, kmer_index):
     adata = ad.read_mtx(matrix_file)
     adata.var_names = pd.read_csv(features_file, header=None, sep="\t")[0]
 
-    n_spatial = kmer_index.n_spatial
     # TODO: load more efficiently when too large to reduce memory usage
+    kmer_index.open()
     adata.obsm["spatial"] = kmer_index.spatial_coord[:]
+    kmer_index.close()
 
     adata.write_h5ad(h5ad_file)
 
@@ -135,7 +137,7 @@ def process_reference(
 
     # TODO: the n_spatial is calcualted from lims, but sum one, otherwise not correct!
     # TODO: check in indexes.pyx if this is correct (how to compute n_spatial)
-    n_spatial = (kmer_index.coord_lims[1] + 1) * (kmer_index.coord_lims[3] + 1)
+    n_spatial = kmer_index.n_spatial
 
     with open(os.path.join(folder_out, "matrix.mtx"), "r+b") as mtx_file:
         mtx_file.seek(0)
