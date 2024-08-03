@@ -218,14 +218,14 @@ cdef class MalvaIndex:
 
         current_kmer = kmer_coords[0].first
         k_unique.push_back(current_kmer)
-        k_change.push_back(0)
+        k_change.push_back(<uint64_t>0)
         k_data.push_back(kmer_coords[0].second)
 
         with nogil:
             for i in range(1, self._n_kmers_processed):
                 if kmer_coords[i].first != current_kmer:
                     k_unique.push_back(kmer_coords[i].first)
-                    k_change.push_back(i)
+                    k_change.push_back(<uint64_t>i)
                     current_kmer = kmer_coords[i].first
                 k_data.push_back(kmer_coords[i].second)
 
@@ -241,8 +241,8 @@ cdef class MalvaIndex:
 
             self.n_chunks += 1
             _index.attrs['n_chunks'] = self.n_chunks
-            _index.flush()
         finally:
+            _index.flush()
             _index.close()
         
 
@@ -336,12 +336,13 @@ cdef class MalvaIndex:
             
             output_file.attrs['n_chunks'] = 1
 
-            output_file.create_dataset('index_0_indices', (0,), maxshape=(None,), dtype=np.uint64, chunks=True)
-            output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype=np.uint64, chunks=True)
-            output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype=np.uint32, chunks=True)
+            output_file.create_dataset('index_0_indices', (0,), maxshape=(None,), dtype=np.uint64)
+            output_file.create_dataset('index_0_indptr', (0,), maxshape=(None,), dtype=np.uint64)
+            output_file.create_dataset('index_0_data', (0,), maxshape=(None,), dtype=np.uint32)
 
             if 'spatial_coord' in self.index:
-                output_file.create_dataset('spatial_coord', data=self.index['spatial_coord'][:], dtype=np.float32)
+                output_file.create_dataset('spatial_coord', (self.n_spatial,2), dtype=np.float32)
+                output_file['spatial_coord'][:] = self.index['spatial_coord']
 
         if self.verbose:
             iterator = track(range(0, max_kmer_chunk, chunksize), description=f'Merging chunks')
