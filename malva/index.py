@@ -84,8 +84,10 @@ def _run_index(args):
         
         merged_file = f"{kmer_index.index_file}.merged"
         kmer_index.merge_chunks(merged_file)
-        os.remove(kmer_index.index_file)
-        shutil.move(merged_file, kmer_index.index_file)
+        os.remove(f'{kmer_index.index_file}-r.h5')
+        os.remove(f'{kmer_index.index_file}-m.h5')
+        shutil.move(f'{merged_file}-r.h5', f'{kmer_index.index_file}-r.h5')
+        shutil.move(f'{merged_file}-m.h5', f'{kmer_index.index_file}-m.h5')
 
     logging.info("SUCCESS!")
 
