@@ -542,7 +542,7 @@ cdef class MalvaIndex:
         else:
             raise Exception("ERROR: index not found in memory.")
 
-    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=1_000_000):
+    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=1_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         cdef:
             np.ndarray _indices_chunk, _indptr_chunk
             size_t i = 0, start = 0, end = 0
@@ -564,6 +564,10 @@ cdef class MalvaIndex:
             _indptr_chunk = self.index[f'index_{chunk_id}_indptr'][start:chunk_end]
 
             for i in range(len(_indices_chunk)):
+                counts = _indptr_chunk[i+1] - _indptr_chunk[i]
+                # we will not query them anyway, so we can make the in-memory index more lightweight
+                if counts >= count_at_most or counts <= count_at_least:
+                    continue
                 self._index_backed[_indices_chunk[i]] = pair[uint64_t, uint64_t](_indptr_chunk[i], _indptr_chunk[i+1])
 
             start = end
@@ -607,7 +611,7 @@ cdef class MalvaIndex:
         _last_cindex_indices = self.index[f'index_{chunk_id}_indices'][chunk_len]
         self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_last_cindex_indices, pair[uint32_t, uint32_t](_cindex_indptr[i+1], chunk_len)))
 
-    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 1_000_000, max_mem: str = None, force: bool = False):
+    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 1_000_000, max_mem: str = None, force: bool = False, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
 
         # TODO: double check this
@@ -620,7 +624,7 @@ cdef class MalvaIndex:
         self._cindex.clear()
 
         if max_mem_bytes <= 0:
-            self._load_index_to_memory(chunk_id, chunk_size)
+            self._load_index_to_memory(chunk_id, chunk_size, count_at_most, count_at_least)
         else:
             self._load_index_to_constrained_memory(chunk_id, max_mem_bytes)
 
@@ -663,7 +667,7 @@ cdef class MalvaIndex:
         if len(all_kmer_list) == 0:
             return (kmer_locations, kmer_count, seq_matches)
 
-        self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload)
+        self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload, count_at_most=count_at_most, count_at_least=count_at_least)
 
         CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
 
