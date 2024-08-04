@@ -433,11 +433,7 @@ def download_url_to_file(url, dst, progress=True):
             for chunk in track(
                 chunks,
                 total=file_size // chunk_size + (1 if file_size % chunk_size else 0),
-                description="Downloading",
-                disable=not progress,
-                unit="B",
-                unit_scale=True,
-                total_format="{total:.2f}B"
+                description="Downloading"
             ):
                 f.write(chunk)
         
