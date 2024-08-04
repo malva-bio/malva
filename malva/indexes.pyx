@@ -4,7 +4,7 @@
 cimport cython
 cimport numpy as np
 
-from libc.stdint cimport uint32_t, int32_t, uint64_t
+from libc.stdint cimport uint16_t, uint32_t, int32_t, uint64_t
 from libc.math cimport floor
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
@@ -542,9 +542,10 @@ cdef class MalvaIndex:
         else:
             raise Exception("ERROR: index not found in memory.")
 
-    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=1_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
+    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         cdef:
             np.ndarray _indices_chunk, _indptr_chunk
+            size_t counts
             size_t i = 0, start = 0, end = 0
             size_t total_length, chunk_end
 
@@ -611,7 +612,7 @@ cdef class MalvaIndex:
         _last_cindex_indices = self.index[f'index_{chunk_id}_indices'][chunk_len]
         self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_last_cindex_indices, pair[uint32_t, uint32_t](_cindex_indptr[i+1], chunk_len)))
 
-    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 1_000_000, max_mem: str = None, force: bool = False, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
+    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 50_000_000, max_mem: str = None, force: bool = False, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
 
         # TODO: double check this
@@ -650,7 +651,7 @@ cdef class MalvaIndex:
             sequence = [sequence]
 
         def get_whole_sliding_sequence(string, k):
-            return [string[i:] for i in range(k)]
+            return [string[i:] for i in range(k-self.kmer_size+1)]
         
         for seq in sequence:
             if len(seq) < self.kmer_size:
@@ -736,6 +737,7 @@ cdef class SpatialIndex:
     cdef:
         map[uint64_t, uint32_t] index
         vector[pair[float, float]] coords
+        vector[pair[uint16_t, uint16_t]] coords_stomics
 
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
         self.index[cell_bc] = i
@@ -800,6 +802,44 @@ cdef class SpatialIndex:
             self.coords.push_back(pair[float, float](x, y))
 
         fclose(file)
+
+    # the STOmics data provides .bin files that are almost what we expect
+    # in our SpatialIndex, but can be stored more efficiently
+    # This works for the standard size of 1x1cm, has not been tested for other
+    # e.g., support for 13x13cm chips
+    def load_binary_stomics(self, str filename):
+        cdef FILE* file = fopen(filename.encode('ascii'), "rb")
+        if file == NULL:
+            raise IOError(f"Cannot open file {filename} for reading")
+
+        # Read size of the map
+        cdef size_t size
+        fread(&size, sizeof(size_t), 1, file)
+
+        # Clear existing structures and read new contents
+        self.index.clear()
+        self.coords.clear()
+
+        cdef uint64_t key
+        cdef uint16_t x, y
+        cdef uint32_t i
+        while True:
+            if fread(&key, sizeof(uint64_t), 1, file) != 1:
+                break
+            fread(&x, sizeof(uint32_t), 1, file)
+            fread(&y, sizeof(uint32_t), 1, file)
+            self.index[key] = i
+            self.coords_stomics.push_back(pair[uint16_t, uint16_t](x, y))
+
+        fclose(file)
+
+    def get_coords_stomics(self):
+        cdef np.ndarray[np.uint16_t, ndim=2] arr = np.empty((self.coords_stomics.size(), 2), dtype=np.uint16)
+        cdef size_t i
+        for i in range(self.coords_stomics.size()):
+            arr[i, 0] = self.coords_stomics[i].first
+            arr[i, 1] = self.coords_stomics[i].second
+        return arr
 
 cdef void process_line(const char* line, int line_length, LineData* data, bint encode = True) noexcept nogil:
     cdef int field = 0
