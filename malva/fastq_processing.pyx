@@ -138,6 +138,7 @@ cdef class KmerFastqParser:
             size_t remaining_bytes
             Py_ssize_t sequence_length
             int num_kmers
+            int jump_amount
             int jump_mem
             vector[uint64_t] kmer_array
             unsigned long long result = 0
@@ -194,8 +195,10 @@ cdef class KmerFastqParser:
             # Calculate the number of kmers
             if not self.overlapping:
                 num_kmers = (sequence_length + self.kmer_size - 1) // self.kmer_size
+                jump_amount = self.kmer_size
             else:
                 num_kmers = sequence_length - self.kmer_size
+                jump_amount = 1
 
             # Allocate memory for the kmer array
             kmer_array.resize(num_kmers)
@@ -206,11 +209,11 @@ cdef class KmerFastqParser:
                 kmer_array[0] = result
     
                 for j in range(1, num_kmers):
-                    start_index = j * self.kmer_size
+                    start_index = j * jump_amount
                     if sequence_length - start_index < self.kmer_size:
                         jump_mem = sequence_length - start_index
                     else:
-                        jump_mem = self.kmer_size
+                        jump_mem = jump_amount
                     
                     sequence_start += jump_mem
                     result = encode_kmer(<unsigned char*>sequence_start, self.kmer_size)
