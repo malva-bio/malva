@@ -742,7 +742,7 @@ cdef class SpatialIndex:
     def __cinit__(self):
         self.index = map[uint64_t, uint32_t]()
         self.coords = vector[pair[float, float]]()
-        self.coords_stomics = vector[pair[uint16_t, uint16_t]]
+        self.coords_stomics = vector[pair[uint16_t, uint16_t]]()
 
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
         self.index[cell_bc] = i
