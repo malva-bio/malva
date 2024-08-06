@@ -733,6 +733,7 @@ cdef struct LineData:
 
 # TODO: rename and reorganize to BarcodeIndex
 # TODO: then there's a SpatialIndex class inherited from BarcodeIndex
+# TODO: this also gets the flavor, and chooses the reader based on that
 cdef class SpatialIndex:
     cdef:
         map[uint64_t, uint32_t] index
@@ -824,14 +825,13 @@ cdef class SpatialIndex:
         cdef uint64_t key
         cdef uint32_t x, y
         cdef uint32_t i = 0
-        cdef uint64_t mask = (1 << barcode_length) - 1
 
         while True:
             if fread(&key, sizeof(uint64_t), 1, file) != 1:
                 break
             fread(&x, sizeof(uint32_t), 1, file)
             fread(&y, sizeof(uint32_t), 1, file)
-            self.index[key & mask] = i
+            self.index[key] = i
             self.coords_stomics.push_back(pair[uint16_t, uint16_t](<uint16_t>x, <uint16_t>y))
             i += 1
             
