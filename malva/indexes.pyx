@@ -826,7 +826,6 @@ cdef class SpatialIndex:
         cdef uint32_t x, y
         cdef uint32_t i = 0
         cdef uint64_t mask = (1 << barcode_length * 2) - 1
-        cdef uint64_t zero_mask = ~((1 << (64 - barcode_length * 2)) - 1)
 
         while True:
             if fread(&key, sizeof(uint64_t), 1, file) != 1:
@@ -835,9 +834,7 @@ cdef class SpatialIndex:
             fread(&y, sizeof(uint32_t), 1, file)
 
             barcode = key & mask
-            key &= zero_mask
-
-            self.index[key] = i
+            self.index[barcode] = i
             self.coords_stomics.push_back(pair[uint16_t, uint16_t](<uint16_t>x, <uint16_t>y))
             i += 1
             
