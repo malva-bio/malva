@@ -813,7 +813,10 @@ cdef class SpatialIndex:
     # in our SpatialIndex, but can be stored more efficiently
     # This works for the standard size of 1x1cm, has not been tested for other
     # e.g., support for 13x13cm chips
-    def load_binary_stomics(self, str filename, int barcode_length = 25):
+    def load_binary_stomics(self, str filename, int barcode_length):
+        if barcode_length <= 0 or barcode_length > 32:
+            raise ValueError("Barcode length must be between 1 and 32 base pairs")
+
         cdef FILE* file = fopen(filename.encode('ascii'), "rb")
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for reading")
@@ -822,10 +825,9 @@ cdef class SpatialIndex:
         self.index.clear()
         self.coords.clear()
 
-        cdef uint64_t key, barcode
+        cdef uint64_t key, barcode, reversed_barcode
         cdef uint32_t x, y
         cdef uint32_t i = 0
-        cdef uint64_t mask = (1 << barcode_length * 2) - 1
 
         while True:
             if fread(&key, sizeof(uint64_t), 1, file) != 1:
@@ -833,12 +835,25 @@ cdef class SpatialIndex:
             fread(&x, sizeof(uint32_t), 1, file)
             fread(&y, sizeof(uint32_t), 1, file)
 
-            barcode = key & mask
-            self.index[barcode] = i
+            # Determine the barcode length (assuming it's a multiple of 2, up to 32bp)
+            barcode_length = (64 - (key.bit_length() - 1)) // 2 * 2
+        
+            # Reverse the barcode
+            reversed_barcode = self.reverse_barcode(key, barcode_length)
+
+            self.index[reversed_barcode] = i
             self.coords_stomics.push_back(pair[uint16_t, uint16_t](<uint16_t>x, <uint16_t>y))
             i += 1
             
         fclose(file)
+
+    cdef uint64_t reverse_barcode(self, uint64_t barcode, int length):
+        cdef uint64_t reversed = 0
+        cdef int i
+        for i in range(length):
+            reversed = (reversed << 2) | (barcode & 0b11)
+            barcode >>= 2
+        return reversed
 
     def get_coords_stomics(self):
         cdef np.ndarray[np.uint16_t, ndim=2] arr = np.empty((self.coords_stomics.size(), 2), dtype=np.uint16)
