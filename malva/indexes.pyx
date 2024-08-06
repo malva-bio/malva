@@ -822,7 +822,7 @@ cdef class SpatialIndex:
 
         cdef uint64_t key
         cdef uint16_t x, y
-        cdef uint32_t i
+        cdef uint32_t i = 0
         while True:
             if fread(&key, sizeof(uint64_t), 1, file) != 1:
                 break
@@ -830,6 +830,7 @@ cdef class SpatialIndex:
             fread(&y, sizeof(uint32_t), 1, file)
             self.index[key] = i
             self.coords_stomics.push_back(pair[uint16_t, uint16_t](x, y))
+            i += 1
 
         fclose(file)
 
