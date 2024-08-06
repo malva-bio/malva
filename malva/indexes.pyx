@@ -812,7 +812,7 @@ cdef class SpatialIndex:
     # in our SpatialIndex, but can be stored more efficiently
     # This works for the standard size of 1x1cm, has not been tested for other
     # e.g., support for 13x13cm chips
-    def load_binary_stomics(self, str filename):
+    def load_binary_stomics(self, str filename, int barcode_length = 25):
         cdef FILE* file = fopen(filename.encode('ascii'), "rb")
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for reading")
@@ -824,12 +824,14 @@ cdef class SpatialIndex:
         cdef uint64_t key
         cdef uint32_t x, y
         cdef uint32_t i = 0
+        cdef uint64_t mask = (1 << barcode_length) - 1
+
         while True:
             if fread(&key, sizeof(uint64_t), 1, file) != 1:
                 break
             fread(&x, sizeof(uint32_t), 1, file)
             fread(&y, sizeof(uint32_t), 1, file)
-            self.index[key] = i
+            self.index[key & mask] = i
             self.coords_stomics.push_back(pair[uint16_t, uint16_t](<uint16_t>x, <uint16_t>y))
             i += 1
             
