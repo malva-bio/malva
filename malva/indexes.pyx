@@ -817,10 +817,6 @@ cdef class SpatialIndex:
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for reading")
 
-        # Read size of the map
-        cdef size_t size
-        fread(&size, sizeof(size_t), 1, file)
-
         # Clear existing structures and read new contents
         self.index.clear()
         self.coords.clear()
