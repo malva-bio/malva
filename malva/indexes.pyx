@@ -739,6 +739,11 @@ cdef class SpatialIndex:
         vector[pair[float, float]] coords
         vector[pair[uint16_t, uint16_t]] coords_stomics
 
+    def __cinit__(self):
+        self.index = map[uint64_t, uint32_t]()
+        self.coords = vector[pair[float, float]]()
+        self.coords_stomics = vector[pair[uint16_t, uint16_t]]
+
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
         self.index[cell_bc] = i
 
@@ -821,7 +826,7 @@ cdef class SpatialIndex:
         self.coords.clear()
 
         cdef uint64_t key
-        cdef uint16_t x, y
+        cdef uint32_t x, y
         cdef uint32_t i = 0
         while True:
             if fread(&key, sizeof(uint64_t), 1, file) != 1:
@@ -829,9 +834,9 @@ cdef class SpatialIndex:
             fread(&x, sizeof(uint32_t), 1, file)
             fread(&y, sizeof(uint32_t), 1, file)
             self.index[key] = i
-            self.coords_stomics.push_back(pair[uint16_t, uint16_t](x, y))
+            self.coords_stomics.push_back(pair[uint16_t, uint16_t](<uint16_t>x, <uint16_t>y))
             i += 1
-
+            
         fclose(file)
 
     def get_coords_stomics(self):
