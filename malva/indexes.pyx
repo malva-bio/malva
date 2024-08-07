@@ -813,7 +813,7 @@ cdef class SpatialIndex:
     # in our SpatialIndex, but can be stored more efficiently
     # This works for the standard size of 1x1cm, has not been tested for other
     # e.g., support for 13x13cm chips
-    def load_binary_stomics(self, str filename, int barcode_length):
+    def load_binary_stomics(self, str filename, int barcode_length = 25):
         if barcode_length <= 0 or barcode_length > 32:
             raise ValueError("Barcode length must be between 1 and 32 base pairs")
 
@@ -847,13 +847,17 @@ cdef class SpatialIndex:
             
         fclose(file)
 
-    cdef uint64_t reverse_barcode(self, uint64_t barcode, int length):
-        cdef uint64_t reversed = 0
+    cdef uint64_t reverse_barcode(self, uint64_t barcode, int barcode_length):
+        cdef uint64_t mask = (1 << barcode_length * 2) - 1
+        cdef uint64_t barcode = barcode & mask
+        cdef uint64_t reversed_barcode = 0
         cdef int i
-        for i in range(length):
-            reversed = (reversed << 2) | (barcode & 0b11)
+
+        for i in range(barcode_length):
+            reversed_barcode = (reversed_barcode << 2) | (barcode & 0b11)
             barcode >>= 2
-        return reversed
+
+        return (barcode & ~mask) | reversed_barcode
 
     def get_coords_stomics(self):
         cdef np.ndarray[np.uint16_t, ndim=2] arr = np.empty((self.coords_stomics.size(), 2), dtype=np.uint16)
