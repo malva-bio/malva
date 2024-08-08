@@ -25,7 +25,7 @@ def write_mtx_header(file, shape):
 
 def process_gene(
     kmer_index,
-    utrs_gene,
+    seqs_gene,
     current_gene,
     mtx_file,
     feature_file,
@@ -37,7 +37,7 @@ def process_gene(
     single_count: bool = False,
 ):
     locs, counts, _ = kmer_index.where(
-        utrs_gene,
+        seqs_gene,
         sliding_size=sliding_size,
         pct_threshold=pct_threshold,
         count_at_most=count_at_most,
@@ -45,7 +45,7 @@ def process_gene(
         single_count=single_count,
         max_mem=None
     )
-    counts = np.clip((counts / len(utrs_gene)).astype(int), 1, 10_000)
+    counts = np.clip((counts / len(seqs_gene)).astype(int), 1, 10_000)
 
     for loc, count in zip(locs, counts):
         mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
@@ -102,7 +102,7 @@ def process_reference(
     ) as feature_file:
 
         current_gene = ""
-        utrs_gene = []
+        seqs_gene = []
         current_col = 0
         total_nnz = 0
 
@@ -112,22 +112,22 @@ def process_reference(
             it_gene_name = seq[0].split(":")[0]
 
             if it_gene_name != current_gene:
-                if utrs_gene:
-                    nnz = process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count)
+                if seqs_gene:
+                    nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count)
                     total_nnz += nnz
                     current_col += 1
                     if (current_col % N_EACH_REPORT) == 0 and verbose:
                         logging.info(f"Processed {current_col} entries. Last sequence ID: {current_gene}")
-                utrs_gene = []
+                seqs_gene = []
                 current_gene = it_gene_name
 
             if seq[1] == "" or len(seq[1]) < 24 * 2 or len(seq[1]) > 3_000:
                 continue
 
-            utrs_gene.append(seq[1])
+            seqs_gene.append(seq[1])
 
-        if utrs_gene:
-            nnz = process_gene(kmer_index, utrs_gene, current_gene, mtx_file, feature_file, current_col + 1)
+        if seqs_gene:
+            nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1)
             total_nnz += nnz
             current_col += 1
 

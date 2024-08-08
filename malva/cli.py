@@ -206,8 +206,8 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "mouse_utr"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr'. Default: 'human_utr'""",
+        choices=["human_utr", "mouse_utr", "mouse_cdna"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr', 'mouse_cdna'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--folder-out",
