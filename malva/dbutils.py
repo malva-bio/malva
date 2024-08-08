@@ -22,7 +22,7 @@ def process_dna_string(sequence):
 
     if sequence.startswith(">"):
         # Remove the header line
-        sequence = "\n".join(sequence.split("\n")[1:])
+        return {"sequence": parse_multifasta(sequence)}
 
     sequence = re.sub(r"\s+", "", sequence)
     valid_dna_chars = set("ATCG")
@@ -37,6 +37,34 @@ def process_dna_string(sequence):
             result.append("A")
 
     return {"sequence": "".join(result)}
+
+def parse_multifasta(fasta_string):
+    """
+    Validates and parses a FASTA-formatted string.
+
+    Args:
+        fasta_string (str): FASTA-formatted sequence.
+    Returns:
+        list: A list of single line DNA sequences with only ATCG characters, other nucleotides replaced by A, and U replaced by T.
+    """
+    sequences = []
+
+    for fasta_entry in fasta_string.split(">")[1:]:
+        lines = fasta_entry.split("\n")
+        dna_sequence = "".join(line.strip() for line in lines[1:])
+        dna_sequence = re.sub(r"\s+", "", dna_sequence)
+        valid_dna_chars = set("ATCG")
+        result = []
+        for char in dna_sequence.upper():
+            if char == "U":
+                result.append("T")
+            elif char in valid_dna_chars:
+                result.append(char)
+            else:
+                result.append("A")
+        sequences.append("".join(result))
+
+    return sequences
 
 
 def handle_sequence(input_string, recursion=True):
@@ -71,8 +99,8 @@ def handle_sequence(input_string, recursion=True):
             seq_out = seq_out[_input["split"][0] : _input["split"][1]]
 
     elif input_string.startswith(">"):
-        _input = process_dna_string(input_string)
-        seq_out = _input["sequence"]
+        seq_out = parse_multifasta(input_string)
+        return seq_out["sequence"]
     else:
         input_string = validate_and_infer_query(input_string)
         if recursion:
