@@ -336,6 +336,7 @@ cdef class MalvaIndex:
             np.ndarray[uint32_t, ndim=1] k_data_sorted
             np.ndarray[np.uint64_t, ndim=1] dest_indices
             uint64_t current_kmer
+            uint64_t last_indptr_out_next = 0
             size_t total_processed
             size_t total_processed_data
 
@@ -435,9 +436,9 @@ cdef class MalvaIndex:
                 k_indptr_start = k_indptr_start[sort_idx].astype(np.uint64)
                 k_indptr_end = k_indptr_end[sort_idx].astype(np.uint64)
                 
-                _k_change_cumsum = np.append(np.array([0], dtype=np.uint64), np.cumsum(k_indptr_end - k_indptr_start).astype(np.uint64))[:-1]
+                _k_change_cumsum = np.append(np.array([0], dtype=np.uint64), np.cumsum(k_indptr_end - k_indptr_start).astype(np.uint64))
                 _idx_change = np.append(np.array([1], dtype=np.uint64), (np.diff(k_unique) != 0).astype(np.uint64)).astype(bool)
-                k_change = _k_change_cumsum[_idx_change]
+                k_change = _k_change_cumsum[:-1][_idx_change]
                 
                 # reorder k_data based on the sorted indices
                 k_data_sorted = np.zeros_like(k_data)
@@ -457,10 +458,11 @@ cdef class MalvaIndex:
                 indices_out.resize(new_size, axis=0)
                 indptr_out.resize(new_size, axis=0)
                 indices_out[total_processed:] = k_unique_unique
-                indptr_out[total_processed:] = k_change + last_indptr_out
+                indptr_out[total_processed:] = k_change + last_indptr_out + last_indptr_out_next
 
                 total_processed += len(k_unique_unique)
                 total_processed_data += len(k_data_sorted)
+                last_indptr_out_next = <uint64_t>_k_change_cumsum[-1] - <uint64_t>k_change[-1]
 
                 # update index pointers
                 for i in range(n_chunks):
