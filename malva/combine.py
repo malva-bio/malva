@@ -69,6 +69,7 @@ def _run_combine(args):
 
     if args.merge_chunks:
         kmer_index = MalvaIndex(args.index_in)
+        kmer_index.verbose = True
 
         if kmer_index.n_chunks > 1:
             logging.info(f"Now, {kmer_index.n_chunks} chunks will be merged")
