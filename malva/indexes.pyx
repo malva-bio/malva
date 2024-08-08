@@ -317,30 +317,39 @@ cdef class MalvaIndex:
     cdef void _merge_chunks(self, str file_out):
         cdef:
             uint32_t chunksize
-            list srt_pointer = [0]*self.n_chunks
-            list end_pointer = [0]*self.n_chunks
-            list srt_pointer_to_data = [0]*self.n_chunks
-            list end_pointer_to_data = [0]*self.n_chunks
+            int n_chunks = self.n_chunks
+            list srt_pointer = [0]*n_chunks
+            list end_pointer = [0]*n_chunks
+            list srt_pointer_to_data = [0]*n_chunks
+            list end_pointer_to_data = [0]*n_chunks
             uint64_t min_value
             uint64_t curr_i_value
+            uint64_t len_per_k_data_chunk
+            uint64_t total_len_per_k_data_chunk
+            uint64_t total_data
             int i
             size_t current_i_data_len
             np.ndarray[uint64_t, ndim=1] k_unique
             np.ndarray[uint64_t, ndim=1] k_change
+            np.ndarray[uint64_t, ndim=1] _k_change_cumsum
             np.ndarray[uint32_t, ndim=1] k_data
+            np.ndarray[uint32_t, ndim=1] k_data_sorted
+            np.ndarray[np.uint64_t, ndim=1] dest_indices
             uint64_t current_kmer
             size_t total_processed
             size_t total_processed_data
 
+            np.uint64_t start, end, dest, length
+
         self.open()
         # this is chosen like this so the memory usage is ~ the same as when building the data
         # assuming that we run on the same cumputer
-        chunksize = len(self.index['index_0_indices']) // (self.n_chunks * 2)
+        chunksize = len(self.index['index_0_indices']) // (n_chunks * 2)
         logging.debug(f"Will use chunksize={chunksize}")
 
         # Initialize pointers
-        for i in range(self.n_chunks):
-            srt_pointer[i] = 0
+        for i in range(n_chunks):
+            srt_pointer[i] = 0 # TODO: we avoid computing repeated sequences that are too redundant
             end_pointer[i] = min(chunksize, len(self.index[f'index_{i}_indices']))
             srt_pointer_to_data[i] = 0
             end_pointer_to_data[i] = 0
@@ -351,8 +360,8 @@ cdef class MalvaIndex:
                 
             f_out.attrs['n_chunks'] = 1
             
-            max_size = sum(len(self.index[f'index_{i}_indices']) for i in range(self.n_chunks))
-            max_size_data = sum(len(self.index[f'index_{i}_data']) for i in range(self.n_chunks))
+            max_size = sum(len(self.index[f'index_{i}_indices']) for i in range(n_chunks))
+            max_size_data = sum(len(self.index[f'index_{i}_data']) for i in range(n_chunks))
             indices_out = f_out.create_dataset('index_0_indices', shape=(0,), maxshape=(max_size,), dtype='uint64')
             indptr_out = f_out.create_dataset('index_0_indptr', shape=(0,), maxshape=(max_size,), dtype='uint64')
             data_out = f_out.create_dataset('index_0_data', shape=(max_size_data,), dtype='uint32')
@@ -366,7 +375,7 @@ cdef class MalvaIndex:
             indptr_out[0] = 0
 
             while True:
-                if all(srt_pointer[i] >= len(self.index[f'index_{i}_indices']) for i in range(self.n_chunks)):
+                if all(srt_pointer[i] >= len(self.index[f'index_{i}_indices']) for i in range(n_chunks)):
                     break
 
                 logging.info(f"Processed {total_processed_data:,}/{max_size_data:,} indexed locations")
@@ -374,67 +383,84 @@ cdef class MalvaIndex:
                 # find the smallest value across all chunks
                 # because we avoid overflowing to much more than assigned chunksize
                 min_value = 0xFFFFFFFFFFFFFFFF
-                for i in range(self.n_chunks):
+                for i in range(n_chunks):
                     if end_pointer[i] < len(self.index[f'index_{i}_indices']):
                         curr_i_value = self.index[f'index_{i}_indices'][end_pointer[i]]
                         if curr_i_value < min_value:
                             min_value = curr_i_value
 
-                k_unique = np.array([], dtype=np.uint64)
-                k_change = np.array([], dtype=np.uint64)
-                k_data = np.array([], dtype=np.uint32)
-
-                for i in range(self.n_chunks):
+                for i in range(n_chunks):
                     if srt_pointer[i] == end_pointer[i]:
                         continue
 
                     current_i_data_len = len(self.index[f'index_{i}_data'])
                     end_pointer[i] = np.searchsorted(self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]], min_value, side='right') + srt_pointer[i]
-                    
                     srt_pointer_to_data[i] = self.index[f'index_{i}_indptr'][srt_pointer[i]]
-                    # TODO: memoryview
-                    chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
-                    chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
-    
+
                     if (end_pointer[i] + 1) >= len(self.index[f'index_{i}_indptr']):
                         end_pointer_to_data[i] = current_i_data_len
                     else:
                         end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][end_pointer[i]+1]
 
-                    chunk_indptr = np.diff(chunk_indptr, append=end_pointer_to_data[i])
-    
-                    k_unique = np.append(k_unique, np.repeat(chunk_indices, chunk_indptr.astype(np.int64)).astype(np.uint64))
-                    k_data = np.append(k_data, self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]])
+                max_data_size = int(sum(end_pointer_to_data[i] - srt_pointer_to_data[i] for i in range(n_chunks)))
+                k_unique = np.array([], dtype=np.uint64)
+                k_indptr_start = np.array([], dtype=np.uint64)
+                k_indptr_end = np.array([], dtype=np.uint64)
+                k_data = np.zeros(max_data_size, dtype=np.uint32)
+
+                total_data = 0
+
+                for i in range(n_chunks):
+                    # TODO: memoryview
+                    chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
+                    chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
+                    chunk_data_size = end_pointer_to_data[i] - srt_pointer_to_data[i]
+                    k_unique = np.append(k_unique, chunk_indices)
+
+                    # we need to 'recenter' k_indptr, because it is in local coordinates (for k_data)
+                    k_indptr_start = np.append(k_indptr_start, chunk_indptr + total_data - chunk_indptr[0])
+                    k_indptr_end = np.append(k_indptr_end, np.append(chunk_indptr[1:], end_pointer_to_data[i]) + total_data - chunk_indptr[0])
+                    k_data[int(total_data):int(total_data + chunk_data_size)] = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
+
+                    total_data += chunk_data_size
 
                 # sort indices and reorder data accordingly
-                # TODO: can be implemented more efficiently (reduce CPU time by 50%)
                 sort_idx = np.argsort(k_unique)
                 k_unique = k_unique[sort_idx]
-                k_data = k_data[sort_idx]
+                # TODO: higher performance by not using unique but iterating over it
+                k_unique_unique = np.unique(k_unique)
+                k_indptr_start = k_indptr_start[sort_idx]
+                k_indptr_end = k_indptr_end[sort_idx]
                 
-                # Find unique elements and their indices
-                unique_mask = np.ones(len(k_unique), dtype=bool)
-                unique_mask[1:] = np.diff(k_unique) != 0
+                _k_change_cumsum = np.append(np.array([0], dtype=np.uint64), np.cumsum(k_indptr_end - k_indptr_start).astype(np.uint64))[:-1]
+                _idx_change = np.append(np.array([1], dtype=np.uint64), (np.diff(k_unique) != 0).astype(np.uint64)).astype(bool)
+                k_change = _k_change_cumsum[_idx_change]
+                
+                # reorder k_data based on the sorted indices
+                k_data_sorted = np.zeros_like(k_data)
+                dest_indices = np.cumsum(k_indptr_end - k_indptr_start)
 
-                # Extract unique k-mers and their change points
-                k_unique = k_unique[unique_mask]
-                k_change = np.where(unique_mask)[0].astype(np.uint64)
+                for start, end, dest in zip(k_indptr_start, k_indptr_end, dest_indices):
+                    k_data_sorted[dest - (end - start):dest] = k_data[start:end]
 
-                new_size = total_processed_data + len(k_data)
-                data_out[total_processed_data:new_size] = k_data
+                # move data to h5 object
+                new_size = total_processed_data + len(k_data_sorted)
+                data_out[total_processed_data:new_size] = k_data_sorted
 
+                # last_indptr_out takes care that we store the pointers
+                # respect to the correct coordinates
                 last_indptr_out = indptr_out[-1]
-                new_size = total_processed + len(k_unique)
+                new_size = total_processed + len(k_unique_unique)
                 indices_out.resize(new_size, axis=0)
                 indptr_out.resize(new_size, axis=0)
-                indices_out[total_processed:] = k_unique
+                indices_out[total_processed:] = k_unique_unique
                 indptr_out[total_processed:] = k_change + last_indptr_out + 1
 
-                total_processed += len(k_unique)
-                total_processed_data += len(k_data)
+                total_processed += len(k_unique_unique)
+                total_processed_data += len(k_data_sorted)
 
                 # update index pointers
-                for i in range(self.n_chunks):
+                for i in range(n_chunks):
                     srt_pointer[i] = end_pointer[i] + 1
                     end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
 
@@ -825,7 +851,7 @@ cdef class SpatialIndex:
         self.index.clear()
         self.coords.clear()
 
-        cdef uint64_t key, barcode, reversed_barcode
+        cdef uint64_t key, reversed_barcode
         cdef uint32_t x, y
         cdef uint32_t i = 0
 
@@ -835,12 +861,7 @@ cdef class SpatialIndex:
             fread(&x, sizeof(uint32_t), 1, file)
             fread(&y, sizeof(uint32_t), 1, file)
 
-            # Determine the barcode length (assuming it's a multiple of 2, up to 32bp)
-            barcode_length = (64 - (key.bit_length() - 1)) // 2 * 2
-        
-            # Reverse the barcode
             reversed_barcode = self.reverse_barcode(key, barcode_length)
-
             self.index[reversed_barcode] = i
             self.coords_stomics.push_back(pair[uint16_t, uint16_t](<uint16_t>x, <uint16_t>y))
             i += 1
@@ -848,8 +869,6 @@ cdef class SpatialIndex:
         fclose(file)
 
     cdef uint64_t reverse_barcode(self, uint64_t barcode, int barcode_length):
-        cdef uint64_t mask = (1 << barcode_length * 2) - 1
-        cdef uint64_t barcode = barcode & mask
         cdef uint64_t reversed_barcode = 0
         cdef int i
 
@@ -857,7 +876,7 @@ cdef class SpatialIndex:
             reversed_barcode = (reversed_barcode << 2) | (barcode & 0b11)
             barcode >>= 2
 
-        return (barcode & ~mask) | reversed_barcode
+        return reversed_barcode
 
     def get_coords_stomics(self):
         cdef np.ndarray[np.uint16_t, ndim=2] arr = np.empty((self.coords_stomics.size(), 2), dtype=np.uint16)
