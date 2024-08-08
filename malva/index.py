@@ -60,8 +60,14 @@ def _run_index(args):
     if _sindex_exists:
         logging.info("Loading previously created `cell (spot) barcode->spatial coordinate` index")
         sindex = SpatialIndex()
-        sindex.load_binary(_sindex_loc)
+        if args.flavor == "stereo_seq":
+            sindex.load_binary_stomics(_sindex_loc)
+        else:
+            sindex.load_binary(_sindex_loc)
     else:
+        if args.flavor == "stereo_seq":
+            raise ValueError("STOmics indices (really large ones) have to be provided in .bin format!")
+
         logging.info("Creating `cell (spot) barcode->spatial coordinate` index")
         sindex = create_spatial_index(
             args.spatial_bc_in
@@ -72,8 +78,16 @@ def _run_index(args):
     logging.info(f"Configuring the malva index")
     kmer_index = MalvaIndex(args.index_out, kmer_size_initialize=args.kmer_length)
 
+    # TODO: fix this more elegantly
     logging.info("Adding spatial index to malva index")
-    kmer_index.set_spatial_index(sindex)
+    if args.flavor == "stereo_seq":
+        try:
+            kmer_index.set_spatial_index(sindex)
+        except ValueError:
+            pass
+        kmer_index.set_spatial_coords(sindex.get_coords_stomics())
+    else:
+        kmer_index.set_spatial_index(sindex)
 
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
     logging.info(f"Will write to disk every {args.chunksize:,} sequences, and once at the end (remaining sequences)")
