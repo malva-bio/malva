@@ -60,8 +60,12 @@ def _run_combine(args):
         return
     
     index_out = os.path.join(args.index_in, "malva_index.h5")
-    check_file_exists(index_out, except_when=True)
-    combine_indices(args.index_in, index_out)
+    
+    # we need to check given the 'split' driver
+    if not check_file_exists(index_out + "-r.h5") or not check_file_exists(index_out + "-m.h5"):
+        combine_indices(args.index_in, index_out)
+    else:
+        logging.warn(f"The combined (non-merged) index exists already at {index_out}")
 
     if args.merge_chunks:
         kmer_index = MalvaIndex(args.index_in)
