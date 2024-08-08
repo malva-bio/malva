@@ -328,7 +328,7 @@ cdef class MalvaIndex:
             uint64_t total_len_per_k_data_chunk
             uint64_t total_data
             int i
-            size_t current_i_data_len
+            uint64_t current_i_data_len
             np.ndarray[uint64_t, ndim=1] k_unique
             np.ndarray[uint64_t, ndim=1] k_change
             np.ndarray[uint64_t, ndim=1] _k_change_cumsum
@@ -354,7 +354,9 @@ cdef class MalvaIndex:
             srt_pointer_to_data[i] = 0
             end_pointer_to_data[i] = 0
 
-        with h5py.File(file_out, 'w', driver="split") as f_out:
+        file_out_tmp = file_out + ".tmp"
+
+        with h5py.File(file_out_tmp, 'w', driver="split") as f_out:
             for key, value in self.index.attrs.items():
                 f_out.attrs[key] = value
                 
@@ -378,7 +380,8 @@ cdef class MalvaIndex:
                 if all(srt_pointer[i] >= len(self.index[f'index_{i}_indices']) for i in range(n_chunks)):
                     break
 
-                logging.info(f"Processed {total_processed_data:,}/{max_size_data:,} indexed locations")
+                if self.verbose:
+                    logging.info(f"Processed {total_processed_data:,}/{max_size_data:,} indexed locations")
 
                 # find the smallest value across all chunks
                 # because we avoid overflowing to much more than assigned chunksize
@@ -429,8 +432,8 @@ cdef class MalvaIndex:
                 k_unique = k_unique[sort_idx]
                 # TODO: higher performance by not using unique but iterating over it
                 k_unique_unique = np.unique(k_unique)
-                k_indptr_start = k_indptr_start[sort_idx]
-                k_indptr_end = k_indptr_end[sort_idx]
+                k_indptr_start = k_indptr_start[sort_idx].astype(np.uint64)
+                k_indptr_end = k_indptr_end[sort_idx].astype(np.uint64)
                 
                 _k_change_cumsum = np.append(np.array([0], dtype=np.uint64), np.cumsum(k_indptr_end - k_indptr_start).astype(np.uint64))[:-1]
                 _idx_change = np.append(np.array([1], dtype=np.uint64), (np.diff(k_unique) != 0).astype(np.uint64)).astype(bool)
@@ -454,7 +457,7 @@ cdef class MalvaIndex:
                 indices_out.resize(new_size, axis=0)
                 indptr_out.resize(new_size, axis=0)
                 indices_out[total_processed:] = k_unique_unique
-                indptr_out[total_processed:] = k_change + last_indptr_out + 1
+                indptr_out[total_processed:] = k_change + last_indptr_out
 
                 total_processed += len(k_unique_unique)
                 total_processed_data += len(k_data_sorted)
@@ -465,6 +468,27 @@ cdef class MalvaIndex:
                     end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
 
         self.close()
+        
+        if self.verbose:
+            logging.info("Reorganizing the h5 file for performance (might take a while...)")
+
+        with h5py.File(file_out_tmp, "r", driver="split") as f_in, h5py.File(file_out, "w", driver="split") as f_out:
+                for key, value in f_in.attrs.items():
+                    f_out.attrs[key] = value
+                
+                f_out.attrs['n_chunks'] = 1
+
+                f_out.create_dataset('index_0_indices', data=f_in['index_0_indices'], dtype='uint64')
+                f_out.create_dataset('index_0_indptr', data=f_in['index_0_indptr'], dtype='uint64')
+                f_out.create_dataset('index_0_data', data=f_in['index_0_data'], dtype='uint32')
+
+                if 'spatial_coord' in f_in:
+                    f_out.create_dataset('spatial_coord', data=f_in['spatial_coord'], dtype='float32')
+
+        # remove the temporary file (which has the wrong file structure). 
+        # TODO: another strategy? we need to have plenty of storage for this! (anyway we have it)
+        os.remove(f'{file_out_tmp}-r.h5')
+        os.remove(f'{file_out_tmp}-m.h5')
 
     def write(self):
         cdef vector[pair[uint64_t, uint32_t]].iterator first = self._iter_seqs.begin()
