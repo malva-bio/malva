@@ -97,6 +97,7 @@ def _run_index(args):
         logging.info(f"Now, {kmer_index.n_chunks} chunks will be merged")
         
         merged_file = f"{kmer_index.index_file}.merged"
+        kmer_index.verbose = True
         kmer_index.merge_chunks(merged_file)
         os.remove(f'{kmer_index.index_file}-r.h5')
         os.remove(f'{kmer_index.index_file}-m.h5')
