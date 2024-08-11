@@ -720,11 +720,12 @@ cdef class MalvaIndex:
             sequence = [sequence]
 
         def get_whole_sliding_sequence(string, k):
-            return [string[i:] for i in range(k-self.kmer_size+1)]
+            return [string[i:] for i in range(k) if len(string[i:]) >= self.kmer_size]
         
         for seq in sequence:
             if len(seq) < self.kmer_size:
                 raise ValueError(f"Query sequence of length {len(seq)} cannot be smaller than kmer size {self.kmer_size}!")
+            # we slide over the 24-mers to generate offsets, later we take into account the sliding_size
             whole_sliding_sequences.extend(get_whole_sliding_sequence(seq, self.kmer_size))
 
         all_kmer_list = []
