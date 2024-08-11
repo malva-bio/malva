@@ -64,6 +64,8 @@ def _run_index(args):
             sindex.load_binary_stomics(_sindex_loc)
         else:
             sindex.load_binary(_sindex_loc)
+    elif args.flavor.startswith("sc_"):
+        logging.info("Will not use a spatial index (single-cell dataset)")
     else:
         if args.flavor == "stereo_seq":
             raise ValueError("STOmics indices (really large ones) have to be provided in .bin format!")
@@ -79,13 +81,12 @@ def _run_index(args):
     kmer_index = MalvaIndex(args.index_out, kmer_size_initialize=args.kmer_length)
 
     # TODO: fix this more elegantly
-    logging.info("Adding spatial index to malva index")
+    logging.info("Adding cell barcode index to malva index")
     if args.flavor == "stereo_seq":
-        try:
-            kmer_index.set_spatial_index(sindex)
-        except ValueError:
-            pass
+        kmer_index.set_barcode_index(sindex)
         kmer_index.set_spatial_coords(sindex.get_coords_stomics())
+    elif args.flavor.startswith("sc_"):
+        kmer_index.set_barcode_index(sindex)
     else:
         kmer_index.set_spatial_index(sindex)
 

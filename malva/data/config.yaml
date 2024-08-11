@@ -14,3 +14,6 @@ barcode_flavors:
   slide_seq:
     bam_tags: XC:{cell}
     cell: r1[0:14]
+  sc_10x_v3:
+    bam_tags: CB:{cell}
+    cell: r1[0:16]

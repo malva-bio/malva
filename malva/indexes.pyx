@@ -162,6 +162,9 @@ cdef class MalvaIndex:
         self.spatial_index = sindex
         self.set_spatial_coords(sindex.get_coords())
 
+    def set_barcode_index(self, SpatialIndex sindex):
+        self.spatial_index = sindex
+
     def set_spatial_coords(self, coords: np.ndarray):
         xmin, xmax = coords[:, 0].min(), coords[:, 0].max()
         ymin, ymax = coords[:, 1].min(), coords[:, 1].max()
@@ -207,8 +210,9 @@ cdef class MalvaIndex:
             vector[uint64_t] k_unique
             vector[uint64_t] k_change
             vector[uint32_t] k_data
-            size_t i
+            size_t i, items = 0
             uint64_t current_kmer
+            uint32_t current_data
 
         if self._n_kmers_processed == 0:
             logging.warn("There are no kmers to process!")
@@ -217,17 +221,30 @@ cdef class MalvaIndex:
         _chunk = self.n_chunks
 
         current_kmer = kmer_coords[0].first
+        current_data = kmer_coords[0].second
         k_unique.push_back(current_kmer)
         k_change.push_back(<uint64_t>0)
         k_data.push_back(kmer_coords[0].second)
+        items += 1
 
         with nogil:
             for i in range(1, self._n_kmers_processed):
                 if kmer_coords[i].first != current_kmer:
+                    # New kmer encountered
                     k_unique.push_back(kmer_coords[i].first)
-                    k_change.push_back(<uint64_t>i)
+                    k_change.push_back(items)
                     current_kmer = kmer_coords[i].first
-                k_data.push_back(kmer_coords[i].second)
+
+                    # Reset current_data for the new kmer
+                    current_data = kmer_coords[i].second
+                    k_data.push_back(current_data)
+                    items += 1
+                    
+                elif kmer_coords[i].second != current_data:
+                    # Same kmer, but new data
+                    current_data = kmer_coords[i].second
+                    k_data.push_back(current_data)
+                    items += 1
 
         _index = h5py.File(self.index_file, 'a', driver="split")
 
@@ -971,6 +988,59 @@ def create_spatial_index(str spatial_barcode_file):
 
     # we also set the actual coordinate values
     sindex.coords = coords
+
+    free(line)
+    fclose(file)
+
+    logging.info(f"Spatial index creation completed.")
+
+    return sindex
+
+cdef void process_line_whitelist(const char* line, int line_length, LineData* data) noexcept nogil:
+    cdef int start = 0
+    cdef int i
+    cdef char c
+    cdef char[64] kmer
+
+    for i in range(line_length):
+        c = line[i]
+        if c == b'\n':
+            memcpy(kmer, &line[0], i)
+            kmer[i] = b'\0'
+            with gil:
+                data.cell_bc = encode_kmer(kmer.decode("ascii")[:i])
+
+def create_singlecell_index(str whitelist_file):
+    cdef:
+        SpatialIndex sindex = SpatialIndex()
+        FILE* file
+        char* line = NULL
+        size_t len = 0
+        ssize_t read
+        LineData data
+        uint32_t line_count = 0
+        Py_ssize_t report_interval = 10000000
+
+    logging.info("Starting spatial index creation...")
+
+    file = fopen(whitelist_file.encode('ascii'), "r")
+    if file == NULL:
+        raise IOError(f"Cannot open file {whitelist_file} for reading")
+
+    getline(&line, &len, file)
+
+    while True:
+        read = getline(&line, &len, file)
+        if read == -1:
+            break
+        process_line_whitelist(line, read, &data)
+        
+        sindex.add(data.cell_bc, line_count)
+
+        line_count += 1
+        if line_count % report_interval == 0:
+            PyErr_CheckSignals()
+            logging.info(f"Processed {line_count:,} spatial barcodes.")
 
     free(line)
     fclose(file)
