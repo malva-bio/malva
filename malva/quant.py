@@ -78,7 +78,8 @@ def resave_h5ad(folder, kmer_index):
 
     # TODO: load more efficiently when too large to reduce memory usage
     kmer_index.open()
-    adata.obsm["spatial"] = kmer_index.spatial_coord[:]
+    if 'spatial_coord' in kmer_index.index:
+        adata.obsm["spatial"] = kmer_index.spatial_coord[:]
     kmer_index.close()
 
     adata.write_h5ad(h5ad_file)
@@ -121,7 +122,7 @@ def process_reference(
                 seqs_gene = []
                 current_gene = it_gene_name
 
-            if seq[1] == "" or len(seq[1]) < 24 * 2 or len(seq[1]) > 3_000:
+            if seq[1] == "":
                 continue
 
             seqs_gene.append(seq[1])
@@ -137,7 +138,8 @@ def process_reference(
 
     # TODO: the n_spatial is calcualted from lims, but sum one, otherwise not correct!
     # TODO: check in indexes.pyx if this is correct (how to compute n_spatial)
-    n_spatial = kmer_index.n_spatial
+    # we need to add +1 because indices from mtx file start at 1, not 0
+    n_spatial = kmer_index.n_spatial + 1
 
     with open(os.path.join(folder_out, "matrix.mtx"), "r+b") as mtx_file:
         mtx_file.seek(0)
@@ -158,17 +160,20 @@ def _run_quant(args):
     reference_file = get_reference_cache(args.reference)
     logging.info(f"Will load reference '{args.reference}'")
 
-    logging.info(f"Running pseudo-quantification")
-    process_reference(
-        kmer_index,
-        reference_file,
-        args.folder_out,
-        sliding_size=args.sliding_size,
-        pct_threshold=args.pct_threshold,
-        count_at_most=args.kmer_max,
-        count_at_least=args.kmer_min,
-        single_count=args.single_count,
-    )
+    if not check_file_exists(os.path.join(args.folder_out, "matrix.mtx")):
+        logging.info(f"Running pseudo-quantification")
+        process_reference(
+            kmer_index,
+            reference_file,
+            args.folder_out,
+            sliding_size=args.sliding_size,
+            pct_threshold=args.pct_threshold,
+            count_at_most=args.kmer_max,
+            count_at_least=args.kmer_min,
+            single_count=args.single_count,
+        )
+    else:
+        logging.info(f"Quantification matrix exists at {args.folder_out}. Skipping...")
 
     if args.h5ad:
         logging.info("Resaving pseudoquantification as AnnData (h5ad)")
