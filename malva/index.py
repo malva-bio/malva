@@ -4,7 +4,7 @@ import shutil
 
 import yaml
 
-from malva.indexes import MalvaIndex, SpatialIndex, create_spatial_index
+from malva.indexes import MalvaIndex, SpatialIndex, create_spatial_index, create_singlecell_index
 from malva.utils import (check_directory_exists, check_file_exists,
                          get_module_path)
 
@@ -65,7 +65,8 @@ def _run_index(args):
         else:
             sindex.load_binary(_sindex_loc)
     elif args.flavor.startswith("sc_"):
-        logging.info("Will not use a spatial index (single-cell dataset)")
+        logging.info("Will not use a spatial index, but a barcode single-cell index")
+        sindex = create_singlecell_index(args.spatial_bc_in)
     else:
         if args.flavor == "stereo_seq":
             raise ValueError("STOmics indices (really large ones) have to be provided in .bin format!")

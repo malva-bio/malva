@@ -162,8 +162,14 @@ cdef class MalvaIndex:
         self.spatial_index = sindex
         self.set_spatial_coords(sindex.get_coords())
 
+    # TODO: not n_spatial but n_cells
     def set_barcode_index(self, SpatialIndex sindex):
         self.spatial_index = sindex
+        self.n_spatial = sindex.num_items()
+
+        self.open(mode='r+')
+        self.index.attrs['n_spatial'] = self.n_spatial
+        self.close()
 
     def set_spatial_coords(self, coords: np.ndarray):
         xmin, xmax = coords[:, 0].min(), coords[:, 0].max()
@@ -825,6 +831,9 @@ cdef class SpatialIndex:
             arr[i, 0] = self.coords[i].first
             arr[i, 1] = self.coords[i].second
         return arr
+
+    def num_items(self):
+        return self.index.size()
 
     cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
         return self.index[key]

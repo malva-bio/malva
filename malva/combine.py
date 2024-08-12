@@ -41,13 +41,13 @@ def combine_indices(combine_dirs, index_out):
                 if 'spatial_coord' in index_f and 'spatial_coord' not in f:
                     f.create_dataset('spatial_coord', data=index_f['spatial_coord'])
                 
-                if 'kmer_size' not in f.attrs:
+                if 'kmer_size' not in f.attrs and 'kmer_size' in index_f.attrs:
                     f.attrs['kmer_size'] = index_f.attrs['kmer_size']
 
-                if 'coord_lims' not in f.attrs:
+                if 'coord_lims' not in f.attrs and 'coord_lims' in index_f.attrs:
                     f.attrs['coord_lims'] = index_f.attrs['coord_lims']
 
-                if 'n_spatial' not in f.attrs:
+                if 'n_spatial' not in f.attrs and 'n_spatial' in index_f.attrs:
                     f.attrs['n_spatial'] = index_f.attrs['n_spatial']
 
         f.attrs['n_chunks'] = n_chunks_total

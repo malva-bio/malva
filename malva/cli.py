@@ -46,7 +46,7 @@ def get_index_parser():
         documentation.
         
         Currently, flavors 'openst', 'stereo_seq', 'slide_seq', 'visium', 
-        'seq_scope_v1', 'sc_10x_v3' or a path to a .yaml file, are supported""",
+        'seq_scope_v1', 'sc_10x_v1', 'sc_10x_v3' or a path to a .yaml file, are supported""",
     )
     parser.add_argument(
         "--kmer-length",
