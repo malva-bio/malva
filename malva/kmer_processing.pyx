@@ -14,6 +14,8 @@ BASE_ENCODING[ord('T')] = 2
 BASE_ENCODING[ord('U')] = 2
 BASE_ENCODING[ord('G')] = 3
 
+BASE_REV_ENCODING = {0: 'A', 1: 'C', 2: 'T', 3: 'G'}
+
 cdef inline int encode_base(char base):
     """Encode a DNA base to a numeric value."""
     return BASE_ENCODING[base]
@@ -26,6 +28,16 @@ def encode_kmer(str kmer):
         base = encode_base(base_char)
         value = (value << 2) | base
     return value
+
+def decode_kmer(int value, int k):
+    cdef str kmer = ""
+    """Decode a numeric value to a DNA k-mer."""
+    for i in range(k):
+        base = value & 3
+        kmer = BASE_REV_ENCODING[base] + kmer
+        value = value >> 2
+    
+    return kmer
 
 cdef inline uint64_t _internal_encode_kmer(str kmer):
     """Encode a DNA k-mer to a numeric value."""

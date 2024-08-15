@@ -206,8 +206,8 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "mouse_utr", "mouse_cdna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr', 'mouse_cdna'. Default: 'human_utr'""",
+        choices=["human_utr", "mouse_utr", "mouse_cdna", "mouse_utr_ncrna"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr', 'mouse_cdna', 'mouse_utr_ncrna'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--folder-out",
@@ -275,6 +275,70 @@ def cmd_run_quant(args):
     from malva.quant import _run_quant
 
     _run_quant(args)
+
+
+CELLXMER_HELP = "Convert the malva index to a cell-by-mer AnnData file that can be used for clustering and sequence assembly"
+
+
+def get_cellxmer_parser():
+    parser = argparse.ArgumentParser(
+        description=CELLXMER_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+
+    parser.add_argument(
+        "--index-in",
+        type=str,
+        help="""Valid directory where the malva index (and metadata) is located.
+        The directory must contain the file `malva_index.h5`.
+        Otherwise, an exception will be thrown.""",
+    )
+    parser.add_argument(
+        "--h5ad-out",
+        type=str,
+        required=True,
+        help="""Directory where the cell-by-mer object will be stored.""",
+    )
+    parser.add_argument(
+        "--kmer-min",
+        type=int,
+        required=False,
+        default=10,
+        help="""k-mers occurring less than --kmer-min times are ignored""",
+    )
+    parser.add_argument(
+        "--kmer-max",
+        type=int,
+        required=False,
+        default=10_000,
+        help="""k-mers occurring more than --kmer-max times are ignored""",
+    )
+    parser.add_argument(
+        "--bin-size",
+        type=int,
+        required=False,
+        default=0,
+        help="""Aggregates spatial units at the final AnnData file to reduce dimensions of final cell-by-kmer matrix""",
+    )
+    return parser
+
+
+def setup_cellxmer_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "cellxmer",
+        help=CELLXMER_HELP,
+        parents=[get_cellxmer_parser()],
+    )
+    parser.set_defaults(func=cmd_run_cellxmer)
+
+    return parser
+
+
+def cmd_run_cellxmer(args):
+    from malva.cellxmer import _run_cellxmer
+
+    _run_cellxmer(args)
 
 
 COMBINE_HELP = "Combine various sub-indexes from the same sample (e.g., processed in parallel) into a single index"
@@ -400,6 +464,7 @@ def cmdline_args():
     setup_show_parser(parent_parser_subparsers)
     setup_serve_parser(parent_parser_subparsers)
     setup_quant_parser(parent_parser_subparsers)
+    setup_cellxmer_parser(parent_parser_subparsers)
     setup_combine_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
