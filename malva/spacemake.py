@@ -1,6 +1,5 @@
 """
 This code is adapted from spacemake.
-TODO: write docs for functions
 """
 
 import anndata
@@ -62,6 +61,20 @@ def nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
 
 
 def create_mesh(width, height, diameter, distance, push_x=0, push_y=0):
+    """
+    Create a mesh grid of points within a specified area, based on the given parameters.
+
+    Args:
+        width: float, the width of the area in which to create the mesh.
+        height: float, the height of the area in which to create the mesh.
+        diameter: float, the diameter of each mesh point (used to define spacing).
+        distance: float, the distance between the centers of the mesh points.
+        push_x: float, default: 0, horizontal offset for the starting point of the mesh.
+        push_y: float, default: 0, vertical offset for the starting point of the mesh.
+
+    Returns:
+        xy: numpy.ndarray, matrix of shape (n_points, 2) with x, y coordinates of the mesh points.
+    """
     distance_y = np.sqrt(3) * distance
 
     x_coord = np.arange(push_x, width + diameter, distance)
@@ -176,7 +189,23 @@ def binning_hexagon(x, y, gridsize, extent=None, last_row=False):
     return coordinates, accumulated
 
 
-def aggregate_adata_by_indices(adata, idx_to_aggregate, idx_aggregated, coordinates_aggregated):
+def aggregate_adata_by_indices(adata, idx_to_aggregate, idx_aggregated, coordinates_aggregated=None):
+    """
+    Aggregate the data (along the `obs` dimensions) of an AnnData object by specified indices. The size
+    of the resulting `obs` has to be less or equal than the size of the input.
+
+    Args:
+        adata: AnnData object, to be aggregated.
+        idx_to_aggregate: array-like, the indices of observations to aggregate.
+        idx_aggregated: array-like, the indices indicating how to aggregate the data.
+        coordinates_aggregated: Union[numpy.ndarray, None], (optional) coordinates of the aggregated spots.
+
+    Returns:
+        aggregated_adata: AnnData object, the aggregated data, with spatial coordinates updated.
+                          The variable names are preserved from the input `adata`, and an additional
+                          observation field "n_joined" is included, representing the number of spots
+                          that were aggregated into each bin.
+    """
     adata = adata[idx_to_aggregate]
     
     n_bins = idx_aggregated.max() + 1
@@ -208,6 +237,23 @@ def create_meshed_adata(
     start_at_minimum=False,
     optimized_binning=True,
 ):
+    """
+    Create a meshed AnnData object by binning the spatial data into a grid.
+
+    Args:
+        adata: AnnData object, containing spatial data to be meshed.
+        px_by_um: float, the pixel-to-micron ratio.
+        spot_diameter_um: float, default: 55, the diameter of the spots in microns.
+        spot_distance_um: float, default: 100, the distance between the centers of the spots in microns.
+        bead_diameter_um: float, default: 10, the diameter of the beads in microns.
+        mesh_type: str, default: "circle", the type of mesh to create ("circle" or "hexagon").
+        start_at_minimum: bool, default: False, if True, the mesh grid starts at the minimum coordinate.
+        optimized_binning: bool, default: True, if True, use optimized binning method for creating the mesh.
+
+    Returns:
+        meshed_adata: AnnData object, the meshed data with aggregated observations according to the specified mesh.
+                      The spatial coordinates are updated to the mesh grid, and the original data is aggregated.
+    """
     import numpy as np
     from sklearn.metrics.pairwise import euclidean_distances
 
