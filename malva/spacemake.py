@@ -1,11 +1,12 @@
 """
-This code is adapted from spacemake
+This code is adapted from spacemake.
+TODO: write docs for functions
 """
 
 import anndata
 import numpy as np
 import pandas as pd
-from scipy.sparse import csc_matrix, csr_matrix, dok_matrix, vstack
+from scipy.sparse import csc_matrix, csr_matrix, dok_matrix, vstack, coo_matrix
 
 
 def nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
@@ -176,34 +177,25 @@ def binning_hexagon(x, y, gridsize, extent=None, last_row=False):
 
 
 def aggregate_adata_by_indices(adata, idx_to_aggregate, idx_aggregated, coordinates_aggregated):
-    joined_C = adata.X[idx_to_aggregate]
-
-    # at which indices does the index in the newly created matrix change
-    change_ix = np.where(idx_aggregated[:-1] != idx_aggregated[1:])[0] + 1
-
-    # array of indices, split by which row they should go together
-    ix_array = np.asarray(np.split(np.arange(idx_aggregated.shape[0]), change_ix, axis=0), dtype="object")
-
-    joined_C_sumed = vstack([csr_matrix(joined_C[ix_array[n].astype(int), :].sum(0)) for n in range(len(ix_array))])
-
-    aggregated_adata = anndata.AnnData(
-        csc_matrix(joined_C_sumed),
-        obs=pd.DataFrame(
-            {
-                "x_pos": coordinates_aggregated[:, 0],
-                "y_pos": coordinates_aggregated[:, 1],
-            }
-        ),
-        var=adata.var,
-    )
-
-    aggregated_adata.obsm["spatial"] = coordinates_aggregated
-
-    # rename index
-    aggregated_adata.obs.index.name = "cell_bc"
-    aggregated_adata.obs["n_joined"] = [len(x) for x in ix_array]
+    adata = adata[idx_to_aggregate]
+    
+    n_bins = idx_aggregated.max() + 1
+    row_indices = idx_aggregated
+    col_indices = np.arange(adata.X.shape[0])
+    data = np.ones_like(col_indices)
+    
+    binning_matrix = coo_matrix((data, (row_indices, col_indices)), shape=(n_bins, adata.X.shape[0])).tocsr()
+    aggregated_data = binning_matrix.dot(adata.X)
+    
+    has_spots = np.unique(idx_aggregated)
+    filtered_data = aggregated_data[has_spots]
+    
+    aggregated_adata = anndata.AnnData(X=filtered_data, obsm={'spatial': coordinates_aggregated})
+    aggregated_adata.var_names = adata.var_names
+    aggregated_adata.obs["n_joined"] = binning_matrix[has_spots].sum(axis=1)
 
     return aggregated_adata
+
 
 
 def create_meshed_adata(
