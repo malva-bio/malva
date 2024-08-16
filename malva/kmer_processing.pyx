@@ -72,3 +72,24 @@ def get_kmers_numeric(str string, int k, remove_noncomplex=False):
         kmers.append(encoded_kmer)
 
     return kmers
+
+def get_sliding_kmers_numeric(str string, int k, remove_noncomplex=False):
+    """Get a list of numerically encoded overlapping k-mers from a DNA string."""
+    cdef:
+        int n = len(string)
+        int i
+        str kmer, prev_kmer
+        uint64_t encoded_kmer
+        list kmers = []
+
+    for i in range(0, n - k + 1):
+        kmer = string[i:i+k]
+
+        if remove_noncomplex and 'N' in kmer:
+            kmers.append(0)
+            continue
+    
+        encoded_kmer = _internal_encode_kmer(kmer)
+        kmers.append(encoded_kmer)
+
+    return kmers
