@@ -206,8 +206,15 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "mouse_utr", "mouse_cdna", "mouse_utr_ncrna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr', 'mouse_cdna', 'mouse_utr_ncrna'. Default: 'human_utr'""",
+        choices=["human_utr", "mouse_utr", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
+    )
+    parser.add_argument(
+        "--background-model",
+        type=str,
+        required=False,
+        default=None,
+        help="""Path to background model (*.bmodel.bin) of k-mer abundance (those too abundant will be ignored during query, e.g., multimappers). Default: None""",
     )
     parser.add_argument(
         "--folder-out",
@@ -222,6 +229,13 @@ def get_quant_parser():
         "--h5ad",
         action="store_true",
         help="""When specified, Resaves matrix.mtx to AnnData format, at --folder-out.""",
+    )
+    parser.add_argument(
+        "--bin-size",
+        type=int,
+        required=False,
+        default=0,
+        help="""Aggregates spatial units from the AnnData file into bins (when --h5ad is specified). Default: 0 (no binning)""",
     )
     parser.add_argument(
         "--sliding-size",
