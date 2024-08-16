@@ -50,7 +50,7 @@ def process_gene(
     # we have to clip otherwise we wouldn't count those that have many
     # entries in the reference (e.g., many alternative 3'UTRs) but only
     # one count was found 
-    counts = np.clip((counts / len(seqs_gene)).astype(int), 1, 10_000)
+    counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
 
     for loc, count in zip(locs, counts):
         if count > 0:
