@@ -29,7 +29,7 @@ from rich.progress import track
 
 from malva.fast_map cimport map
 from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
-from malva.kmer_processing import encode_kmer, get_kmers_numeric
+from malva.kmer_processing import encode_kmer, get_kmers_numeric, get_sliding_kmers_numeric
 from malva.utils import check_cell_string, convert_to_bytes
 from malva.xopen import xopen
 
@@ -67,7 +67,6 @@ cdef pair[uint64_t, pair[uint32_t, uint32_t]] binary_search(vector[pair[uint64_t
     
     return deref(result)
 
-# TODO: docstring for this function
 cdef int backed_binary_search_int(object arr, uint64_t low, uint64_t high, uint64_t x):
     if high >= low:
         mid = (high + low) // 2
@@ -108,6 +107,7 @@ cdef class MalvaIndex:
         map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
         vector[pair[uint64_t, pair[uint32_t, uint32_t]]] _cindex
         SpatialIndex spatial_index
+        BackgroundModel background_model
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
         self.index_dir = index_dir
@@ -118,6 +118,7 @@ cdef class MalvaIndex:
         self._n_kmers_processed = 0
         self.verbose = verbose
         self.spatial_index = SpatialIndex()
+        self.background_model = BackgroundModel(self.kmer_size)
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
         self._index_backed = map[uint64_t, pair[uint64_t, uint64_t]]()
@@ -373,7 +374,7 @@ cdef class MalvaIndex:
 
         # Initialize pointers
         for i in range(n_chunks):
-            srt_pointer[i] = 0 # TODO: we avoid computing repeated sequences that are too redundant
+            srt_pointer[i] = 0
             end_pointer[i] = min(chunksize, len(self.index[f'index_{i}_indices']))
             srt_pointer_to_data[i] = 0
             end_pointer_to_data[i] = 0
@@ -438,7 +439,6 @@ cdef class MalvaIndex:
                 total_data = 0
 
                 for i in range(n_chunks):
-                    # TODO: memoryview
                     chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
                     chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
                     chunk_data_size = end_pointer_to_data[i] - srt_pointer_to_data[i]
@@ -451,6 +451,7 @@ cdef class MalvaIndex:
 
                     total_data += chunk_data_size
 
+                # TODO: we can do at maximum performance by using scipy csr_matrix (optionally transposing)
                 # sort indices and reorder data accordingly
                 sort_idx = np.argsort(k_unique)
                 k_unique = k_unique[sort_idx]
@@ -534,7 +535,7 @@ cdef class MalvaIndex:
             uint32_t _res_item
             unordered_set[uint32_t] _set
 
-        # TODO: move _data outside of here?
+        # TODO: move _data outside of here? (for maybe some performance gain when calling _find_kmer repeatedly?)
         _data = self.index[f'index_{chunk_id}_data']
 
         # TODO: move iterator out of here (at find_kmer)
@@ -677,9 +678,6 @@ cdef class MalvaIndex:
         _cindex_indices = self.index[f'index_{chunk_id}_indices'][::chunk_each]
         _cindex_indptr = np.arange(0, chunk_len, chunk_each)
 
-        # TODO: remove this in runtime
-        assert len(_cindex_indices) == len(_cindex_indptr)
-
         for i in range(len(_cindex_indices)-1):
             self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_cindex_indices[i], pair[uint32_t, uint32_t](_cindex_indptr[i], _cindex_indptr[i+1])))
 
@@ -690,7 +688,6 @@ cdef class MalvaIndex:
     def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 50_000_000, max_mem: str = None, force: bool = False, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
 
-        # TODO: double check this
         if (not self._index_backed.empty() or not self._cindex.empty()) and not force:
             return
         
@@ -704,8 +701,12 @@ cdef class MalvaIndex:
         else:
             self._load_index_to_constrained_memory(chunk_id, max_mem_bytes)
 
-    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, *args, **kwargs):
+    def set_background_model(self, BackgroundModel background_model):
+        self.background_model = background_model
+
+    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, *args, **kwargs):
         # TODO: reimplement seq_matches again, supporting various sequences...
+        # TODO: implement background_model (as a cython class)
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
             unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
@@ -731,7 +732,7 @@ cdef class MalvaIndex:
         for seq in sequence:
             if len(seq) < self.kmer_size:
                 raise ValueError(f"Query sequence of length {len(seq)} cannot be smaller than kmer size {self.kmer_size}!")
-            # we slide over the 24-mers to generate offsets, later we take into account the sliding_size
+            # we slide over the k-mers to generate offsets, later we take into account the sliding_size
             whole_sliding_sequences.extend(get_whole_sliding_sequence(seq, self.kmer_size))
 
         all_kmer_list = []
@@ -747,6 +748,7 @@ cdef class MalvaIndex:
         self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload, count_at_most=count_at_most, count_at_least=count_at_least)
 
         CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
+        BACKGROUND_THRESHOLD = 1 # TODO: this can be customizable
 
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
@@ -761,8 +763,12 @@ cdef class MalvaIndex:
             for idx_kmer, kmer in enumerate(all_kmer_list):
                 if current_kmers.find(kmer) == current_kmers.end():
                     continue
+
+                # those mers above cutoff are not used for counting (i.e., exclude multimappers)
+                if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
+                    continue
                 
-                # we do not add occurrence to low complexity kmers
+                # we do not add occurrence to low complexity kmers (==0)
                 values = current_kmers[kmer] if kmer != 0 else []
                 for value in values:
                     if primary_map.find(value) == primary_map.end():
@@ -785,8 +791,6 @@ cdef class MalvaIndex:
                         secondary_map[value] = 1
                     elif primary_map[value].first > CONST_THRESHOLD and not single_count:
                         secondary_map[value] += 1
-                    # TODO: this is faulty (messing up quantification, underestimating values...)
-                    # when the value is not updated, .second != idx_kmer, thus we need to subtract
                     if primary_map[value].second - idx_kmer > 0:
                         primary_map[value].first = max(<uint32_t>0, (<int32_t>(primary_map[value].first) - 1))
             
@@ -1058,3 +1062,136 @@ def create_singlecell_index(str whitelist_file):
     logging.info(f"Spatial index creation completed.")
 
     return sindex
+
+cdef class BackgroundModel:
+    cdef:
+        map[uint64_t, uint16_t] model
+        size_t total_mers
+        size_t kmer_size
+        bint verbose
+
+    def __cinit__(self, int kmer_size, bint verbose = True):
+        self.model = map[uint64_t, uint16_t]()
+        self.total_mers = 0
+        self.kmer_size = kmer_size
+        self.verbose = verbose
+
+    def create_from_reference(self, str filename, bint consecutive_genes = True):
+        from malva.reader import iterate_fasta
+        from malva.utils import check_file_exists
+
+        cdef:
+            map[uint64_t, uint16_t] temp_model
+            map[uint64_t, uint16_t].iterator it
+            map[uint64_t, uint16_t].iterator end
+            str current_gene = ""
+            uint64_t key
+
+        check_file_exists(filename, except_when=False)
+
+        if self.verbose:
+            iterator = track(iterate_fasta(filename), description=f'Computing background {self.kmer_size}-mer')
+        else:
+            iterator = iterate_fasta(filename)
+
+        for seq in iterator:
+            it_gene_name = seq[0].split(":")[0]
+            
+            all_kmer_seq = get_sliding_kmers_numeric(seq[1], self.kmer_size, remove_noncomplex=True)
+            for kmer in all_kmer_seq:
+                temp_model[kmer] = 1
+                self.total_mers += 1
+
+            if it_gene_name == current_gene and consecutive_genes:
+                continue
+
+            it = temp_model.begin()
+            end = temp_model.end()
+            while it != end:
+                key = move(deref(it).first)
+                if self.model.find(key) == self.model.end():
+                    self.model[key] = 1
+                else:
+                    self.model[key] += 1 # we only count once per reference entry (or grouped-consecutive)
+                it += 1
+            
+            current_gene = it_gene_name
+            temp_model.clear()
+            
+        if self.verbose:
+            logging.info(f"Processed {self.model.size()} unique {self.kmer_size}-mers across {self.total_mers} occurrences")
+
+    def is_mer_above_cutoff(self, uint64_t kmer, uint16_t cutoff):
+        if self.model.find(kmer) == self.model.end():
+            return False # assume if it does not exist, is below cutoff
+        
+        return self.model[kmer] > cutoff
+
+    def save(self, str filename):
+        cdef:
+            FILE* file = fopen(filename.encode('ascii'), "wb")
+            uint64_t key
+            uint16_t count
+            size_t size = self.model.size()
+            map[uint64_t, uint16_t].iterator it = self.model.begin()
+            map[uint64_t, uint16_t].iterator end = self.model.end()
+    
+        if file == NULL:
+            raise IOError(f"Cannot open file {filename} for writing")
+
+        fwrite(&size, sizeof(size_t), 1, file)
+
+        while it != end:
+            key = move(deref(it).first)
+            count = self.model[key]
+            fwrite(&key, sizeof(uint64_t), 1, file)
+            fwrite(&count, sizeof(uint16_t), 1, file)
+            it += 1
+
+        fclose(file)
+
+    def export_fasta(self, str filename):
+        raise NotImplementedError("Cannot save as FASTA yet")
+
+    def load(self, str filename):
+        cdef:
+            FILE* file = fopen(filename.encode('ascii'), "rb")
+            size_t size
+            uint64_t key
+            uint16_t count
+
+        if file == NULL:
+            raise IOError(f"Cannot open file {filename} for reading")
+
+        self.model.clear()
+        self.total_mers = 0
+
+        fread(&size, sizeof(size_t), 1, file)
+
+        for _ in range(size):
+            fread(&key, sizeof(uint64_t), 1, file)
+            fread(&count, sizeof(uint16_t), 1, file)
+            self.model[key] = count
+            self.total_mers += 1
+
+        fclose(file)
+
+    def import_jellyfish_fasta(self, str filename):
+        from malva.reader import iterate_fasta
+        from malva.kmer_processing import encode_kmer
+
+        cdef:
+            uint64_t key
+            uint16_t count
+
+        self.model.clear()
+        self.total_mers = 0
+
+        if self.verbose:
+            iterator = track(iterate_fasta(filename), description=f'Computing background {self.kmer_size}-mer frequency from {filename}')
+        else:
+            iterator = iterate_fasta(filename)
+
+        for seq in iterator:
+            self.model[encode_kmer(seq[1], self.kmer_size)] = <uint16_t>int(seq[0])
+            self.total_mers += 1

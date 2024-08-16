@@ -3,11 +3,10 @@ import logging
 import os
 
 import numpy as np
-from rich.progress import track
 
-from malva.index import MalvaIndex
+from malva.indexes import MalvaIndex, BackgroundModel
 from malva.reader import iterate_fasta
-from malva.show import MalvaPlot
+from malva.spacemake import create_meshed_adata
 from malva.utils import (check_directory_exists, check_file_exists,
                          get_reference_cache)
 
@@ -35,7 +34,9 @@ def process_gene(
     count_at_most: int = 10_000,
     count_at_least: int = 10,
     single_count: bool = False,
+    use_background_model: bool = True
 ):
+    total_written = 0
     locs, counts, _ = kmer_index.where(
         seqs_gene,
         sliding_size=sliding_size,
@@ -43,16 +44,22 @@ def process_gene(
         count_at_most=count_at_most,
         count_at_least=count_at_least,
         single_count=single_count,
-        max_mem=None
+        max_mem=None,
+        use_background_model=use_background_model
     )
+    # we have to clip otherwise we wouldn't count those that have many
+    # entries in the reference (e.g., many alternative 3'UTRs) but only
+    # one count was found 
     counts = np.clip((counts / len(seqs_gene)).astype(int), 1, 10_000)
 
     for loc, count in zip(locs, counts):
-        mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
+        if count > 0:
+            total_written += 1
+            mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
 
     feature_file.write(f"{current_gene}\n".encode())
 
-    return len(locs)
+    return total_written
 
 
 def resave_h5ad(folder, kmer_index):
@@ -84,11 +91,14 @@ def resave_h5ad(folder, kmer_index):
 
     adata.write_h5ad(h5ad_file)
 
+    return adata
+
 
 def process_reference(
     kmer_index,
     reference_file,
     folder_out,
+    use_background_model=True,
     verbose=True,
     sliding_size: int = 128,
     pct_threshold: float = 0.65,
@@ -114,7 +124,7 @@ def process_reference(
 
             if it_gene_name != current_gene:
                 if seqs_gene:
-                    nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count)
+                    nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count, use_background_model)
                     total_nnz += nnz
                     current_col += 1
                     if (current_col % N_EACH_REPORT) == 0 and verbose:
@@ -122,7 +132,7 @@ def process_reference(
                 seqs_gene = []
                 current_gene = it_gene_name
 
-            if seq[1] == "":
+            if seq[1] == "" or len(seq[1]) < sliding_size + kmer_index.kmer_size:
                 continue
 
             seqs_gene.append(seq[1])
@@ -160,12 +170,20 @@ def _run_quant(args):
     reference_file = get_reference_cache(args.reference)
     logging.info(f"Will load reference '{args.reference}'")
 
+    background_model = None
+    if args.background_model is not None:
+        check_file_exists(args.background_model, except_when=False)
+        background_model = BackgroundModel(kmer_index.kmer_size)
+        background_model.load(args.background_model)
+        kmer_index.set_background_model(background_model)
+
     if not check_file_exists(os.path.join(args.folder_out, "matrix.mtx")):
         logging.info(f"Running pseudo-quantification")
         process_reference(
             kmer_index,
             reference_file,
             args.folder_out,
+            use_background_model=True if background_model is not None else False,
             sliding_size=args.sliding_size,
             pct_threshold=args.pct_threshold,
             count_at_most=args.kmer_max,
@@ -177,7 +195,22 @@ def _run_quant(args):
 
     if args.h5ad:
         logging.info("Resaving pseudoquantification as AnnData (h5ad)")
-        resave_h5ad(args.folder_out, kmer_index)
+        adata = resave_h5ad(args.folder_out, kmer_index)
+
+    if args.h5ad and args.bin_size > 0:
+        logging.info(f"Meshing AnnData into {args.bin_size} spatial unit-side hexagons")
+        mesh_adata = create_meshed_adata(
+            adata,
+            1, # assume the user provides bin_size in the correct units (no rescaling!)
+            spot_diameter_um=args.bin_size,
+            spot_distance_um=args.bin_size,
+            bead_diameter_um=args.bin_size,
+            mesh_type="hexagon"
+        )
+
+        h5ad_mesh_file = os.path.join(args.folder_out, f"pseudoquant_bin{args.bin_size}.h5ad")
+        check_file_exists(h5ad_mesh_file, except_when=True)
+        mesh_adata.write_h5ad(h5ad_mesh_file)
 
     logging.info("SUCCESS!")
 
