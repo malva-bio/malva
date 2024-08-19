@@ -29,7 +29,7 @@ def encode_kmer(str kmer):
         value = (value << 2) | base
     return value
 
-def decode_kmer(int value, int k):
+def decode_kmer(uint64_t value, int k):
     cdef str kmer = ""
     """Decode a numeric value to a DNA k-mer."""
     for i in range(k):

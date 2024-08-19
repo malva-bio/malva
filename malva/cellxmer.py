@@ -1,4 +1,5 @@
 import logging
+import os
 
 import anndata as ad
 import numpy as np
@@ -7,7 +8,7 @@ from scipy.sparse import csr_matrix
 from malva.index import MalvaIndex
 from malva.kmer_processing import decode_kmer
 from malva.spacemake import create_meshed_adata
-from malva.utils import check_file_exists
+from malva.utils import check_directory_exists
 
 def malva_to_cellxmer(
     kmer_index,
@@ -19,7 +20,7 @@ def malva_to_cellxmer(
         logging.info(f"Opening malva index and loading k-mer information")
 
     kmer_index.open()
-    indices, indptr = kmer_index.index['index_0_data'][:], kmer_index.index['index_0_indptr'][:]
+    indices, data, indptr = kmer_index.index['index_0_indices'][:], kmer_index.index['index_0_data'][:], kmer_index.index['index_0_indptr'][:]
     diff_counts = np.diff(indptr)
     _diff_counts_idx = (diff_counts>count_at_least) & (diff_counts < count_at_most)
 
@@ -35,11 +36,11 @@ def malva_to_cellxmer(
     if verbose:
         logging.info(f"Creating sparse matrix")
 
-    adata_X_or = csr_matrix((np.ones_like(indices), indices, indptr))
-    indices_Ts = adata_X_or[_diff_counts_idx].indices
+    adata_X_or = csr_matrix((np.ones_like(data), data, indptr))
+    data_Ts = adata_X_or[_diff_counts_idx].indices
     indptr_Ts = adata_X_or[_diff_counts_idx].indptr
 
-    adata_X_tr = csr_matrix((np.ones_like(indices_Ts), indices_Ts, indptr_Ts)).T
+    adata_X_tr = csr_matrix((np.ones_like(data_Ts), data_Ts, indptr_Ts)).T
     # we need to apply this to keep the common items between matrices, then rescale to unit
     adata_X_tr = adata_X_tr + adata_X_tr
     adata_X_tr = (adata_X_tr * 0.5).astype(np.uint32)
@@ -48,20 +49,19 @@ def malva_to_cellxmer(
         logging.info(f"Creating AnnData object from cell-by-kmer sparse matrix")
     
     adata = ad.AnnData(X=adata_X_tr.tocsr())
-    adata.var_names = [decode_kmer(int(v), 24) for v in interesting_kmers]
+    adata.var_names = [decode_kmer(v, int(kmer_index.kmer_size)) for v in interesting_kmers]
 
     kmer_index.open()
     if 'spatial_coord' in kmer_index.index:
         adata.obsm['spatial'] = kmer_index.spatial_coord[:]
     kmer_index.close()
 
+    return adata
+
 
 def _run_cellxmer(args):
     kmer_index = MalvaIndex(args.index_in)
-
-    # the output file should not exist
-    if check_file_exists(args.h5ad_out):
-        logging.warn("The specified output file exists. Will be overwritten...")
+    check_directory_exists(args.h5ad_out, except_when=False)
 
     logging.info(f"Converting malva index to cell-by-kmer object")
     adata_cellxmer = malva_to_cellxmer(
@@ -70,9 +70,8 @@ def _run_cellxmer(args):
         count_at_least=args.kmer_min
     )
 
-    if args.bin_size <= 0:
-        adata_cellxmer.write_h5ad("args.h5ad_out")
-    else:
+    adata_cellxmer.write_h5ad(os.path.join(args.h5ad_out, 'cellxmer.h5ad'))
+    if args.bin_size > 0:
         logging.info(f"Meshing AnnData into {args.bin_size} spatial unit-side hexagons")
         mesh_adata_cellxmer = create_meshed_adata(
             adata_cellxmer,
@@ -83,7 +82,7 @@ def _run_cellxmer(args):
             mesh_type="hexagon"
         )
 
-        mesh_adata_cellxmer.write_h5ad("args.h5ad_out")
+        mesh_adata_cellxmer.write_h5ad(os.path.join(args.h5ad_out, f'cellxmer_bin{args.bin_size}.h5ad'))
 
     logging.info(f"Final AnnData object with cell-by-kmer matrix was stored at {args.h5ad_out}")
     logging.info("SUCCESS!")
