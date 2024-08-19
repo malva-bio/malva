@@ -706,7 +706,7 @@ cdef class MalvaIndex:
 
     def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, *args, **kwargs):
         # TODO: reimplement seq_matches again, supporting various sequences...
-        # TODO: implement background_model (as a cython class)
+        # TODO: when using cDNA, we get less matches than when using UTR. cDNA sequences contain the UTR, does not make sense!!!!!!
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
             unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
@@ -739,6 +739,7 @@ cdef class MalvaIndex:
         for subseq in whole_sliding_sequences:
             all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
 
+        # TODO: find which kmers are duplicate, and these are used for weighting correctly the overrepresentation score
         all_kmer_list = np.unique(np.concatenate(all_kmer_list))
         all_kmer_list = all_kmer_list[all_kmer_list != 0]
 

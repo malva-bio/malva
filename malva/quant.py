@@ -36,7 +36,6 @@ def process_gene(
     single_count: bool = False,
     use_background_model: bool = True
 ):
-    total_written = 0
     locs, counts, _ = kmer_index.where(
         seqs_gene,
         sliding_size=sliding_size,
@@ -50,16 +49,16 @@ def process_gene(
     # we have to clip otherwise we wouldn't count those that have many
     # entries in the reference (e.g., many alternative 3'UTRs) but only
     # one count was found 
+    # TODO: if one of the sequences has a lot of counts but not another,
+    # this will lead undercounting because of the large number of "seqs_gene"
     counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
 
     for loc, count in zip(locs, counts):
-        if count > 0:
-            total_written += 1
-            mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
+        mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
 
     feature_file.write(f"{current_gene}\n".encode())
 
-    return total_written
+    return len(locs)
 
 
 def resave_h5ad(folder, kmer_index):
