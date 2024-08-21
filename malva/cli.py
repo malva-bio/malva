@@ -429,9 +429,10 @@ def get_serve_parser():
         help="""Address where the webserver will be available at""",
     )
     parser.add_argument(
-        "--lazy-index",
-        action="store_true",
-        help="""No part of the index will be loaded to main memory (full-disk queries)""",
+        "--max-mem",
+        type=str,
+        default=None,
+        help="""Maximum allowed memory usage for the k-mer index""",
     )
     parser.add_argument(
         "--max-len",

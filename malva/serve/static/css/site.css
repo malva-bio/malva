@@ -509,7 +509,7 @@ textarea {
 	transition-property: color;
 	transition-duration: .3s;
 	width: 100%;
-	font-family: monospace, monospace;
+	/* font-family: monospace, monospace; */
 }
 
 #settings-container {

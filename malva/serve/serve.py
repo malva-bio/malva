@@ -3,227 +3,568 @@ import logging
 import numpy as np
 import json
 import pandas as pd
+import os
+
+import threading
+
 
 from netCDF4 import Dataset
 import xarray as xr
 import datashader as ds
 
-from flask import Flask, render_template, send_file, Blueprint, request
+from flask import (
+    Flask,
+    render_template,
+    send_file,
+    Blueprint,
+    request,
+    session,
+    g,
+    jsonify,
+)
+from flask_session import Session
+
 from skimage.filters import gaussian
 from PIL import Image
+import uuid
 
 from malva.index import MalvaIndex
 from malva.utils import check_file_exists
 from malva.dbutils import handle_sequence
-from malva.complexity import mask_low_complexity
+from malva.serve.modeling import handle_natural_query, setup_model
+from malva.serve.templates.strings import HINT_SEQUENCE_QUERY
 
-MAX_LOAD_ALL = 10_000_000
+MAX_LOAD_ALL = 100_000_000
 MAX_DATA_POINTS = 100_000
 SEQ_MAX_LEN = 1_000
-OUTFILE_NAME = "test.nc"
 
 app = Flask(__name__)
-map_bp = Blueprint('map', __name__)
+app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "BAD_SECRET_KEY")
+app.config["SESSION_TYPE"] = "cachelib"
+app.config["SESSION_PERMANENT"] = True
+app.config["SESSION_USE_SIGNER"] = False
+Session(app)
+
+map_bp = Blueprint("map", __name__)
+
+
+class GlobalState:
+    def __init__(self):
+        self.kmer_index = None
+        self.xy = None
+        self.xmax = None
+        self.ymax = None
+        self.xmin = None
+        self.ymin = None
+        self._loc_all = None
+        self._abu_all = None
+
+    def initialize(self, args):
+        logging.info("Loading malva index and metadata")
+        try:
+            self.kmer_index = MalvaIndex(args.index_in)
+            self.kmer_index.open()
+
+            self._loc_all, self._abu_all = np.unique(
+                self.kmer_index.index[f"index_0_data"][0:MAX_LOAD_ALL],
+                return_counts=True,
+            )
+
+            logging.info("Loading the pointers into memory. Might take a while.")
+            self.kmer_index.where(
+                "A" * self.kmer_index.kmer_size + "T", max_mem=args.max_mem, use_background_model=False
+            )
+
+            self.xmax = self.kmer_index.coord_lims[1] + 1
+            self.ymax = self.kmer_index.coord_lims[3] + 1
+            self.xmin = self.kmer_index.coord_lims[0]
+            self.ymin = self.kmer_index.coord_lims[2]
+            self.xy = self.kmer_index.spatial_coord[:]
+            logging.info("Loaded the pointers to memory! Will not close file...")
+
+            logging.info("Initializing the language model")
+            # setup_model()
+        except Exception as e:
+            logging.error(f"Error initializing global state: {str(e)}")
+            raise
+
+
+global_state = GlobalState()
+
+
+class UserSession:
+    _instances = {}
+    _lock = threading.Lock()
+
+    def __init__(self, session_id):
+        self.session_id = session_id
+        self.outfile_name = f"user_{self.session_id}.nc"
+        self.data = None
+        self.whole_max_ints = []
+        self.file_lock = threading.Lock()
+
+    @classmethod
+    def get_instance(self, session_id):
+        with self._lock:
+            if session_id not in self._instances:
+                print("create session")
+                self._instances[session_id] = self(session_id)
+            return self._instances[session_id]
+
+    def generate_netcdf_index(self, render_scale=1):
+        with self.file_lock:
+            if self.data is not None:
+                return
+
+            if check_file_exists(self.outfile_name):
+                self.data = xr.open_dataset(self.outfile_name)
+                return
+
+            # generate image size based on the scaling factor
+            im_shape = np.array(
+                [
+                    int(
+                        (
+                            global_state.kmer_index.coord_lims[1]
+                            - global_state.kmer_index.coord_lims[0]
+                        )
+                        * render_scale
+                    ),
+                    int(
+                        (
+                            global_state.kmer_index.coord_lims[3]
+                            - global_state.kmer_index.coord_lims[2]
+                        )
+                        * render_scale
+                    ),
+                ]
+            )
+
+            try:
+                with Dataset(self.outfile_name, "w", format="NETCDF4") as ncfile:
+                    x_dim = ncfile.createDimension("x", im_shape[0])
+                    y_dim = ncfile.createDimension("y", im_shape[1])
+
+                    x = ncfile.createVariable("x", np.float32, ("x",))
+                    y = ncfile.createVariable("y", np.float32, ("y",))
+
+                    x[:] = np.linspace(
+                        global_state.kmer_index.coord_lims[0],
+                        global_state.kmer_index.coord_lims[1],
+                        im_shape[0],
+                    )
+                    y[:] = np.linspace(
+                        global_state.kmer_index.coord_lims[2],
+                        global_state.kmer_index.coord_lims[3],
+                        im_shape[1],
+                    )
+
+                    all_s = ncfile.createVariable(
+                        "all",
+                        "u1",
+                        (
+                            "x",
+                            "y",
+                        ),
+                        fill_value=0,
+                    )
+
+                    # rasterize the data
+                    xy = global_state.xy[global_state._loc_all]
+                    im, _, _ = np.histogram2d(
+                        xy[:, 0],
+                        xy[:, 1],
+                        weights=global_state._abu_all,
+                        range=[
+                            [
+                                global_state.kmer_index.coord_lims[0],
+                                global_state.kmer_index.coord_lims[1],
+                            ],
+                            [
+                                global_state.kmer_index.coord_lims[2],
+                                global_state.kmer_index.coord_lims[3],
+                            ],
+                        ],
+                        bins=tuple(im_shape),
+                    )
+                    im = ((im / im.max()) * 255).astype(np.uint8)
+
+                    all_s[:, :] = im
+
+                self.data = xr.open_dataset(self.outfile_name)
+            except Exception as e:
+                logging.error(f"Error generating netCDF index: {str(e)}")
+                raise
+
+    def add_kmer_to_netcdf_index(self, locs, ints, render_scale=1):
+        with self.file_lock:
+            if self.data is not None:
+                self.data.close()
+                del self.data
+                self.data = None
+
+            _exists = check_file_exists(self.outfile_name)
+            _mode = "r+" if _exists else "w"
+
+            with Dataset(self.outfile_name, _mode, format="NETCDF4") as ncfile:
+                if _exists and "ints" in ncfile.variables:
+                    ints_s = ncfile["ints"]
+                else:
+                    ints_s = ncfile.createVariable(
+                        "ints",
+                        "u1",
+                        (
+                            "x",
+                            "y",
+                        ),
+                        fill_value=0,
+                    )
+
+                logging.debug("Adding to spatial file")
+                im_shape = np.array(
+                    [
+                        int(
+                            (
+                                global_state.kmer_index.coord_lims[1]
+                                - global_state.kmer_index.coord_lims[0]
+                            )
+                            * render_scale
+                        ),
+                        int(
+                            (
+                                global_state.kmer_index.coord_lims[3]
+                                - global_state.kmer_index.coord_lims[2]
+                            )
+                            * render_scale
+                        ),
+                    ]
+                )
+
+                xy = global_state.xy[locs]
+
+                im, _, _ = np.histogram2d(
+                    xy[:, 0],
+                    xy[:, 1],
+                    weights=ints,
+                    range=[
+                        [
+                            global_state.kmer_index.coord_lims[0],
+                            global_state.kmer_index.coord_lims[1],
+                        ],
+                        [
+                            global_state.kmer_index.coord_lims[2],
+                            global_state.kmer_index.coord_lims[3],
+                        ],
+                    ],
+                    bins=tuple(im_shape),
+                )
+                im = ((im / im.max()) * 255).astype(np.uint8)
+
+                ints_s[:, :] = im
+
+            self.data = xr.open_dataset(self.outfile_name)
+            self.whole_max_ints = []
+
+    def cleanup(self):
+        with self.file_lock:
+            if self.data is not None:
+                self.data.close()
+                del self.data
+                self.data = None
+
+
+def get_user_session():
+    try:
+        if "user_session_id" not in session:
+            session["user_session_id"] = str(uuid.uuid4())
+            logging.info(f"Created new user_session_id: {session['user_session_id']}")
+        return UserSession.get_instance(session["user_session_id"])
+    except Exception as e:
+        logging.error(f"Error in get_user_session: {str(e)}")
+        raise
+
+
+@app.before_request
+def before_request():
+    try:
+        logging.info(f"Processing request for path: {request.path}")
+        logging.debug(f"Request headers: {request.headers}")
+        logging.debug(f"Session data: {session}")
+
+        # we do not handle the session creation if we are not accessing /tiles/
+        # TODO: investigate why this leads to NetCDF segmentation fault if the code
+        # below does not have the if... seems to be the URL for favicons
+        g.user_session = get_user_session()
+        if request.path.startswith("/tiles/") or (
+            request.path == "/" and request.method == "POST"
+        ):
+            g.user_session.generate_netcdf_index()
+    except Exception as e:
+        logging.error(f"Error in before_request: {str(e)}")
+        return jsonify(error="An internal server error occurred"), 500
+
 
 # TODO: adapt this so it works with the new coordinate storage method
-def interactive_query(sequence, sliding_size=128, pct_threshold=0.65, low_complexity_filter=True, countmaxkmer=100_000, countminkmer=10):
-    global kmer_index, xy, x_sarray, y_sarray, where_abundant
-
-    if low_complexity_filter:
-        logging.info("Applying low complexity filter")
-        sequence = mask_low_complexity(sequence, N=4, L=kmer_index.kmer_size)
+def interactive_query_standard(
+    sequence,
+    sliding_size=128,
+    pct_threshold=0.65,
+    low_complexity_filter=True,
+    countmaxkmer=100_000,
+    countminkmer=10,
+):
+    user_session = get_user_session()
 
     logging.info(f"Querying sequence '{sequence}'")
-    kmer_index.open()
-    locs, ints, where_abundant = kmer_index.where(sequence, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False, count_at_most=countmaxkmer, count_at_least=countminkmer)
-    kmer_index.close()
+    locs, ints, where_abundant = global_state.kmer_index.where(
+        sequence,
+        sliding_size=sliding_size,
+        pct_threshold=pct_threshold,
+        count_at_most=int(countmaxkmer),
+        count_at_least=int(countminkmer),
+        use_background_model=False,
+    )
     logging.info(f"Adding result to spatial file")
-    add_kmer_to_netcdf_index(xy[locs, 0], xy[locs, 1], ints.astype(np.int32))
+    user_session.add_kmer_to_netcdf_index(locs, ints.astype(np.int32))
 
-    return locs, ints
+    return locs, ints, where_abundant
 
-def _run_serve(args):
-    global app, kmer_index, xy, xmax, ymax, _loc_all, _abu_all, data, whole_max_ints, where_abundant, queried, query_seq, query_term, SEQ_MAX_LEN
 
-    SEQ_MAX_LEN = args.max_len
+def interactive_query(
+    query,
+    sliding_size=128,
+    pct_threshold=0.65,
+    countmaxkmer=100_000,
+    countminkmer=10,
+    *args,
+    **kwargs,
+):
+    if query == "":
+        raise ValueError("Please specify a query")
 
-    whole_max_ints = []
+    pm, pms = handle_natural_query(query)
 
-    logging.info("Loading malva index and metadata")
-    kmer_index = MalvaIndex(args.index_in)
-    kmer_index.open() # TODO: when loading, if the index exists, instead of this
+    user_session = get_user_session()
 
-    _loc_all, _abu_all = np.unique(kmer_index.index[f'index_0_data'][0:MAX_LOAD_ALL], return_counts=True)
+    logging.info(f"Querying positive markers for query '{query}', response '{pm}'")
+    # locs_p, ints_p, where_abundant = global_state.kmer_index.where(pms, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False, count_at_most=int(countmaxkmer), count_at_least=int(countminkmer))
+    locs, ints, where_abundant = global_state.kmer_index.where(
+        pms,
+        sliding_size=sliding_size,
+        pct_threshold=pct_threshold,
+        count_at_most=int(countmaxkmer),
+        count_at_least=int(countminkmer),
+        use_background_model=False,
+    )
+    # logging.info(f"Querying negative markers '{sequence}'")
+    # locs_n, ints_n, where_abundant = global_state.kmer_index.where(nms, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False, count_at_most=int(countmaxkmer), count_at_least=int(countminkmer))
 
-    logging.info("Loading the pointers into memory. Might take a while.")
-    kmer_index.where("A"*kmer_index.kmer_size, lazy_index=args.lazy_index)
-    kmer_index.close()
-    where_abundant = []
-    query_seq = ""
-    query_term = ""
-    queried = False
+    logging.info(f"Adding result to spatial file")
+    user_session.add_kmer_to_netcdf_index(locs, ints.astype(np.int32))
 
-    xmax = kmer_index.coord_lims[1]+1
-    ymax = kmer_index.coord_lims[3]+1
+    return pm, pms, where_abundant
 
-    xy = kmer_index.spatial_coord[:]
-
-    logging.info(f"Create temporary spatial plotter index as netCDF")    
-    generate_netcdf_index(kmer_index, xy, xmax, ymax)
-    data = xr.open_dataset(OUTFILE_NAME)
-    generate_tile(0, 0, 0) # run once to preload
-
-    logging.info(f"Setting up web server at {args.address}:{args.port}")
-    app.register_blueprint(map_bp, url_prefix="/")
-    app.run(debug=True, host=args.address, port=args.port, use_reloader=False)
-
-def generate_netcdf_index(kmer_index, xy, xmax, ymax):
-    ncfile = Dataset(OUTFILE_NAME, "w", format="NETCDF4")
-
-    x_dim = ncfile.createDimension('x', kmer_index.coord_lims[1]+1)
-    y_dim = ncfile.createDimension('y', kmer_index.coord_lims[3]+1)
-    nc_all = ncfile.createDimension("all", None)
-
-    x = ncfile.createVariable('x', np.uint32, ('x',))
-    y = ncfile.createVariable('y', np.uint32, ('y',))
-    
-    x[:] = np.arange(kmer_index.coord_lims[1]+1)
-    y[:] = np.arange(kmer_index.coord_lims[3]+1)
-
-    all_s = ncfile.createVariable("all",'u1',("x","y",), fill_value=0)
-
-    _z = np.zeros((xmax, ymax))
-    _z[xy[_loc_all, 0], xy[_loc_all, 1]] = _abu_all
-
-    # we need to adjust the value limits to fit in the default variable
-    _z = _z/_z.max()
-    _z = _z * 255
-    all_s[:, :] = _z
-
-    ncfile.close()
 
 def tile_zoomed_coords(xtile, ytile, zoom):
-    n = 2.0 ** zoom
-    xtile_zoom = xtile / n * max(xmax, ymax)
-    ytile_zoom = ytile / n * max(xmax, ymax)
-
+    n = 2.0**zoom
+    xtile_zoom = xtile / n * max(global_state.xmax, global_state.ymax)
+    ytile_zoom = ytile / n * max(global_state.xmax, global_state.ymax)
     return (xtile_zoom, ytile_zoom)
 
-def generate_tile(zoom, x, y):
-    """
-    The function takes the zoom and tile path from the web request,
-    and determines the top left and bottom right coordinates of the tile.
-    This information is used to query against the dataframe.
-    """
-    global data, xmax, ymax, whole_max_ints
 
-    x_sarray = data['x']
-    y_sarray = data['y']
+def generate_tile(zoom, x, y):
+    user_session = get_user_session()
+    x_sarray = user_session.data["x"]
+    y_sarray = user_session.data["y"]
 
     _sigma = 1 if zoom <= 1 else 1.5
-    
-    xleft, yleft = tile_zoomed_coords(int(x), int(y), int(zoom))
-    xright, yright = tile_zoomed_coords(int(x)+1, int(y)+1, int(zoom))
 
-    # ensures no gaps are left between tiles due to partitioning
-    xleft_snapped = x_sarray.sel(x=xleft, method="nearest").values  
+    xleft, yleft = tile_zoomed_coords(int(x), int(y), int(zoom))
+    xright, yright = tile_zoomed_coords(int(x) + 1, int(y) + 1, int(zoom))
+
+    xleft_snapped = x_sarray.sel(x=xleft, method="nearest").values
     yleft_snapped = y_sarray.sel(y=yleft, method="nearest").values
     xright_snapped = x_sarray.sel(x=xright, method="nearest").values
     yright_snapped = y_sarray.sel(y=yright, method="nearest").values
 
-    # ... and needs to be >= and <= so there are no gaps
     xcondition = f"x >= {xleft_snapped} and x <= {xright_snapped}"
     ycondition = f"y <= {yright_snapped} and y >= {yleft_snapped}"
 
     thin_value = 1
-    if (xright_snapped - xleft_snapped) * (yright_snapped - yleft_snapped) >= MAX_DATA_POINTS:
-        thin_value = int(np.log10((((xright_snapped - xleft_snapped) * (yright_snapped - yleft_snapped)) / MAX_DATA_POINTS)) + 1)
-        frame = data.thin({"x": thin_value, "y": thin_value}).query(x=xcondition, y=ycondition)
+    if (xright_snapped - xleft_snapped) * (
+        yright_snapped - yleft_snapped
+    ) >= MAX_DATA_POINTS:
+        thin_value = int(
+            np.log10(
+                (
+                    (
+                        (xright_snapped - xleft_snapped)
+                        * (yright_snapped - yleft_snapped)
+                    )
+                    / MAX_DATA_POINTS
+                )
+            )
+            + 1
+        )
+        frame = user_session.data.thin({"x": thin_value, "y": thin_value}).query(
+            x=xcondition, y=ycondition
+        )
     else:
-        frame = data.query(x=xcondition, y=ycondition)
+        frame = user_session.data.query(x=xcondition, y=ycondition)
 
-    csv = ds.Canvas(plot_width=256, plot_height=256,
-                    x_range=(xleft, xright), y_range=(yleft, yright))
-    
-    agg_all = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('all'))
-    img_all = np.nan_to_num(agg_all.data)# * thin_value * thin_value
+    csv = ds.Canvas(
+        plot_width=256,
+        plot_height=256,
+        x_range=(xleft, xright),
+        y_range=(yleft, yright),
+    )
 
-    if len(whole_max_ints) < 4:
-        whole_max_ints = [img_all.max()]
+    agg_all = csv.quadmesh(frame, x="x", y="y", agg=ds.mean("all"))
+    img_all = np.nan_to_num(agg_all.data)
 
-    img_all = gaussian(img_all / whole_max_ints[0] * 255, sigma=_sigma, preserve_range=True)[:, :, np.newaxis]
+    if len(user_session.whole_max_ints) < 4:
+        user_session.whole_max_ints = [img_all.max()]
 
-    if 'ints' in frame.variables:
-        agg_ch = csv.quadmesh(frame, x='x', y='y', agg=ds.mean('ints'))
+    img_all = gaussian(
+        img_all / user_session.whole_max_ints[0] * 255,
+        sigma=_sigma,
+        preserve_range=True,
+    )[:, :, np.newaxis]
+
+    if "ints" in frame.variables:
+        agg_ch = csv.quadmesh(frame, x="x", y="y", agg=ds.mean("ints"))
         img_ch = np.nan_to_num(agg_ch.data)
-        
-        if len(whole_max_ints) < 4:
-            whole_max_ints.append(img_ch.max())
 
-        img_ch = gaussian(img_ch / whole_max_ints[1] * 255, sigma=_sigma, preserve_range=True)[:, :, np.newaxis]
+        if len(user_session.whole_max_ints) < 4:
+            user_session.whole_max_ints.append(img_ch.max())
+
+        img_ch = gaussian(
+            img_ch / user_session.whole_max_ints[1] * 255,
+            sigma=_sigma,
+            preserve_range=True,
+        )[:, :, np.newaxis]
         img_all = np.concatenate([img_all, img_ch], axis=2)
-    
-    img_all = np.concatenate([img_all, np.zeros((256, 256, (3 - img_all.shape[-1]))), 255*np.ones((256, 256, 1))], axis=2)
+
+    img_all = np.concatenate(
+        [
+            img_all,
+            np.zeros((256, 256, (3 - img_all.shape[-1]))),
+            255 * np.ones((256, 256, 1)),
+        ],
+        axis=2,
+    )
     img_all = np.clip(img_all, 0, 255)
-    whole_max_ints += [255]*(4 - len(whole_max_ints))
+    user_session.whole_max_ints += [255] * (4 - len(user_session.whole_max_ints))
 
     return Image.fromarray(img_all.astype(np.uint8))
+
 
 @app.route("/")
 def index():
     _xmax, _ymax = tile_zoomed_coords(0.5, 0.5, 0)
     return render_template("index.html", xmax=_xmax, ymax=_ymax)
 
+
 def NormalizeData(data):
     return (data - np.min(data)) / (np.max(data) - np.min(data))
 
-@app.route("/parse_queried", methods=['POST'])
+
+@app.route("/parse_queried", methods=["POST"])
 def parse_queried():
-    global queried, where_abundant, query_seq, query_term
+    if "where_abundant" not in session:
+        return json.dumps({"success": False}), 200, {"ContentType": "application/json"}
 
-    if not queried:
-        return json.dumps({'success':False}), 200, {'ContentType':'application/json'}
-    
     scores = [0]
-    if len(where_abundant) > 2:
-        data = np.array(where_abundant)
-        df = pd.DataFrame({"pos": data[:, 0], "val": data[:, 1]}).groupby("pos").mean().rolling(window=24).mean()
-        scores = NormalizeData(np.nan_to_num(df['val'].values)).tolist()
-    
-    return json.dumps({'success':True, 'query_term': query_term, 'sequence': query_seq, 'scores': scores}), 200, {'ContentType':'application/json'} 
+    if len(session["where_abundant"]) > 2:
+        data = np.array(session["where_abundant"])
+        df = (
+            pd.DataFrame({"pos": data[:, 0], "val": data[:, 1]})
+            .groupby("pos")
+            .mean()
+            .rolling(window=24)
+            .mean()
+        )
+        scores = NormalizeData(np.nan_to_num(df["val"].values)).tolist()
 
-@map_bp.route("/", methods=['GET', 'POST'])
+    return (
+        json.dumps(
+            {
+                "success": True,
+                "query_term": session["query_term"],
+                "sequence": session["query_seq"],
+                "scores": scores,
+            }
+        ),
+        200,
+        {"ContentType": "application/json"},
+    )
+
+
+@map_bp.route("/", methods=["GET", "POST"])
 def index():
-    global queried, query_seq, query_term, SEQ_MAX_LEN
-    help = ''
+    help = ""
     try:
-        if request.method == 'POST':
-            seq = request.form.get("selectsequence")
+        if request.method == "POST":
+            query = request.form.get("selectsequence")
             sliding_size = int(request.form.get("sliding_size"))
             pct_threshold = float(request.form.get("pct_threshold"))
-            low_complexity_filter = request.form.get("low_complexity_filter").lower() in ['true', '1', 'True']
-            countmaxkmer = 10**float(request.form.get("countmaxkmer"))
-            countminkmer = 10**float(request.form.get("countminkmer"))
+            low_complexity_filter = request.form.get(
+                "low_complexity_filter"
+            ).lower() in ["true", "1", "True"]
+            countmaxkmer = 10 ** float(request.form.get("countmaxkmer"))
+            countminkmer = 10 ** float(request.form.get("countminkmer"))
+            standard_query = True if request.form.get("queryType") in ['1', 1] else False
 
             if countminkmer >= countmaxkmer:
-                raise ValueError("k-mer 'in at least' must be smaller than 'in at most'")
+                raise ValueError(
+                    "k-mer 'in at least' must be smaller than 'in at most'"
+                )
 
-            seq_processed = handle_sequence(seq)
+            if standard_query:
+                seq_processed = handle_sequence(query)
 
-            if len(seq_processed) > SEQ_MAX_LEN:
-                help = "Hint: format your query as, e.g., <pre>gene:GENEID;split:0,1000</pre> or  <pre>ensembl:ENSGXXXX;split:0,1000</pre>. This will trim the sequence result from 0th to 1000th position (from 5' to 3'), or <pre>;split:-1000,-1</pre>, to do the same from 3' to 5'"
-                raise Exception(f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}.")
+                if any(len(s) > SEQ_MAX_LEN for s in seq_processed):
+                    help = HINT_SEQUENCE_QUERY
+                    raise Exception(
+                        f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}."
+                    )
 
-            interactive_query(seq_processed, sliding_size=sliding_size, pct_threshold=pct_threshold, low_complexity_filter=low_complexity_filter, countmaxkmer=countmaxkmer, countminkmer=countminkmer)
-            
-            query_seq = seq_processed
-            query_term = seq
-            queried = True
+                _, _, where_abundant = interactive_query_standard(
+                    seq_processed,
+                    sliding_size=sliding_size,
+                    pct_threshold=pct_threshold,
+                    low_complexity_filter=low_complexity_filter,
+                    countmaxkmer=countmaxkmer,
+                    countminkmer=countminkmer,
+                )
+                session["query_seq"] = seq_processed
+            else:
+                pm, pms, where_abundant = interactive_query(
+                    query,
+                    sliding_size=sliding_size,
+                    pct_threshold=pct_threshold,
+                    low_complexity_filter=low_complexity_filter,
+                    countmaxkmer=countmaxkmer,
+                    countminkmer=countminkmer,
+                )
+                query = query + '\nHere are some relevant genes:\n' + str(pm)
+                session["query_seq"] = pms
 
-            return json.dumps({'success':True}), 200, {'ContentType':'application/json'} 
+            session["query_term"] = query
+            session["where_abundant"] = where_abundant
+
+            return (
+                json.dumps({"success": True}),
+                200,
+                {"ContentType": "application/json"},
+            )
     except Exception as e:
-        return json.dumps({'error': str(e), 'help': help}), 500, {'ContentType':'application/json'} 
-        
+        return (
+            json.dumps({"error": str(e), "help": help}),
+            500,
+            {"ContentType": "application/json"},
+        )
+
 
 @app.route("/tiles/<zoom>/<int:x>/<int:y>.png")
 def tile(x, y, zoom):
@@ -231,43 +572,31 @@ def tile(x, y, zoom):
         zoom = float(zoom)
         zoom = round(zoom)
         results = generate_tile(zoom, x, y)
-        # image passed off to bytestream
         results_bytes = io.BytesIO()
-        results.save(results_bytes, 'PNG')
+        results.save(results_bytes, "PNG")
         results_bytes.seek(0)
-        return send_file(results_bytes, mimetype='image/png')
+        return send_file(results_bytes, mimetype="image/png")
     except Exception as e:
         return str(e), 400
 
-def add_kmer_to_netcdf_index(xloc, yloc, ints):
-    global data, xmax, ymax, whole_max_ints
 
-    data.close()
-    _exists = check_file_exists(OUTFILE_NAME)
-    _mode = "w"
-    if _exists:
-        _mode = "r+"
-    
-    ncfile = Dataset(OUTFILE_NAME, _mode, format="NETCDF4")
+def _run_serve(args):
+    global SEQ_MAX_LEN
+    SEQ_MAX_LEN = args.max_len
 
-    if _exists and 'ints' in ncfile.variables:
-        ints_s = ncfile['ints']
-    else:
-        ints_s = ncfile.createVariable("ints",'u1',("x","y",), fill_value=0)
+    try:
+        global_state.initialize(args)
+    except Exception as e:
+        logging.error(f"Error initializing global state: {str(e)}")
+        return
 
-    logging.info("Adding to spatial file")
-    _z = np.ma.zeros((xmax, ymax))
-    _z[xloc, yloc] = ints
-    ints_s[:, :] = _z
+    logging.info(f"Setting up web server at {args.address}:{args.port}")
+    app.register_blueprint(map_bp, url_prefix="/")
+    app.run(debug=True, host=args.address, port=args.port, use_reloader=False)
 
-    ncfile.close()
-    data = xr.open_dataset(OUTFILE_NAME)
-    whole_max_ints = []
 
-    logging.info("Generating 0,0,0 tile for rendering limits")
-    generate_tile(0, 0, 0) # run once to preload
-    
 if __name__ == "__main__":
     from malva.cli import get_serve_parser
+
     args = get_serve_parser().parse_args()
     _run_serve(args)

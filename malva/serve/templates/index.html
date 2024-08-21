@@ -302,13 +302,61 @@ ATATTTACTACCTA
 
         L.control.scale({imperial: false}).addTo(map);
 
-        map.attributionControl.setPrefix("Malva ")
+        map.attributionControl.setPrefix("malva ")
 
         L.control.zoom({
             position: 'bottomright'
         }).addTo(map);
 
-        var mapdata = L.tileLayer.gl({
+        // Custom TileLayer with retry logic
+        L.TileLayer.Retryable = L.TileLayer.GL.extend({
+            options: {
+                maxRetries: 2,
+                retryDelay: 1000
+            },
+
+            _abortLoading: function() {
+                var i, tile;
+                for (i in this._tiles) {
+                    if (this._tiles[i].coords.z !== this._tileZoom) {
+                        tile = this._tiles[i].el;
+
+                        if (!tile.retryCount || tile.retryCount < this.options.maxRetries) {
+                            tile.retryCount = (tile.retryCount || 0) + 1;
+                            setTimeout(function() {
+                                this._tiles[i].loading = false;
+                                this._loadTile(tile, this._tiles[i].coords);
+                            }.bind(this), this.options.retryDelay);
+                        } else {
+                            L.DomUtil.remove(tile);
+                        }
+                    }
+                }
+            },
+
+            checkMissingTiles: function() {
+                var bounds = this._map.getPixelBounds();
+                var tileSize = this.getTileSize();
+
+                var nwTilePoint = bounds.min.divideBy(tileSize).floor();
+                var seTilePoint = bounds.max.divideBy(tileSize).floor();
+                var tileBounds = new L.Bounds(nwTilePoint, seTilePoint);
+
+                for (var j = tileBounds.min.y; j <= tileBounds.max.y; j++) {
+                    for (var i = tileBounds.min.x; i <= tileBounds.max.x; i++) {
+                        var coords = new L.Point(i, j);
+                        coords.z = this._tileZoom;
+                        var key = this._tileCoordsToKey(coords);
+
+                        if (!this._tiles[key] || !this._tiles[key].loaded) {
+                            this._loadTile(this._tiles[key] ? this._tiles[key].el : null, coords);
+                        }
+                    }
+                }
+            }
+        });
+
+        var mapdata = new L.TileLayer.Retryable({
             uniforms: {
                 min_total_count_range: Number(0.0),
                 min_query_range: Number(0.0),
@@ -320,12 +368,31 @@ ATATTTACTACCTA
             minZoom: -1,
             opacity: 0.75,
             noWrap: true,
-            attribution: '&copy 2024 Rajewsky Lab',
+            attribution: '&copy; 2024 Rajewsky Lab',
             tileUrls: ['/tiles/{z}/{x}/{y}.png'],
-            zIndex: -1
+            zIndex: -1,
+            updateWhenIdle: false,
+            keepBuffer: 2,
+            maxRetries: 3,
+            retryDelay: 2000
         });
+
         
         mapdata.addTo(map);
+        
+        // Add this after adding mapdata to the map
+        map.on('load', function() {
+            setTimeout(function() {
+                mapdata.checkMissingTiles();
+            }, 1000);
+        });
+
+        // Also, add these event listeners to handle zoom and pan events
+        map.on('zoomend moveend', function() {
+            setTimeout(function() {
+                mapdata.checkMissingTiles();
+            }, 500);
+        });
 
         var counter = 0
         
@@ -335,6 +402,9 @@ ATATTTACTACCTA
             counter++;
             for (i = 0; i < mapdata._tileLayers.length; i++) {
                 mapdata._tileLayers[i]._url = "/tiles/{z}/{x}/{y}.png?" + counter;
+                setTimeout(function() {
+                    mapdata.checkMissingTiles();
+                }, 500);
             }
             mapdata.redraw();
         }
@@ -381,17 +451,17 @@ ATATTTACTACCTA
         $( function() {
             $( "#countmaxkmer" ).slider({
             min: 0,
-            max: 10,
-            value: 5,
+            max: 6,
+            value: 4,
             step: 1
             });
         } );
 
         $( function() {
             $( "#countminkmer" ).slider({
-            min: 0,
+            min: 2,
             max: 10,
-            value: 1,
+            value: 2,
             step: 1
             });
         } );
@@ -402,7 +472,7 @@ ATATTTACTACCTA
                     '<div class="modal-dialog modal-sm modal-dialog-centered">'+
                         '<div class="modal-content">'+
                         '<div class="modal-header">'+
-                            '<h4 class="modal-title">Malva Error</h4>'+
+                            '<h4 class="modal-title">malva Error</h4>'+
                             '<button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>'+
                         '</div>'+
                         '<div class="modal-body">'+
@@ -567,47 +637,45 @@ ATATTTACTACCTA
         
         // avoid dragging the document when moving slider (mobile)
         $(document).delegate('.ui-page', 'touchmove', false);
+
+        function sendQueryToServer(query, queryType) {
+            $('#btn-submit').prop("disabled", true);
+            $('#modal-loading').modal('show');
+            $.ajax({
+                data: {
+                    selectsequence: query,
+                    queryType: queryType,
+                    sliding_size: $('#slidingsize').val(),
+                    pct_threshold: $('#pctthreshold').slider("option", "value") / 100,
+                    countmaxkmer: $('#countmaxkmer').slider("option", "value"),
+                    countminkmer: $('#countminkmer').slider("option", "value"),
+                    low_complexity_filter: $('#lowComplexityFilterChecked').is(':checked')
+                },
+                type: 'POST',
+                url: "{{ url_for('map.index') }}",
+                success: function (data) {
+                    updateMapTiles();
+                    $('#btn-submit').prop("disabled", false);
+                    $('#modal-loading').modal('hide');
+                    updateCard();
+                },
+                error: function (e) {
+                    response = JSON.parse(e.responseText)
+                    $('#modal-loading').modal('hide');
+                    $('#btn-submit').prop("disabled", false);
+                    bsAlert(response.error, response.help);
+                    $("#bs-alert").modal('show');
+                }
+            });
+        }
     
         $(document).ready(function() {
             updateCard();
             updateSearchSize();
-    
             $('#btn-submit').click(function (event) {
                 event.preventDefault();
-                if (!validateInput()) {
-                    return false;
-                }
-                $('#btn-submit').prop("disabled", true);
-                $('#modal-loading').modal('show');
-                $.ajax({
-                    data : { 
-                        selectsequence : $('#selectsequence').val(), 
-                        sliding_size : $('#slidingsize').val(),
-                        pct_threshold : $('#pctthreshold').slider("option", "value") / 100,
-                        countmaxkmer : $('#countmaxkmer').slider("option", "value"),
-                        countminkmer : $('#countminkmer').slider("option", "value"),
-                        low_complexity_filter: $('#lowComplexityFilterChecked').is(':checked')
-                    }, //grab text between span tags
-                    type : 'POST',
-                    url : "{{ url_for('map.index') }}", //post grabbed text to flask endpoint for saving role
-                    success: function (data) {
-                        updateMapTiles();
-                        $('#btn-submit').prop("disabled", false);
-                        $('#modal-loading').modal('hide');
-
-                        updateCard();
-                        // queryCard.find('#inputText').val(response.queryDetails);
-                        // queryCard.find('#heatmapText').text(response.heatmapText);
-                    },
-                    error: function (e) { 
-                        response = JSON.parse(e.responseText)
-                        $('#modal-loading').modal('hide');
-                        $('#btn-submit').prop("disabled", false);
-                        bsAlert(response.error, response.help);
-                        $("#bs-alert").modal('show');
-                    }
-                });
-        });
+                validateInput();
+            });
         })
 
         $(function () {
@@ -641,49 +709,47 @@ ATATTTACTACCTA
         function validateInput() {
             const textarea = document.getElementById('selectsequence');
             const input = textarea.value.trim();
-            const lines = input.split(/\n+/);
-            let typeCounts = {
-                geneId: 0,
-                ensemblId: 0,
-                dnaSeq: 0,
-                fastaSeq: 0
-            };
             let isValid = true;
             let errorMessage = '';
+            let queryType = 0; // Default to 0 for natural language or invalid input
 
-            lines.forEach(line => {
-                line = line.trim();
-                // we put DNA match first, to avoid collision with geneID regex
-                if (isFastaSequence(line) || typeCounts.fastaSeq == 1) {
-                    typeCounts.fastaSeq = 1;
-                } else if (isDnaSequence(line)) {
-                    typeCounts.dnaSeq = 1;
-                } else if (isGeneId(line)) {
-                    typeCounts.geneId = 1;
-                } else if (isEnsemblId(line)) {
-                    typeCounts.ensemblId = 1;
-                } else {
-                    isValid = false;
-                    errorMessage += `Invalid input: '${line}'. Please enter valid gene IDs, Ensembl IDs, or DNA sequences.\n`;
-                }
-            });
-
-            let typesEntered = Object.values(typeCounts).filter(count => count > 0).length;
-            if (typesEntered > 1) {
-                isValid = false;
-                errorMessage += 'Mixed input detected: Please provide either gene IDs, Ensembl IDs, DNA sequences, or FASTA sequences, not multiple types.\n';
+            // Function to check if the input is a number
+            function isNumeric(str) {
+                return /^\d+$/.test(str);
             }
 
-            if (typeCounts.geneId > 1 || typeCounts.ensemblId > 1) {
-                isValid = false;
-                errorMessage += 'Only one gene ID or Ensembl ID can be provided at a time.\n';
+            // Function to check if the input is a single gene name or valid string
+            function isValidGeneQuery(str) {
+                return isGeneId(str) || isEnsemblId(str) || /^gene:.+/.test(str) || /^ensembl:.+/.test(str);
+            }
+
+            if (isNumeric(input)) {
+                // If the input is a number, it's valid but we keep queryType as 0
+                isValid = true;
+            } else if (isFastaSequence(input) || isDnaSequence(input)) {
+                // FASTA or DNA sequence
+                queryType = 1;
+            } else if (isValidGeneQuery(input)) {
+                // Single gene name or valid gene/ensembl string
+                queryType = 1;
+            } else {
+                // Assume it's a natural language query
+                // You might want to add some basic checks here, e.g., minimum length
+                if (input.length < 3) {
+                    isValid = false;
+                    errorMessage = 'Query is too short. Please enter a longer query or a valid gene/ensembl ID.';
+                }
             }
 
             if (!isValid) {
-                bsAlert(errorMessage, 'Examples of valid queries are DNA sequences <pre>ACATTCTG...</pre>, one gene ID or ensembl ID <pre>KRT6A</pre>, or a formatted expression, e.g. <pre>gene:GENEID;type:cdna</pre>');
+                bsAlert(errorMessage, 'Examples of valid queries are DNA sequences, gene IDs, ensembl IDs, or natural language questions.');
                 $("#bs-alert").modal('show');
                 return false;
             }
+
+            // If we've reached this point, the input is valid
+            // Now we can send the query to the server along with the queryType
+            sendQueryToServer(input, queryType);
 
             return true;
         }
