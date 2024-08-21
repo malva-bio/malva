@@ -769,6 +769,7 @@ cdef class MalvaIndex:
                 if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
                     continue
                 
+                # TODO: here we only count once those sliding sequences that appear more than once
                 # we do not add occurrence to low complexity kmers (==0)
                 values = current_kmers[kmer] if kmer != 0 else []
                 for value in values:
