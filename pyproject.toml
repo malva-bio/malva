@@ -57,6 +57,8 @@ datashader = ">0.15.0"
 flask = ">2.3.0"
 biopython = ">=1.83"
 scikit-image = ">=0.24.0"
+flask_session = ">=0.8.0"
+ollama = ">=0.3.1"
 
 [tool.poetry.dev-dependencies]
 Cython = "^0.29.21"  # Latest version at time of publishing
