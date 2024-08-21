@@ -169,15 +169,16 @@ def _run_quant(args):
     reference_file = get_reference_cache(args.reference)
     logging.info(f"Will load reference '{args.reference}'")
 
-    background_model = None
-    if args.background_model is not None:
-        logging.info(f"Loading background model")
-        check_file_exists(args.background_model, except_when=False)
-        background_model = BackgroundModel(kmer_index.kmer_size)
-        background_model.load(args.background_model)
-        kmer_index.set_background_model(background_model)
 
     if not check_file_exists(os.path.join(args.folder_out, "matrix.mtx")):
+        background_model = None
+        if args.background_model is not None:
+            logging.info(f"Loading background model")
+            check_file_exists(args.background_model, except_when=False)
+            background_model = BackgroundModel(kmer_index.kmer_size)
+            background_model.load(args.background_model)
+            kmer_index.set_background_model(background_model)
+
         logging.info(f"Running pseudo-quantification")
         process_reference(
             kmer_index,
