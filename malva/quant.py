@@ -51,7 +51,7 @@ def process_gene(
     # one count was found 
     # TODO: if one of the sequences has a lot of counts but not another,
     # this will lead undercounting because of the large number of "seqs_gene"
-    counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
+    # counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
 
     for loc, count in zip(locs, counts):
         mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
@@ -137,7 +137,7 @@ def process_reference(
             seqs_gene.append(seq[1])
 
         if seqs_gene:
-            nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1)
+            nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count, use_background_model)
             total_nnz += nnz
             current_col += 1
 
@@ -171,6 +171,7 @@ def _run_quant(args):
 
     background_model = None
     if args.background_model is not None:
+        logging.info(f"Loading background model")
         check_file_exists(args.background_model, except_when=False)
         background_model = BackgroundModel(kmer_index.kmer_size)
         background_model.load(args.background_model)

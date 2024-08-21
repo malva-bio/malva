@@ -757,16 +757,29 @@ cdef class MalvaIndex:
             iterator = track(whole_sliding_sequences, description='Counting occurrences at kmers')
         else:
             iterator = whole_sliding_sequences
+
+        # TODO: implement something faster than using this set
+        cached_sliding_windows = set()
     
         for subseq in iterator:
             all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+            current_sliding_window = []
 
             for idx_kmer, kmer in enumerate(all_kmer_list):
+                current_sliding_window.extend([kmer])
                 if current_kmers.find(kmer) == current_kmers.end():
+                    if tuple(current_sliding_window) not in cached_sliding_windows:
+                        cached_sliding_windows.add(tuple(current_sliding_window))
+                    if len(current_sliding_window) == np.ceil(sliding_size/self.kmer_size):
+                        current_sliding_window.pop(0)
                     continue
 
                 # those mers above cutoff are not used for counting (i.e., exclude multimappers)
                 if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
+                    if tuple(current_sliding_window) not in cached_sliding_windows:
+                        cached_sliding_windows.add(tuple(current_sliding_window))
+                    if len(current_sliding_window) == np.ceil(sliding_size/self.kmer_size):
+                        current_sliding_window.pop(0)
                     continue
                 
                 # TODO: here we only count once those sliding sequences that appear more than once
@@ -784,17 +797,26 @@ cdef class MalvaIndex:
 
                 # accumulate counts during first sliding_size - but process last iter
                 # note to my future self: this makes sense
-                if (idx_kmer + 1) < (sliding_size//self.kmer_size) and (idx_kmer + 1) < len(all_kmer_list):
+                if ((idx_kmer + 1) < (sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(all_kmer_list)):
                     continue
+
+                if tuple(current_sliding_window) in cached_sliding_windows:
+                    continue
+
+                cached_sliding_windows.add(tuple(current_sliding_window))
 
                 for item_primary in primary_map:
                     value = item_primary.first
                     if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
                         secondary_map[value] = 1
                     elif primary_map[value].first > CONST_THRESHOLD and not single_count:
+                        # heuristic, avoid counting the same UMI more than once (another large enough sliding window has to occur)
+                        primary_map[value].first = 0
                         secondary_map[value] += 1
                     if primary_map[value].second - idx_kmer > 0:
                         primary_map[value].first = max(<uint32_t>0, (<int32_t>(primary_map[value].first) - 1))
+                
+                current_sliding_window.pop(0)
             
             primary_map.clear()
  
