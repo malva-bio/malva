@@ -770,7 +770,7 @@ cdef class MalvaIndex:
                 if current_kmers.find(kmer) == current_kmers.end():
                     if tuple(current_sliding_window) not in cached_sliding_windows:
                         cached_sliding_windows.add(tuple(current_sliding_window))
-                    if len(current_sliding_window) == np.ceil(sliding_size/self.kmer_size):
+                    if len(current_sliding_window) >= CONST_THRESHOLD:
                         current_sliding_window.pop(0)
                     continue
 
@@ -778,7 +778,7 @@ cdef class MalvaIndex:
                 if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
                     if tuple(current_sliding_window) not in cached_sliding_windows:
                         cached_sliding_windows.add(tuple(current_sliding_window))
-                    if len(current_sliding_window) == np.ceil(sliding_size/self.kmer_size):
+                    if len(current_sliding_window) >= CONST_THRESHOLD:
                         current_sliding_window.pop(0)
                     continue
                 
@@ -801,6 +801,8 @@ cdef class MalvaIndex:
                     continue
 
                 if tuple(current_sliding_window) in cached_sliding_windows:
+                    if len(current_sliding_window) >= CONST_THRESHOLD:
+                        current_sliding_window.pop(0)
                     continue
 
                 cached_sliding_windows.add(tuple(current_sliding_window))
@@ -816,7 +818,8 @@ cdef class MalvaIndex:
                     if primary_map[value].second - idx_kmer > 0:
                         primary_map[value].first = max(<uint32_t>0, (<int32_t>(primary_map[value].first) - 1))
                 
-                current_sliding_window.pop(0)
+                if len(current_sliding_window) >= CONST_THRESHOLD:
+                    current_sliding_window.pop(0)
             
             primary_map.clear()
  
