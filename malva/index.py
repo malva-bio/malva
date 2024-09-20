@@ -47,8 +47,9 @@ def _run_index(args):
 
     logging.info(f"Configuring flavor `{args.flavor}`")
     _config_path = os.path.join(get_module_path(), "data", "config.yaml")
-    if check_file_exists("config.yaml"):
-        _config_path = "config.yaml"
+    # TODO: we remove this because it would prevent from running on a smk environment
+    # if check_file_exists("config.yaml"):
+    #     _config_path = "config.yaml"
 
     flavor_config = load_flavor(args.flavor, _config_path)
     _bam_tags = flavor_config["bam_tags"]
