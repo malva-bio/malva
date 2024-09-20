@@ -202,7 +202,7 @@ def _open_gz(
                     _PROGRAM_SETTINGS[program],
                 )
             # ValueError when compresslevel is not supported. i.e. gzip and level 0
-            except (OSError, ValueError):
+            except (OSError, ValueError, KeyError):
                 pass  # We try without threads.
 
         # Igzip level 0 does not output uncompressed deflate blocks as zlib does

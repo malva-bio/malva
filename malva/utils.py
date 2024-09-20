@@ -444,7 +444,14 @@ def download_url_to_file(url, dst, progress=True):
             os.remove(f.name)
 
 
-EXISTING_REFERENCES = {"human_utr": "human_utr.fa.gz", "mouse_utr": "mouse_utr.fa.gz", "mouse_cdna": "mouse_cdna.fa.gz", "mouse_utr_ncrna": "mouse_utr_ncrna.fa.gz", "mouse_cdna_ncrna": "mouse_cdna_ncrna.fa.gz"}
+EXISTING_REFERENCES = {"human_utr": "human_utr.fa.gz", 
+                       "human_cdna": "human_cdna.fa.gz",
+                       "human_utr_ncrna": "human_utr_ncrna.fa.gz",
+                       "human_cdna_ncrna": "human_cdna_ncrna.fa.gz",
+                       "mouse_utr": "mouse_utr.fa.gz",
+                       "mouse_cdna": "mouse_cdna.fa.gz",
+                       "mouse_utr_ncrna": "mouse_utr_ncrna.fa.gz",
+                       "mouse_cdna_ncrna": "mouse_cdna_ncrna.fa.gz"}
 REFERENCES_DIR = pathlib.Path.home().joinpath(".malva", "references")
 _MODEL_URL = "http://bimsbstatic.mdc-berlin.de/rajewsky/malva/references"
 
