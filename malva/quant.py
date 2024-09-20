@@ -145,10 +145,12 @@ def process_reference(
 
     kmer_index.close()
 
-    # TODO: the n_spatial is calcualted from lims, but sum one, otherwise not correct!
-    # TODO: check in indexes.pyx if this is correct (how to compute n_spatial)
-    # we need to add +1 because indices from mtx file start at 1, not 0
-    n_spatial = kmer_index.n_spatial + 1
+    # the n_spatial is calcualted from lims, but sum one, otherwise not correct!
+    if 'spatial_coord' in kmer_index.index:
+        n_spatial = kmer_index.n_spatial
+    # we need to add +1 because indices from mtx file start at 1, not 0 (for the scRNA data)
+    else:
+        n_spatial = kmer_index.n_spatial + 1
 
     with open(os.path.join(folder_out, "matrix.mtx"), "r+b") as mtx_file:
         mtx_file.seek(0)
