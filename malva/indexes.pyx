@@ -33,7 +33,7 @@ from malva.kmer_processing import encode_kmer, get_kmers_numeric, get_sliding_km
 from malva.utils import check_cell_string, convert_to_bytes
 from malva.xopen import xopen
 
-cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 128 * 1024)
+cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 4096 * 1024)
 
 cdef extern from "<algorithm>" namespace "std" nogil:
     void sort[Iter, Compare](Iter first, Iter last, Compare comp)
@@ -704,6 +704,19 @@ cdef class MalvaIndex:
     def set_background_model(self, BackgroundModel background_model):
         self.background_model = background_model
 
+    def get_whole_sliding_sequence(self, string, k):
+        return [string[i:] for i in range(k) if len(string[i:]) >= k]
+
+    def get_whole_sliding_sequence_chunk(self, string, sliding_size):
+        n = len(string)
+        all_sliding = []
+    
+        for i in range(0, n - sliding_size + 1):
+            sliding_string = string[i:i+sliding_size]
+            all_sliding.append(sliding_string)
+
+        return all_sliding
+
     def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, *args, **kwargs):
         # TODO: reimplement seq_matches again, supporting various sequences...
         # TODO: when using cDNA, we get less matches than when using UTR. cDNA sequences contain the UTR, does not make sense!!!!!!
@@ -718,6 +731,8 @@ cdef class MalvaIndex:
             pair[uint32_t, uint32_t] item
             pair[uint32_t, pair[uint32_t, uint32_t]] item_primary
             list whole_sliding_sequences = []
+            list whole_sliding_sequences_idx = []
+            int cumulative_seq_len = 0
             list seq_matches = [[0, 1]]
 
         if pct_threshold < 0 or pct_threshold > 1:
@@ -725,15 +740,15 @@ cdef class MalvaIndex:
 
         if isinstance(sequence, str):
             sequence = [sequence]
-
-        def get_whole_sliding_sequence(string, k):
-            return [string[i:] for i in range(k) if len(string[i:]) >= self.kmer_size]
         
         for seq in sequence:
             if len(seq) < self.kmer_size:
                 raise ValueError(f"Query sequence of length {len(seq)} cannot be smaller than kmer size {self.kmer_size}!")
             # we slide over the k-mers to generate offsets, later we take into account the sliding_size
-            whole_sliding_sequences.extend(get_whole_sliding_sequence(seq, self.kmer_size))
+            _sliding_seq = self.get_whole_sliding_sequence(seq, self.kmer_size)
+            whole_sliding_sequences.extend(_sliding_seq)
+            whole_sliding_sequences_idx.extend([[_i + cumulative_seq_len for _i in range(s, len(seq), self.kmer_size)] for s in range(len(_sliding_seq))])
+            cumulative_seq_len += len(seq)
 
         all_kmer_list = []
         for subseq in whole_sliding_sequences:
@@ -753,33 +768,33 @@ cdef class MalvaIndex:
 
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
 
-        if self.verbose:
-            iterator = track(whole_sliding_sequences, description='Counting occurrences at kmers')
-        else:
-            iterator = whole_sliding_sequences
+        # get unique subsequences
+        split_sliding_sequences = set()
+        for seq in sequence:
+            split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, sliding_size)))
 
-        # TODO: implement something faster than using this set
-        cached_sliding_windows = set()
-    
+        if self.verbose:
+            # iterator = track(zip(whole_sliding_sequences, whole_sliding_sequences_idx), description='Counting occurrences at kmers')
+            iterator = track(list(split_sliding_sequences), description='Counting occurrences at kmers')
+        else:
+            # iterator = zip(whole_sliding_sequences, whole_sliding_sequences_idx)
+            iterator = list(split_sliding_sequences)
+
+        # TODO: re-activate seq_matches
+        # for subseq, subseq_idx in iterator:
         for subseq in iterator:
             all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-            current_sliding_window = []
 
             for idx_kmer, kmer in enumerate(all_kmer_list):
-                current_sliding_window.extend([kmer])
+                # the kmer has not been found in the index
                 if current_kmers.find(kmer) == current_kmers.end():
-                    if tuple(current_sliding_window) not in cached_sliding_windows:
-                        cached_sliding_windows.add(tuple(current_sliding_window))
-                    if len(current_sliding_window) >= CONST_THRESHOLD:
-                        current_sliding_window.pop(0)
+                    # seq_matches.extend([[subseq_idx[idx_kmer], 0]])
                     continue
-
+                
+                # TODO: we move this outside of the loop, because we can check the k-mers presence when querying them more efficiently
                 # those mers above cutoff are not used for counting (i.e., exclude multimappers)
                 if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
-                    if tuple(current_sliding_window) not in cached_sliding_windows:
-                        cached_sliding_windows.add(tuple(current_sliding_window))
-                    if len(current_sliding_window) >= CONST_THRESHOLD:
-                        current_sliding_window.pop(0)
+                    # seq_matches.extend([[subseq_idx[idx_kmer], 0]])
                     continue
                 
                 # TODO: here we only count once those sliding sequences that appear more than once
@@ -795,17 +810,12 @@ cdef class MalvaIndex:
                     # when the value is updated, we check for a max bound, so the comparison to CONST_THRESHOLD makes sense
                     primary_map[value].first = min(primary_map[value].first, <uint32_t>(sliding_size//self.kmer_size))
 
+                # seq_matches.extend([[subseq_idx[idx_kmer], len(values)]])
+
                 # accumulate counts during first sliding_size - but process last iter
                 # note to my future self: this makes sense
                 if ((idx_kmer + 1) < (sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(all_kmer_list)):
                     continue
-
-                if tuple(current_sliding_window) in cached_sliding_windows:
-                    if len(current_sliding_window) >= CONST_THRESHOLD:
-                        current_sliding_window.pop(0)
-                    continue
-
-                cached_sliding_windows.add(tuple(current_sliding_window))
 
                 for item_primary in primary_map:
                     value = item_primary.first
@@ -815,11 +825,8 @@ cdef class MalvaIndex:
                         # heuristic, avoid counting the same UMI more than once (another large enough sliding window has to occur)
                         primary_map[value].first = 0
                         secondary_map[value] += 1
-                    if primary_map[value].second - idx_kmer > 0:
-                        primary_map[value].first = max(<uint32_t>0, (<int32_t>(primary_map[value].first) - 1))
-                
-                if len(current_sliding_window) >= CONST_THRESHOLD:
-                    current_sliding_window.pop(0)
+                    if primary_map[value].second - idx_kmer > 0 and primary_map[value].first > 0:
+                        primary_map[value].first = <int32_t>(primary_map[value].first) - 1
             
             primary_map.clear()
  
