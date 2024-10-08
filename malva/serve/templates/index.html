@@ -311,8 +311,8 @@ ATATTTACTACCTA
         // Custom TileLayer with retry logic
         L.TileLayer.Retryable = L.TileLayer.GL.extend({
             options: {
-                maxRetries: 2,
-                retryDelay: 1000
+                maxRetries: 1,
+                retryDelay: 500
             },
 
             _abortLoading: function() {
@@ -373,8 +373,8 @@ ATATTTACTACCTA
             zIndex: -1,
             updateWhenIdle: false,
             keepBuffer: 2,
-            maxRetries: 3,
-            retryDelay: 2000
+            maxRetries: 1,
+            retryDelay: 500
         });
 
         
