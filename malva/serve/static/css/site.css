@@ -324,10 +324,14 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
 textarea, #highlightedText, #heatmapText {
     box-sizing: border-box;
     font-size: 15px;
-	font-family: monospace, monospace;
     white-space: pre-wrap;
 	color: white;
 }
+
+#heatmapText {
+	font-family: monospace, monospace;
+}
+
 
 textarea {
     background: transparent;
