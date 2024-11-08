@@ -417,6 +417,12 @@ def get_serve_parser():
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
+        "--uuid",
+        type=str,
+        default=None,
+        help="""UUID for the server""",
+    )
+    parser.add_argument(
         "--port",
         type=int,
         default=8888,
