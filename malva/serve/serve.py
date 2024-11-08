@@ -1,32 +1,25 @@
 import io
 import logging
 import numpy as np
-import json
 import pandas as pd
-import os
-
-import threading
-
-
-from netCDF4 import Dataset
-import xarray as xr
-import datashader as ds
-
-from flask import (
-    Flask,
-    render_template,
-    send_file,
-    Blueprint,
-    request,
-    session,
-    g,
-    jsonify,
-)
+from flask import Flask, render_template, send_file, request, session, jsonify, Blueprint, g, url_for
 from flask_session import Session
-
-from skimage.filters import gaussian
+from flask_cors import CORS
 from PIL import Image
 import uuid
+import os
+from dataclasses import dataclass
+from typing import Optional, Tuple, List, Dict
+import xarray as xr
+import datashader as ds
+from skimage.filters import gaussian
+import threading
+from pathlib import Path
+import tempfile
+
+# for proxy functionality
+from urllib.parse import urljoin
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from malva.index import MalvaIndex
 from malva.utils import check_file_exists
@@ -34,288 +27,27 @@ from malva.dbutils import handle_sequence
 from malva.serve.modeling import handle_natural_query, setup_model
 from malva.serve.templates.strings import HINT_SEQUENCE_QUERY
 
-MAX_LOAD_ALL = 100_000_000
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Constants
+MAX_LOAD_ALL = 20_000_000
 MAX_DATA_POINTS = 100_000
-SEQ_MAX_LEN = 1_000
+TILE_SIZE = 256
+MAX_SEQUENCE_LENGTH = 1000
 
-app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("SECRET_KEY", "BAD_SECRET_KEY")
-app.config["SESSION_TYPE"] = "cachelib"
-app.config["SESSION_PERMANENT"] = True
-app.config["SESSION_USE_SIGNER"] = False
-Session(app)
-
-map_bp = Blueprint("map", __name__)
-
-
-class GlobalState:
-    def __init__(self):
-        self.kmer_index = None
-        self.xy = None
-        self.xmax = None
-        self.ymax = None
-        self.xmin = None
-        self.ymin = None
-        self._loc_all = None
-        self._abu_all = None
-
-    def initialize(self, args):
-        logging.info("Loading malva index and metadata")
-        try:
-            self.kmer_index = MalvaIndex(args.index_in)
-            self.kmer_index.open()
-
-            self._loc_all, self._abu_all = np.unique(
-                self.kmer_index.index[f"index_0_data"][0:MAX_LOAD_ALL],
-                return_counts=True,
-            )
-
-            logging.info("Loading the pointers into memory. Might take a while.")
-            self.kmer_index.where(
-                "A" * self.kmer_index.kmer_size + "T", max_mem=args.max_mem, use_background_model=False
-            )
-
-            self.xmax = self.kmer_index.coord_lims[1] + 1
-            self.ymax = self.kmer_index.coord_lims[3] + 1
-            self.xmin = self.kmer_index.coord_lims[0]
-            self.ymin = self.kmer_index.coord_lims[2]
-            self.xy = self.kmer_index.spatial_coord[:]
-            logging.info("Loaded the pointers to memory! Will not close file...")
-
-            logging.info("Initializing the language model")
-            # setup_model()
-        except Exception as e:
-            logging.error(f"Error initializing global state: {str(e)}")
-            raise
-
-
-global_state = GlobalState()
-
-
-class UserSession:
-    _instances = {}
-    _lock = threading.Lock()
-
-    def __init__(self, session_id):
-        self.session_id = session_id
-        self.outfile_name = f"user_{self.session_id}.nc"
-        self.data = None
-        self.whole_max_ints = []
-        self.file_lock = threading.Lock()
-
-    @classmethod
-    def get_instance(self, session_id):
-        with self._lock:
-            if session_id not in self._instances:
-                print("create session")
-                self._instances[session_id] = self(session_id)
-            return self._instances[session_id]
-
-    def generate_netcdf_index(self, render_scale=1):
-        with self.file_lock:
-            if self.data is not None:
-                return
-
-            if check_file_exists(self.outfile_name):
-                self.data = xr.open_dataset(self.outfile_name)
-                return
-
-            # generate image size based on the scaling factor
-            im_shape = np.array(
-                [
-                    int(
-                        (
-                            global_state.kmer_index.coord_lims[1]
-                            - global_state.kmer_index.coord_lims[0]
-                        )
-                        * render_scale
-                    ),
-                    int(
-                        (
-                            global_state.kmer_index.coord_lims[3]
-                            - global_state.kmer_index.coord_lims[2]
-                        )
-                        * render_scale
-                    ),
-                ]
-            )
-
-            try:
-                with Dataset(self.outfile_name, "w", format="NETCDF4") as ncfile:
-                    x_dim = ncfile.createDimension("x", im_shape[0])
-                    y_dim = ncfile.createDimension("y", im_shape[1])
-
-                    x = ncfile.createVariable("x", np.float32, ("x",))
-                    y = ncfile.createVariable("y", np.float32, ("y",))
-
-                    x[:] = np.linspace(
-                        global_state.kmer_index.coord_lims[0],
-                        global_state.kmer_index.coord_lims[1],
-                        im_shape[0],
-                    )
-                    y[:] = np.linspace(
-                        global_state.kmer_index.coord_lims[2],
-                        global_state.kmer_index.coord_lims[3],
-                        im_shape[1],
-                    )
-
-                    all_s = ncfile.createVariable(
-                        "all",
-                        "u1",
-                        (
-                            "x",
-                            "y",
-                        ),
-                        fill_value=0,
-                    )
-
-                    # rasterize the data
-                    xy = global_state.xy[global_state._loc_all]
-                    im, _, _ = np.histogram2d(
-                        xy[:, 0],
-                        xy[:, 1],
-                        weights=global_state._abu_all,
-                        range=[
-                            [
-                                global_state.kmer_index.coord_lims[0],
-                                global_state.kmer_index.coord_lims[1],
-                            ],
-                            [
-                                global_state.kmer_index.coord_lims[2],
-                                global_state.kmer_index.coord_lims[3],
-                            ],
-                        ],
-                        bins=tuple(im_shape),
-                    )
-                    im = ((im / im.max()) * 255).astype(np.uint8)
-
-                    all_s[:, :] = im
-
-                self.data = xr.open_dataset(self.outfile_name)
-            except Exception as e:
-                logging.error(f"Error generating netCDF index: {str(e)}")
-                raise
-
-    def add_kmer_to_netcdf_index(self, locs, ints, render_scale=1):
-        with self.file_lock:
-            if self.data is not None:
-                self.data.close()
-                del self.data
-                self.data = None
-
-            _exists = check_file_exists(self.outfile_name)
-            _mode = "r+" if _exists else "w"
-
-            with Dataset(self.outfile_name, _mode, format="NETCDF4") as ncfile:
-                if _exists and "ints" in ncfile.variables:
-                    ints_s = ncfile["ints"]
-                else:
-                    ints_s = ncfile.createVariable(
-                        "ints",
-                        "u1",
-                        (
-                            "x",
-                            "y",
-                        ),
-                        fill_value=0,
-                    )
-
-                logging.debug("Adding to spatial file")
-                im_shape = np.array(
-                    [
-                        int(
-                            (
-                                global_state.kmer_index.coord_lims[1]
-                                - global_state.kmer_index.coord_lims[0]
-                            )
-                            * render_scale
-                        ),
-                        int(
-                            (
-                                global_state.kmer_index.coord_lims[3]
-                                - global_state.kmer_index.coord_lims[2]
-                            )
-                            * render_scale
-                        ),
-                    ]
-                )
-
-                xy = global_state.xy[locs]
-
-                im, _, _ = np.histogram2d(
-                    xy[:, 0],
-                    xy[:, 1],
-                    weights=ints,
-                    range=[
-                        [
-                            global_state.kmer_index.coord_lims[0],
-                            global_state.kmer_index.coord_lims[1],
-                        ],
-                        [
-                            global_state.kmer_index.coord_lims[2],
-                            global_state.kmer_index.coord_lims[3],
-                        ],
-                    ],
-                    bins=tuple(im_shape),
-                )
-                im = ((im / im.max()) * 255).astype(np.uint8)
-
-                ints_s[:, :] = im
-
-            self.data = xr.open_dataset(self.outfile_name)
-            self.whole_max_ints = []
-
-    def cleanup(self):
-        with self.file_lock:
-            if self.data is not None:
-                self.data.close()
-                del self.data
-                self.data = None
-
-
-def get_user_session():
-    try:
-        if "user_session_id" not in session:
-            session["user_session_id"] = str(uuid.uuid4())
-            logging.info(f"Created new user_session_id: {session['user_session_id']}")
-        return UserSession.get_instance(session["user_session_id"])
-    except Exception as e:
-        logging.error(f"Error in get_user_session: {str(e)}")
-        raise
-
-
-@app.before_request
-def before_request():
-    try:
-        logging.info(f"Processing request for path: {request.path}")
-        logging.debug(f"Request headers: {request.headers}")
-        logging.debug(f"Session data: {session}")
-
-        # we do not handle the session creation if we are not accessing /tiles/
-        # TODO: investigate why this leads to NetCDF segmentation fault if the code
-        # below does not have the if... seems to be the URL for favicons
-        g.user_session = get_user_session()
-        if request.path.startswith("/tiles/") or (
-            request.path == "/" and request.method == "POST"
-        ):
-            g.user_session.generate_netcdf_index()
-    except Exception as e:
-        logging.error(f"Error in before_request: {str(e)}")
-        return jsonify(error="An internal server error occurred"), 500
-
-
-# TODO: adapt this so it works with the new coordinate storage method
 def interactive_query_standard(
-    sequence,
-    sliding_size=128,
-    pct_threshold=0.65,
-    low_complexity_filter=True,
-    countmaxkmer=100_000,
-    countminkmer=10,
-):
-    user_session = get_user_session()
-
-    logging.info(f"Querying sequence '{sequence}'")
+    sequence: str,
+    sliding_size: int = 128,
+    pct_threshold: float = 0.65,
+    low_complexity_filter: bool = True,
+    countmaxkmer: int = 100_000,
+    countminkmer: int = 10,
+) -> Tuple[np.ndarray, np.ndarray, List]:
+    """Process standard sequence query"""
+    logger.info(f"Querying sequence '{sequence}'")
+    
     locs, ints, where_abundant = global_state.kmer_index.where(
         sequence,
         sliding_size=sliding_size,
@@ -324,212 +56,422 @@ def interactive_query_standard(
         count_at_least=int(countminkmer),
         use_background_model=False,
     )
-    logging.info(f"Adding result to spatial file")
-    user_session.add_kmer_to_netcdf_index(locs, ints.astype(np.int32))
-
+    
     return locs, ints, where_abundant
 
+class MalvaProxyFix:
+    """Custom middleware for handling proxy prefixes"""
+    def __init__(self, app, uuid):
+        self.app = app
+        self.prefix = f"/api/malva/view/{uuid}"
+        
+    def __call__(self, environ, start_response):
+        # Ensure PATH_INFO contains the full path
+        if environ['PATH_INFO'].startswith('/view/'):
+            # Reconstruct the full path if it's not present
+            environ['PATH_INFO'] = f"/api/malva{environ['PATH_INFO']}"
+        
+        # Now handle the complete path
+        if environ['PATH_INFO'].startswith(self.prefix):
+            script_name = self.prefix
+            path_info = environ['PATH_INFO'][len(self.prefix):]
+            
+            # Ensure path_info starts with a slash
+            if path_info and not path_info.startswith('/'):
+                path_info = '/' + path_info
+                
+            environ['SCRIPT_NAME'] = script_name
+            environ['PATH_INFO'] = path_info
+            
+        return self.app(environ, start_response)
 
-def interactive_query(
-    query,
-    sliding_size=128,
-    pct_threshold=0.65,
-    countmaxkmer=100_000,
-    countminkmer=10,
-    *args,
-    **kwargs,
-):
-    if query == "":
-        raise ValueError("Please specify a query")
+@dataclass
+class SpatialData:
+    """Class to hold spatial data and related methods"""
+    coordinates: np.ndarray  # Nx2 array of x,y coordinates
+    values: np.ndarray      # N-length array of values
+    bounds: Tuple[float, float, float, float]  # xmin, xmax, ymin, ymax
+    
+    @property
+    def xmin(self) -> float:
+        return self.bounds[0]
+    
+    @property
+    def xmax(self) -> float:
+        return self.bounds[1]
+    
+    @property
+    def ymin(self) -> float:
+        return self.bounds[2]
+    
+    @property
+    def ymax(self) -> float:
+        return self.bounds[3]
 
-    pm, pms = handle_natural_query(query)
+class GlobalState:
+    """Singleton class to manage global state and data"""
+    _instance = None
+    _lock = threading.Lock()
+    
+    def __new__(cls):
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = super().__new__(cls)
+        return cls._instance
+    
+    def __init__(self):
+        if not hasattr(self, 'initialized'):
+            self.coordinates = None
+            self.values = None
+            self.bounds = None
+            self.initialized = False
 
-    user_session = get_user_session()
+    def initialize_from_index(self, index_path: str, max_mem: float = 32):
+        """Initialize global state from a malva index file"""
+        with self._lock:
+            try:
+                logger.info("Loading malva index and metadata")
+                self.kmer_index = MalvaIndex(index_path)
+                self.kmer_index.open()
 
-    logging.info(f"Querying positive markers for query '{query}', response '{pm}'")
-    # locs_p, ints_p, where_abundant = global_state.kmer_index.where(pms, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False, count_at_most=int(countmaxkmer), count_at_least=int(countminkmer))
-    locs, ints, where_abundant = global_state.kmer_index.where(
-        pms,
-        sliding_size=sliding_size,
-        pct_threshold=pct_threshold,
-        count_at_most=int(countmaxkmer),
-        count_at_least=int(countminkmer),
-        use_background_model=False,
-    )
-    # logging.info(f"Querying negative markers '{sequence}'")
-    # locs_n, ints_n, where_abundant = global_state.kmer_index.where(nms, sliding_size=sliding_size, pct_threshold=pct_threshold, query_jump=False, count_at_most=int(countmaxkmer), count_at_least=int(countminkmer))
-
-    logging.info(f"Adding result to spatial file")
-    user_session.add_kmer_to_netcdf_index(locs, ints.astype(np.int32))
-
-    return pm, pms, where_abundant
-
-
-def tile_zoomed_coords(xtile, ytile, zoom):
-    n = 2.0**zoom
-    xtile_zoom = xtile / n * max(global_state.xmax, global_state.ymax)
-    ytile_zoom = ytile / n * max(global_state.xmax, global_state.ymax)
-    return (xtile_zoom, ytile_zoom)
-
-
-def generate_tile(zoom, x, y):
-    user_session = get_user_session()
-    x_sarray = user_session.data["x"]
-    y_sarray = user_session.data["y"]
-
-    _sigma = 1 if zoom <= 1 else 1.5
-
-    xleft, yleft = tile_zoomed_coords(int(x), int(y), int(zoom))
-    xright, yright = tile_zoomed_coords(int(x) + 1, int(y) + 1, int(zoom))
-
-    xleft_snapped = x_sarray.sel(x=xleft, method="nearest").values
-    yleft_snapped = y_sarray.sel(y=yleft, method="nearest").values
-    xright_snapped = x_sarray.sel(x=xright, method="nearest").values
-    yright_snapped = y_sarray.sel(y=yright, method="nearest").values
-
-    xcondition = f"x >= {xleft_snapped} and x <= {xright_snapped}"
-    ycondition = f"y <= {yright_snapped} and y >= {yleft_snapped}"
-
-    thin_value = 1
-    if (xright_snapped - xleft_snapped) * (
-        yright_snapped - yleft_snapped
-    ) >= MAX_DATA_POINTS:
-        thin_value = int(
-            np.log10(
-                (
-                    (
-                        (xright_snapped - xleft_snapped)
-                        * (yright_snapped - yleft_snapped)
-                    )
-                    / MAX_DATA_POINTS
+                # Load the initial data points
+                self._loc_all, self._abu_all = np.unique(
+                    self.kmer_index.index[f"index_0_data"][0:MAX_LOAD_ALL],
+                    return_counts=True,
                 )
-            )
-            + 1
-        )
-        frame = user_session.data.thin({"x": thin_value, "y": thin_value}).query(
-            x=xcondition, y=ycondition
-        )
-    else:
-        frame = user_session.data.query(x=xcondition, y=ycondition)
 
-    csv = ds.Canvas(
-        plot_width=256,
-        plot_height=256,
-        x_range=(xleft, xright),
-        y_range=(yleft, yright),
-    )
+                logger.info("Loading the pointers into memory. Might take a while.")
+                self.kmer_index.where(
+                    "A" * self.kmer_index.kmer_size + "T",
+                    max_mem=max_mem,
+                    use_background_model=False
+                )
 
-    agg_all = csv.quadmesh(frame, x="x", y="y", agg=ds.mean("all"))
-    img_all = np.nan_to_num(agg_all.data)
+                # Set up the coordinate bounds
+                self.bounds = (
+                    self.kmer_index.coord_lims[0],  # xmin
+                    self.kmer_index.coord_lims[1] + 1,  # xmax
+                    self.kmer_index.coord_lims[2],  # ymin
+                    self.kmer_index.coord_lims[3] + 1   # ymax
+                )
+                
+                # Store the spatial coordinates
+                self.xy = self.kmer_index.spatial_coord[:]
+                logger.info("Loaded the pointers to memory! Will not close file...")
 
-    if len(user_session.whole_max_ints) < 4:
-        user_session.whole_max_ints = [img_all.max()]
+                self.initialized = True
+                
+            except Exception as e:
+                logger.error(f"Error initializing from index: {str(e)}")
+                raise
+    
+    def initialize(self, coordinates: np.ndarray, values: np.ndarray, bounds: Tuple):
+        """Initialize with data"""
+        with self._lock:
+            self.coordinates = coordinates
+            self.values = values
+            self.bounds = bounds
+            self.initialized = True
 
-    img_all = gaussian(
-        img_all / user_session.whole_max_ints[0] * 255,
-        sigma=_sigma,
-        preserve_range=True,
-    )[:, :, np.newaxis]
+    def get_bounds(self):
+        """Get the coordinate bounds"""
+        if not self.initialized:
+            raise RuntimeError("GlobalState not initialized")
+        return self.bounds
 
-    if "ints" in frame.variables:
-        agg_ch = csv.quadmesh(frame, x="x", y="y", agg=ds.mean("ints"))
-        img_ch = np.nan_to_num(agg_ch.data)
+    def get_coordinates(self):
+        """Get the spatial coordinates"""
+        if not self.initialized:
+            raise RuntimeError("GlobalState not initialized")
+        return self.xy if self.xy is not None else self.coordinates
 
-        if len(user_session.whole_max_ints) < 4:
-            user_session.whole_max_ints.append(img_ch.max())
+class UserSession:
+    """Class to manage per-user session data"""
+    def __init__(self, session_id: str):
+        self.session_id = session_id
+        self.data_path = Path(tempfile.gettempdir()) / f"user_{session_id}.nc"
+        self.lock = threading.Lock()
+        self.data = None
+        self.query_results = None
+        self.max_values = []
+        self.background_data = None
+        # Store global intensity ranges for consistent scaling
+        self.background_intensity_range = None
+        self.query_intensity_range = None
+    
+    def initialize_background(self):
+        """Initialize session with background data from global state"""
+        if global_state.initialized and global_state._loc_all is not None:
+            with self.lock:
+                logger.info("Initializing background data for session")
+                background_coords = global_state.xy[global_state._loc_all]
+                background_values = global_state._abu_all
+                
+                # Calculate global intensity range for background
+                self.background_intensity_range = self._calculate_intensity_range(background_values)
+                
+                self.background_data = {
+                    'locations': background_coords,
+                    'intensities': background_values
+                }
+                logger.info(f"Background data initialized with intensity range: {self.background_intensity_range}")
 
-        img_ch = gaussian(
-            img_ch / user_session.whole_max_ints[1] * 255,
-            sigma=_sigma,
-            preserve_range=True,
-        )[:, :, np.newaxis]
-        img_all = np.concatenate([img_all, img_ch], axis=2)
+    def _calculate_intensity_range(self, values: np.ndarray) -> Tuple[float, float]:
+        """Calculate robust intensity range for values"""
+        if len(values) == 0:
+            return (0, 1)
+        
+        # Use percentiles for more robust range estimation
+        min_val = np.percentile(values, 1)  # 1st percentile instead of min
+        max_val = np.percentile(values, 99)  # 99th percentile instead of max
+        
+        # Ensure we don't have zero range
+        if min_val == max_val:
+            max_val = min_val + 1
+            
+        return (min_val, max_val)
 
-    img_all = np.concatenate(
-        [
-            img_all,
-            np.zeros((256, 256, (3 - img_all.shape[-1]))),
-            255 * np.ones((256, 256, 1)),
-        ],
-        axis=2,
-    )
-    img_all = np.clip(img_all, 0, 255)
-    user_session.whole_max_ints += [255] * (4 - len(user_session.whole_max_ints))
-
-    return Image.fromarray(img_all.astype(np.uint8))
-
-
-@app.route("/")
-def index():
-    _xmax, _ymax = tile_zoomed_coords(0.5, 0.5, 0)
-    return render_template("index.html", xmax=_xmax, ymax=_ymax)
-
-
-def NormalizeData(data):
-    return (data - np.min(data)) / (np.max(data) - np.min(data))
-
-
-@app.route("/parse_queried", methods=["POST"])
-def parse_queried():
-    if "where_abundant" not in session:
-        return json.dumps({"success": False}), 200, {"ContentType": "application/json"}
-
-    scores = [0]
-    if len(session["where_abundant"]) > 2:
-        data = np.array(session["where_abundant"])
-        df = (
-            pd.DataFrame({"pos": data[:, 0], "val": data[:, 1]})
-            .groupby("pos")
-            .mean()
-            .rolling(window=24)
-            .mean()
-        )
-        scores = NormalizeData(np.nan_to_num(df["val"].values)).tolist()
-
-    return (
-        json.dumps(
-            {
-                "success": True,
-                "query_term": session["query_term"],
-                "sequence": session["query_seq"],
-                "scores": scores,
+    def add_query_result(self, locations: np.ndarray, intensities: np.ndarray):
+        """Add query results to user session"""
+        with self.lock:
+            # Calculate global intensity range for query
+            self.query_intensity_range = self._calculate_intensity_range(intensities)
+            
+            self.query_results = {
+                'locations': locations,
+                'intensities': intensities
             }
-        ),
-        200,
-        {"ContentType": "application/json"},
+            logger.info(f"Query results added with intensity range: {self.query_intensity_range}")
+
+
+    def add_background_data(self, coordinates: np.ndarray, values: np.ndarray):
+        """Store background data"""
+        with self.lock:
+            self.background_data = {
+                'locations': coordinates,
+                'intensities': values
+            }
+
+    def _rasterize_points(self, points: np.ndarray, values: np.ndarray, 
+                     x_range: Tuple[float, float], y_range: Tuple[float, float],
+                     value_range: Optional[Tuple[float, float]] = None,
+                     sigma: float = 1.0) -> np.ndarray:
+        """Convert points to raster image preserving aspect ratio"""
+        if points is None or len(points) == 0:
+            return np.zeros((TILE_SIZE, TILE_SIZE), dtype=np.uint8)
+        
+        # Find the largest range to maintain aspect ratio
+        x_size = x_range[1] - x_range[0]
+        y_size = y_range[1] - y_range[0]
+        max_range = max(x_size, y_size)
+        
+        # Adjust ranges to maintain aspect ratio while centering the data
+        x_center = (x_range[0] + x_range[1]) / 2
+        y_center = (y_range[0] + y_range[1]) / 2
+        x_range = (x_center - max_range/2, x_center + max_range/2)
+        y_range = (y_center - max_range/2, y_center + max_range/2)
+        
+        # Use datashader with adjusted ranges
+        canvas = ds.Canvas(plot_width=TILE_SIZE, 
+                        plot_height=TILE_SIZE,
+                        x_range=x_range,
+                        y_range=y_range)
+        
+        df = pd.DataFrame({
+            'x': points[:, 0],
+            'y': points[:, 1],
+            'val': values
+        })
+        
+        agg = canvas.points(df, 'x', 'y', agg=ds.mean('val'))
+        img = np.nan_to_num(agg.values)
+        
+        # Use global value range for normalization if provided
+        if value_range is not None and value_range[1] > value_range[0]:
+            img = np.clip(img, value_range[0], value_range[1])
+            img = (img - value_range[0]) / (value_range[1] - value_range[0]) * 255
+        else:
+            if img.max() > 0:
+                img = img / img.max() * 255
+        
+        img = gaussian(img, sigma=sigma, preserve_range=True)
+        
+        return img.astype(np.uint8)
+        
+    def get_tile_data(self, x: int, y: int, zoom: int) -> np.ndarray:
+        """Get tile data for this user's view"""
+        if not global_state.initialized:
+            raise RuntimeError("Global state not initialized")
+        
+        # Get global coordinate limits
+        x_total = global_state.kmer_index.coord_lims[1] - global_state.kmer_index.coord_lims[0]
+        y_total = global_state.kmer_index.coord_lims[3] - global_state.kmer_index.coord_lims[2]
+        max_dim = max(x_total, y_total)
+        
+        # Calculate tile bounds based on the maximum dimension
+        n = 2.0 ** zoom
+        tile_size = max_dim / n
+        
+        x_bounds = (
+            global_state.kmer_index.coord_lims[0] + x * tile_size,
+            global_state.kmer_index.coord_lims[0] + (x + 1) * tile_size
+        )
+        y_bounds = (
+            global_state.kmer_index.coord_lims[2] + y * tile_size,
+            global_state.kmer_index.coord_lims[2] + (y + 1) * tile_size
+        )
+        
+        _sigma = 1 if zoom <= 1 else 1.5
+
+        # Initialize empty RGBA image
+        img_all = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
+
+        # Add background data to first channel (red)
+        if hasattr(self, 'background_data') and self.background_data is not None:
+            background_img = self._rasterize_points(
+                self.background_data['locations'],
+                self.background_data['intensities'],
+                x_bounds, 
+                y_bounds,
+                value_range=self.background_intensity_range,
+                sigma=_sigma
+            )
+            img_all[:, :, 0] = background_img
+
+        # Add query results to second channel (green)
+        if self.query_results is not None and len(self.query_results.get('locations', [])) > 0:
+            query_img = self._rasterize_points(
+                self.query_results['locations'],
+                self.query_results['intensities'],
+                x_bounds,
+                y_bounds,
+                value_range=self.query_intensity_range,
+                sigma=_sigma
+            )
+            img_all[:, :, 1] = query_img
+        
+        # Set alpha channel only where we have data
+        img_all[:, :, 3] = np.maximum(img_all[:, :, 0], img_all[:, :, 1]) > 0
+        img_all[:, :, 3] *= 255
+
+        return img_all
+        
+    def cleanup(self):
+        """Clean up session data"""
+        with self.lock:
+            if self.data_path.exists():
+                self.data_path.unlink()
+
+def create_app(init_state=True, _uuid=None):
+    """Application factory function"""
+    app = Flask(__name__)
+    
+    # Configure app
+    app.config.update(
+        SECRET_KEY=os.environ.get("SECRET_KEY", "dev_key"),
+        SESSION_TYPE="filesystem",
+        SESSION_PERMANENT=True,
     )
 
+    if _uuid:
+        # Set application root for proper URL generation
+        app.config['APPLICATION_ROOT'] = f"/api/malva/view/{_uuid}"
+        
+        # Apply proxy fixes in correct order
+        app.wsgi_app = MalvaProxyFix(app.wsgi_app, _uuid)
+        app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+    
+    Session(app)
 
-@map_bp.route("/", methods=["GET", "POST"])
-def index():
-    help = ""
-    try:
+    class URLProcessor:
+        def __init__(self, app):
+            self.app = app
+            
+        def url_for(self, endpoint, **values):
+            if endpoint == 'static':
+                # Ensure static files are served from correct path
+                path = url_for(endpoint, **values)
+                return urljoin(self.app.config['APPLICATION_ROOT'], path.lstrip('/'))
+            return url_for(endpoint, **values)
+    
+    url_processor = URLProcessor(app)
+    app.jinja_env.globals['url_for'] = url_processor.url_for
+
+    @app.context_processor
+    def inject_prefix():
+        return {
+            'base_prefix': app.config['APPLICATION_ROOT'],
+            'asset_url': lambda path: urljoin(app.config['APPLICATION_ROOT'], path.lstrip('/'))
+        }
+    
+    # Update headers for proper proxy handling
+    @app.after_request
+    def add_header(response):
+        """Add headers to ensure proper proxy handling"""
+        response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+        response.headers['Content-Security-Policy'] = "frame-ancestors 'self'"
+        
+        # Handle relative redirects
+        if response.status_code in (301, 302, 303, 307, 308):
+            redirect_url = response.headers.get('Location')
+            if redirect_url and redirect_url.startswith('/'):
+                response.headers['Location'] = urljoin(app.config['APPLICATION_ROOT'], redirect_url.lstrip('/'))
+        
+        return response
+    
+    # Create map blueprint
+    map_bp = Blueprint('map', __name__, url_prefix='/map')
+    
+    # Session management
+    user_sessions = {}
+    session_lock = threading.Lock()
+    
+    def get_user_session():
+        """Get or create user session"""
+        if 'user_id' not in session:
+            session['user_id'] = str(uuid.uuid4())
+        
+        user_id = session['user_id']
+        with session_lock:
+            if user_id not in user_sessions:
+                new_session = UserSession(user_id)
+                if init_state and global_state.initialized:
+                    new_session.initialize_background()
+                user_sessions[user_id] = new_session
+            return user_sessions[user_id]
+    
+    @app.before_request
+    def before_request():
+        """Set up user session before each request"""
+        try:
+            g.user_session = get_user_session()
+        except Exception as e:
+            logger.error(f"Error in before_request: {str(e)}")
+            return jsonify({"error": "Internal server error"}), 500
+    
+    @map_bp.route("/", methods=["GET", "POST"])
+    def index():
+        """Handle map requests"""
         if request.method == "POST":
-            query = request.form.get("selectsequence")
-            sliding_size = int(request.form.get("sliding_size"))
-            pct_threshold = float(request.form.get("pct_threshold"))
-            low_complexity_filter = request.form.get(
-                "low_complexity_filter"
-            ).lower() in ["true", "1", "True"]
-            countmaxkmer = 10 ** float(request.form.get("countmaxkmer"))
-            countminkmer = 10 ** float(request.form.get("countminkmer"))
-            standard_query = True if request.form.get("queryType") in ['1', 1] else False
+            try:
+                query = request.form.get("selectsequence", "")
+                sliding_size = int(request.form.get("sliding_size", 128))
+                pct_threshold = float(request.form.get("pct_threshold", 0.65))
+                low_complexity_filter = request.form.get("low_complexity_filter", "").lower() in ["true", "1", "True"]
+                countmaxkmer = 10 ** float(request.form.get("countmaxkmer", "5"))
+                countminkmer = 10 ** float(request.form.get("countminkmer", "1"))
+                standard_query = request.form.get("queryType") in ['1', 1]
 
-            if countminkmer >= countmaxkmer:
-                raise ValueError(
-                    "k-mer 'in at least' must be smaller than 'in at most'"
-                )
+                if countminkmer >= countmaxkmer:
+                    raise ValueError("k-mer 'in at least' must be smaller than 'in at most'")
 
-            if standard_query:
                 seq_processed = handle_sequence(query)
 
-                if any(len(s) > SEQ_MAX_LEN for s in seq_processed):
-                    help = HINT_SEQUENCE_QUERY
-                    raise Exception(
-                        f"Cannot have input text/sequences longer than {SEQ_MAX_LEN}."
-                    )
+                if len(seq_processed) > MAX_SEQUENCE_LENGTH:
+                    raise ValueError(f"Cannot have input sequences longer than {MAX_SEQUENCE_LENGTH}")
 
-                _, _, where_abundant = interactive_query_standard(
+                locs, ints, where_abundant = interactive_query_standard(
                     seq_processed,
                     sliding_size=sliding_size,
                     pct_threshold=pct_threshold,
@@ -537,63 +479,172 @@ def index():
                     countmaxkmer=countmaxkmer,
                     countminkmer=countminkmer,
                 )
-                session["query_seq"] = seq_processed
-            else:
-                pm, pms, where_abundant = interactive_query(
-                    query,
-                    sliding_size=sliding_size,
-                    pct_threshold=pct_threshold,
-                    low_complexity_filter=low_complexity_filter,
-                    countmaxkmer=countmaxkmer,
-                    countminkmer=countminkmer,
+
+                print(len(locs), len(ints))
+                
+                # Store results in user session
+                g.user_session.add_query_result(
+                    global_state.xy[locs],  # Convert indices to coordinates
+                    ints
                 )
-                query = query + '\nHere are some relevant genes:\n' + str(pm)
-                session["query_seq"] = pms
+                
+                session["query_seq"] = seq_processed
 
-            session["query_term"] = query
-            session["where_abundant"] = where_abundant
+                session["query_term"] = query
+                session["where_abundant"] = where_abundant
+                
+                return jsonify({"success": True})
+            except Exception as e:
+                return jsonify({"error": str(e)}), 500
+        
+        return render_template("map.html",
+                             xmax=global_state.bounds[1],
+                             ymax=global_state.bounds[3])
+    
+    @app.route("/parse_queried", methods=["POST"])
+    def parse_queried():
+        """Process and return query results"""
+        try:
+            if "where_abundant" not in session:
+                return jsonify({
+                    "success": False,
+                    "query_term": "",
+                    "sequence": "",
+                    "scores": []
+                })
 
-            return (
-                json.dumps({"success": True}),
-                200,
-                {"ContentType": "application/json"},
-            )
-    except Exception as e:
-        return (
-            json.dumps({"error": str(e), "help": help}),
-            500,
-            {"ContentType": "application/json"},
-        )
+            scores = [0]
+            if len(session["where_abundant"]) > 2:
+                data = np.array(session["where_abundant"])
+                df = (
+                    pd.DataFrame({"pos": data[:, 0], "val": data[:, 1]})
+                    .groupby("pos")
+                    .mean()
+                    .rolling(window=24)
+                    .mean()
+                )
+                # Convert numpy values to native Python types for proper JSON serialization
+                scores = df["val"].fillna(0).tolist()
+                if scores:  # Normalize only if we have scores
+                    min_val = min(scores)
+                    max_val = max(scores)
+                    if max_val > min_val:
+                        scores = [(x - min_val) / (max_val - min_val) for x in scores]
 
+            response_data = {
+                "success": True,
+                "query_term": session.get("query_term", ""),
+                "sequence": session.get("query_seq", ""),
+                "scores": scores
+            }
+            
+            # Set correct content type header
+            return jsonify(response_data)
+            
+        except Exception as e:
+            logger.error(f"Error in parse_queried: {str(e)}")
+            return jsonify({
+                "success": False,
+                "error": str(e)
+            }), 500
+    
+    @app.route("/tiles/<zoom>/<int:x>/<int:y>.png")
+    def tile(zoom: str, x: int, y: int):
+        """Generate and serve tile image"""
+        try:
+            zoom = int(float(zoom))
+            
+            # Calculate tile bounds
+            n = 2.0 ** zoom
+            x_tile_min = x / n * (global_state.kmer_index.coord_lims[1] - global_state.kmer_index.coord_lims[0]) + global_state.kmer_index.coord_lims[0]
+            x_tile_max = (x + 1) / n * (global_state.kmer_index.coord_lims[1] - global_state.kmer_index.coord_lims[0]) + global_state.kmer_index.coord_lims[0]
+            y_tile_min = y / n * (global_state.kmer_index.coord_lims[3] - global_state.kmer_index.coord_lims[2]) + global_state.kmer_index.coord_lims[2]
+            y_tile_max = (y + 1) / n * (global_state.kmer_index.coord_lims[3] - global_state.kmer_index.coord_lims[2]) + global_state.kmer_index.coord_lims[2]
+            
+            # Check if tile is completely outside data bounds
+            if (x_tile_min > global_state.kmer_index.coord_lims[1] or 
+                x_tile_max < global_state.kmer_index.coord_lims[0] or
+                y_tile_min > global_state.kmer_index.coord_lims[3] or
+                y_tile_max < global_state.kmer_index.coord_lims[2]):
+                # Return transparent tile
+                empty_tile = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
+                empty_tile[..., 3] = 0  # Set alpha to 0 for full transparency
+                img = Image.fromarray(empty_tile)
+                img_io = io.BytesIO()
+                img.save(img_io, 'PNG')
+                img_io.seek(0)
+                return send_file(img_io, mimetype='image/png')
 
-@app.route("/tiles/<zoom>/<int:x>/<int:y>.png")
-def tile(x, y, zoom):
-    try:
-        zoom = float(zoom)
-        zoom = round(zoom)
-        results = generate_tile(zoom, x, y)
-        results_bytes = io.BytesIO()
-        results.save(results_bytes, "PNG")
-        results_bytes.seek(0)
-        return send_file(results_bytes, mimetype="image/png")
-    except Exception as e:
-        return str(e), 400
+            img_array = g.user_session.get_tile_data(x, y, zoom)
+            
+            # Convert numpy array to PIL Image and serve
+            img = Image.fromarray(img_array)
+            img_io = io.BytesIO()
+            img.save(img_io, 'PNG')
+            img_io.seek(0)
+            
+            return send_file(img_io, mimetype='image/png')
+        except Exception as e:
+            logger.error(f"Error generating tile: {str(e)}")
+            return str(e), 400
+    
+    @app.route("/health")
+    def health():
+        """Health check endpoint"""
+        return jsonify({
+            "status": "healthy" if global_state.initialized else "initializing",
+            "message": "Service is ready" if global_state.initialized else "Service is initializing"
+        })
 
+    @app.route("/", methods=["GET", "POST"])
+    def index():
+        """Handle root path requests"""
+        try:
+            _xmax = global_state.kmer_index.coord_lims[1] + 1
+            _ymax = global_state.kmer_index.coord_lims[3] + 1
+            return render_template("index.html", xmax=_xmax, ymax=_ymax)
+                
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+        
+    # Register blueprint
+    app.register_blueprint(map_bp)
+    
+    return app
 
 def _run_serve(args):
-    global SEQ_MAX_LEN
-    SEQ_MAX_LEN = args.max_len
-
+    """Run the server with the given arguments"""
+    global MAX_SEQUENCE_LENGTH, global_state
+    MAX_SEQUENCE_LENGTH = args.max_len
+    
     try:
-        global_state.initialize(args)
+        # Initialize global state first
+        global_state = GlobalState()
+        global_state.initialize_from_index(args.index_in, max_mem=args.max_mem)
+        logger.info("Initialized global state from index")
+        
+        # Create app only once after global state is initialized
+        app = create_app(init_state=True, _uuid=args.uuid)
+
+        CORS(app, resources={
+            r"/*": {
+                "origins": "*",
+                "allow_headers": ["Content-Type", "Authorization"],
+                "supports_credentials": True
+            }
+        })
+
+        app.run(
+            debug=True, 
+            host=args.address, 
+            port=args.port, 
+            use_reloader=False
+        )
     except Exception as e:
-        logging.error(f"Error initializing global state: {str(e)}")
-        return
+        logger.error(f"Error running serve: {str(e)}")
+        raise
 
-    logging.info(f"Setting up web server at {args.address}:{args.port}")
-    app.register_blueprint(map_bp, url_prefix="/")
-    app.run(debug=True, host=args.address, port=args.port, use_reloader=False)
-
+app = None
 
 if __name__ == "__main__":
     from malva.cli import get_serve_parser

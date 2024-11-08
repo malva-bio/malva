@@ -24,9 +24,31 @@
     <script src='https://unpkg.com/leaflet.tilelayer.gl@latest/src/Leaflet.TileLayer.GL'></script>
 
 
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/site.css')}}">
+    <link rel="stylesheet" href="{{ asset_url('static/css/site.css') }}">
 
      <script src="https://d3js.org/d3.v7.min.js"></script>
+     <style>
+        /* Custom scrollbar styling when needed */
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+        }
+        
+        /* Webkit scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background-color: rgba(0, 0, 0, 0.2);
+            border-radius: 3px;
+        }
+     </style>
   </head>
   <body>
     <div id="mapcontainer"></div>
@@ -64,7 +86,7 @@
                     </div>
                     <div class="KNfEk Rqu0ae ">
                         <button class="e2moi " aria-label="general">
-                            <div id="imageButton" class="tXNTee L6Bbsd T7HQDc ">
+                            <div id="imagesButton" class="tXNTee L6Bbsd T7HQDc ">
                                 <div class="OyjIsf"></div>
                                 <span class="k48Abe google-symbols" aria-hidden="true">&#xe3f4;</span>
                                 <span class="uEubGf fontTitleSmall">Image</span>
@@ -73,7 +95,7 @@
                     </div>
                     <div class="KNfEk Rqu0ae ">
                         <button class="e2moi " aria-label="query">
-                            <div id="queryButton" class="tXNTee L6Bbsd T7HQDc ">
+                            <div id="cardButton" class="tXNTee L6Bbsd T7HQDc ">
                                 <div class="OyjIsf"></div>
                                 <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe8fe;</span>
                                 <span class="uEubGf fontTitleSmall">Sequence</span>
@@ -137,19 +159,56 @@
                         </div>
                     </div>
                     <hr/>
-                    <div class="VOhV7b">
-                        <h1 class="MMkI0c">Brightness limits (<span style='color:rgb(0, 107, 107) !important;'>Total counts</span>)</h1>
+                    <div class="VOhV7b d-flex align-items-center justify-content-between">
+                        <h1 class="MMkI0c mb-0">
+                            Brightness limits (<span style='color:rgb(0, 107, 107) !important;'>Total counts</span>)
+                            <span class="visibility-toggle" id="totalCountsToggle" role="button" aria-label="Toggle total counts visibility">
+                                <span class="google-symbols"></span>
+                            </span>
+                        </h1>
                     </div>
                     <div id="total_counts_range_slider" class="range-slider-custom"></div>
+                    
                     <div id="cardPopulated2" class="hidden">
-                        <div class="VOhV7b">
-                            <h1 class="MMkI0c">Brightness limits (<span style='color:rgb(134, 0, 134) !important;'>Query result</span>)</h1>
+                        <div class="VOhV7b d-flex align-items-center justify-content-between">
+                            <h1 class="MMkI0c mb-0">
+                                Brightness limits (<span style='color:rgb(134, 0, 134) !important;'>Query result</span>)
+                                <span class="visibility-toggle" id="queryToggle" role="button" aria-label="Toggle query result visibility">
+                                    <span class="google-symbols"></span>
+                                </span>
+                            </h1>
                         </div>
                         <div id="query_range_slider" class="range-slider-custom"></div>
                     </div>
                 </div>
             </div>
         </div>
+
+        <style>
+            .visibility-toggle {
+                cursor: pointer;
+                font-size: 20px;
+                vertical-align: middle;
+                margin-left: 8px;
+                transition: opacity 0.3s ease;
+                user-select: none;
+                display: inline-flex;
+                align-items: center;
+            }
+
+            .visibility-toggle:hover {
+                opacity: 0.8;
+            }
+
+            .visibility-toggle .google-symbols::before {
+                content: 'visibility';
+            }
+
+            .visibility-toggle.hidden .google-symbols::before {
+                content: 'visibility_off';
+            }
+        </style>
+
         <div id="card-container" class="id-omnibox-container">
             <div id="omnibox" class="id-omnibox vasquette-margin-enabled.id-rap-card">
                 <div id="infobox-images-container" class="infobox nhb85d xoLGzf Hk4XGb sbox-focus OAaR7b expanded">
@@ -369,7 +428,7 @@ ATATTTACTACCTA
             opacity: 0.75,
             noWrap: true,
             attribution: '&copy; 2024 Rajewsky Lab',
-            tileUrls: ['/tiles/{z}/{x}/{y}.png'],
+            tileUrls: ['{{ asset_url("tiles/{z}/{x}/{y}.png") }}'],
             zIndex: -1,
             updateWhenIdle: false,
             keepBuffer: 2,
@@ -451,7 +510,7 @@ ATATTTACTACCTA
         $( function() {
             $( "#countmaxkmer" ).slider({
             min: 1,
-            max: 6,
+            max: 10,
             value: 4,
             step: 1
             });
@@ -459,8 +518,8 @@ ATATTTACTACCTA
 
         $( function() {
             $( "#countminkmer" ).slider({
-            min: 1,
-            max: 10,
+            min: 0,
+            max: 9,
             value: 1,
             step: 1
             });
@@ -569,8 +628,9 @@ ATATTTACTACCTA
             $.ajax({
                 type: 'POST',
                 url: "{{ url_for('parse_queried') }}",
+                contentType: 'application/json',
                 success: function(response) {
-                    response = JSON.parse(response)
+                    // response is already parsed JSON, no need to parse again
                     if (response.success) {
                         var queryCard = $('#card-container');
                         $('#cardNoPopulated').addClass('hidden');
@@ -589,11 +649,16 @@ ATATTTACTACCTA
                     }
                 },
                 error: function(e) {
-                    response = JSON.parse(e)
-                    $('#modal-loading').modal('hide');
-                    $('#btn-submit').prop("disabled", false);
-                    bsAlert(response.error, response.help);
-                    $("#bs-alert").modal('show');
+                    try {
+                        var errorData = JSON.parse(e.responseText);
+                        $('#modal-loading').modal('hide');
+                        $('#btn-submit').prop("disabled", false);
+                        bsAlert(errorData.error, errorData.help);
+                        $("#bs-alert").modal('show');
+                    } catch (parseError) {
+                        bsAlert('An error occurred while processing the request', '');
+                        $("#bs-alert").modal('show');
+                    }
                 }
             });
         }
@@ -609,25 +674,28 @@ ATATTTACTACCTA
             } else {
                 $('.searchboxlabel').show();
             }
+
+            const minHeight = 30;
+
             if (textArea.scrollHeight >= 48 && textArea.scrollHeight <= 480) {
                 textArea.style.height = 'auto';
                 textAreaHighlight.style.height = 'auto';
                 textArea.style.height = textArea.scrollHeight + "px";
-                textAreaHighlight.style.height = textArea.scrollHeight + "px";
+                textAreaHighlight.style.height = (5 + textArea.scrollHeight) + "px";
                 textAreaHighlight.style.top = -textArea.scrollHeight + "px";
                 searchArea.style.height = textArea.scrollHeight + "px";
             } else if (textArea.scrollHeight > 480) {
                 textArea.style.height = 'auto';
                 textAreaHighlight.style.height = 'auto';
                 textArea.style.height = '480px';
-                textAreaHighlight.style.height = '480px';
+                textAreaHighlight.style.height = '485px';
                 textAreaHighlight.style.top = '-480px';
                 searchArea.style.height = "480px";
             } else {
-                textArea.style.height = '24px';
-                textAreaHighlight.style.height = '24px';
-                searchArea.style.height = '24px';
-                textAreaHighlight.style.top = '-24px';
+                textArea.style.height = minHeight + 'px';
+                textAreaHighlight.style.height = minHeight + 'px';
+                searchArea.style.height = minHeight + 'px';
+                textAreaHighlight.style.top = -minHeight + 'px';
             }
         }
         
@@ -756,91 +824,115 @@ ATATTTACTACCTA
         
         // syntax highlighting
         document.addEventListener('DOMContentLoaded', () => {
+            // Text highlighting
             const textarea = document.getElementById('selectsequence');
             const highlightedText = document.getElementById('highlightedText');
-
-            textarea.addEventListener('input', () => {
+            
+            function updateHighlight() {
                 const text = textarea.value;
-                highlightedText.innerHTML = applySyntaxHighlighting(text);
-            });
+                let highlighted = text;
+                
+                // Update highlight positioning to match textarea
+                highlightedText.style.width = textarea.clientWidth + 'px';
+                
+                // Add syntax highlighting
+                const patterns = [
+                    { regex: /(gene:)([^;]*)/g, keywordClass: 'keyword-gene' },
+                    { regex: /(type:)([^;]*)/g, keywordClass: 'keyword-type' },
+                    { regex: /(species:)([^;]*)/g, keywordClass: 'keyword-species' },
+                    { regex: /(split:)([^;]*)/g, keywordClass: 'keyword-split' },
+                    { regex: /(ensembl:)([^;]*)/g, keywordClass: 'keyword-ensembl' }
+                ];
+                
+                patterns.forEach(({ regex, keywordClass }) => {
+                    highlighted = highlighted.replace(regex, (match, key, value) => 
+                        `<span class="${keywordClass}">${key}</span><span class="argument">${value}</span>`
+                    );
+                });
+                
+                // Handle semicolons
+                highlighted = highlighted.replace(/;/g, '<span class="argument">;</span>');
+                
+                highlightedText.innerHTML = highlighted;
+            }
 
+            textarea.addEventListener('input', updateHighlight);
             textarea.addEventListener('scroll', () => {
                 highlightedText.scrollTop = textarea.scrollTop;
                 highlightedText.scrollLeft = textarea.scrollLeft;
             });
 
             function applySyntaxHighlighting(text) {
-                const keywordPatterns = {
-                    'gene:': 'keyword-gene',
-                    'species:': 'keyword-species',
-                    'split:': 'keyword-split'
-                };
-
-                let highlighted = text.replace(/(gene:|species:|split:|ensembl:|type:)([^;]*)/g, (match, p1, p2) => {
-                    const keywordClass = keywordPatterns[p1];
-                    const argumentClass = 'argument';
-                    return `<span class="${keywordClass}">${p1}</span><span class="${argumentClass}">${p2}</span>`;
+                if (!text) return '';
+                
+                // Handle terms separated by semicolons
+                let highlighted = text;
+                
+                // Match key:value pairs
+                const matches = highlighted.match(/(gene:|type:|species:|split:|ensembl:)([^;]*)(;)?/g) || [];
+                
+                // Process each match
+                matches.forEach(match => {
+                    const parts = match.match(/(gene:|type:|species:|split:|ensembl:)([^;]*)(;)?/);
+                    if (parts) {
+                        const [fullMatch, keyword, value, semicolon = ''] = parts;
+                        const keywordClass = {
+                            'gene:': 'keyword-gene',
+                            'type:': 'keyword-type',
+                            'species:': 'keyword-species',
+                            'split:': 'keyword-split',
+                            'ensembl:': 'keyword-ensembl'
+                        }[keyword] || 'keyword-other';
+                        
+                        const replacement = `<span class="${keywordClass}">${keyword}</span>` +
+                                        `<span class="argument">${value}</span>` +
+                                        semicolon;
+                        
+                        highlighted = highlighted.replace(fullMatch, replacement);
+                    }
                 });
 
                 return highlighted.replace(/\n/g, '<br>');
             }
 
-            // TODO: do iteratively
-            // To display and hide the cards
-            const settingsButton = document.getElementById('settingsButton');
-            const imageButton = document.getElementById('imageButton');
-            const queryButton = document.getElementById('queryButton');
-            const qrButton = document.getElementById('qrButton');
-            const settingsContainer = document.getElementById('settings-container');
-            const imagesContainer = document.getElementById('images-container');
-            const queryContainer = document.getElementById('card-container');
-            const qrContainer = document.getElementById('qr-container');
-
-            function toggleSettingsContainer(button) {
-                if (settingsContainer.classList.contains('visible')) {
-                    settingsContainer.classList.remove('visible');
-                    settingsButton.classList.remove('active');
-                } else {
-                    settingsContainer.classList.add('visible');
-                    settingsButton.classList.add('active');
-                }
-            }
+            const containers = ['settings', 'images', 'card', 'qr'].map(id => ({
+                button: document.getElementById(`${id}Button`),
+                container: document.getElementById(`${id}-container`)
+            }));
             
-            function toggleImagesContainer(button) {
-                if (imagesContainer.classList.contains('visible')) {
-                    imagesContainer.classList.remove('visible');
-                    imageButton.classList.remove('active');
-                } else {
-                    imagesContainer.classList.add('visible');
-                    imageButton.classList.add('active');
+            containers.forEach(({ button, container }) => {
+                if (button && container) {
+                    button.addEventListener('click', () => {
+                        const isVisible = container.classList.contains('visible');
+                        container.classList.toggle('visible');
+                        button.classList.toggle('active');
+                    });
                 }
-            }
+            });
 
-            function toggleQueryContainer(button) {
-                if (queryContainer.classList.contains('visible')) {
-                    queryContainer.classList.remove('visible');
-                    queryButton.classList.remove('active');
-                } else {
-                    queryContainer.classList.add('visible');
-                    queryButton.classList.add('active');
-                }
-            }
+            const totalCountsToggle = document.getElementById('totalCountsToggle');
+            const queryToggle = document.getElementById('queryToggle');
 
-            function toggleQrContainer(button) {
-                if (qrContainer.classList.contains('visible')) {
-                    qrContainer.classList.remove('visible');
-                    qrButton.classList.remove('active');
-                } else {
-                    qrContainer.classList.add('visible');
-                    qrButton.classList.add('active');
-                }
-            }
+            totalCountsToggle.addEventListener('click', () => {
+                const isHidden = totalCountsToggle.classList.toggle('hidden');
+                
+                mapdata.setUniform('min_total_count_range', isHidden ? 1.0 : 
+                    $('#total_counts_range_slider').slider('values', 0) / 1000);
+                mapdata.setUniform('max_total_count_range', isHidden ? 1.0 : 
+                    $('#total_counts_range_slider').slider('values', 1) / 1000);
+                mapdata.reRender();
+            });
 
-            // Add event listeners to buttons
-            settingsButton.addEventListener('click', toggleSettingsContainer);
-            imageButton.addEventListener('click', toggleImagesContainer);
-            queryButton.addEventListener('click', toggleQueryContainer);
-            qrButton.addEventListener('click', toggleQrContainer);
+            queryToggle.addEventListener('click', () => {
+                const isHidden = queryToggle.classList.toggle('hidden');
+                
+                mapdata.setUniform('min_query_range', isHidden ? 1.0 : 
+                    $('#query_range_slider').slider('values', 0) / 1000);
+                mapdata.setUniform('max_query_range', isHidden ? 1.0 : 
+                    $('#query_range_slider').slider('values', 1) / 1000);
+                mapdata.reRender();
+            });
+
         });
 
         document.getElementById("qr-code-img").src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=" + window.location.href;
