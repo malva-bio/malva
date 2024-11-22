@@ -24,7 +24,7 @@
     <script src='https://unpkg.com/leaflet.tilelayer.gl@latest/src/Leaflet.TileLayer.GL'></script>
 
 
-    <link rel="stylesheet" href="{{ base_prefix }}/static/css/site.css">
+    <link rel="stylesheet" href="{{ base_prefix }}static/css/site.css">
 
      <script src="https://d3js.org/d3.v7.min.js"></script>
      <style>
@@ -157,6 +157,30 @@
                         <div class="VOhV7b">
                             <h1 class="MMkI0b">Image Settings</h1>
                         </div>
+                    </div>
+                    <hr/>
+                    <div class="VOhV7b d-flex align-items-center justify-content-between">
+                        <h1 class="MMkI0c mb-0">Total Counts Color</h1>
+                        <select class="form-select color-select" id="firstChannelColor">
+                            <option value="rgb(0, 107, 107)" selected>Cyan</option>
+                            <option value="rgb(93, 60, 153)">Hematoxylin Purple</option>
+                            <option value="rgb(233, 137, 168)">Eosin Pink</option>
+                            <option value="rgb(0, 0, 255)">Blue</option>
+                            <option value="rgb(255, 0, 0)">Red</option>
+                            <option value="rgb(153, 51, 255)">Purple</option>
+                        </select>
+                    </div>
+                    
+                    <div class="VOhV7b d-flex align-items-center justify-content-between mt-2">
+                        <h1 class="MMkI0c mb-0">Query Color</h1>
+                        <select class="form-select color-select" id="secondChannelColor">
+                            <option value="rgb(134, 0, 134)" selected>Magenta</option>
+                            <option value="rgb(0, 150, 0)">Green</option>
+                            <option value="rgb(255, 165, 0)">Orange</option>
+                            <option value="rgb(255, 0, 0)">Red</option>
+                            <option value="rgb(0, 0, 255)">Blue</option>
+                            <option value="rgb(153, 51, 255)">Purple</option>
+                        </select>
                     </div>
                     <hr/>
                     <div class="VOhV7b d-flex align-items-center justify-content-between">
@@ -301,28 +325,36 @@ ATATTTACTACCTA
 
     <script>
         var fragmentShader = `
-        vec3 grays2rgb(vec3 c) {
-            vec3 rgb1 = vec3(0.0, c.x, c.x);
-            vec3 rgb2 = vec3(c.y, 0.0, c.y);
-            vec3 rgb3 = vec3(c.z, c.z, 0.0);
-
-            vec3 finalColor = vec3(
-                max(rgb1.r, max(rgb2.r, rgb3.r)),
-                max(rgb1.g, max(rgb2.g, rgb3.g)),
-                max(rgb1.b, max(rgb2.b, rgb3.b))
-            );
-            
-            return finalColor;
+        vec3 hexToRgb(vec3 color) {
+            return color / 255.0;
         }
-        
-        void main(void) {                                                                       
+
+        void main(void) {
             vec4 texelColour = texture2D(uTexture0, vec2(vTextureCoords.s, vTextureCoords.t));
             texelColour.r = (texelColour.r - min_total_count_range) / (max_total_count_range - min_total_count_range);
             texelColour.g = (texelColour.g - min_query_range) / (max_query_range - min_query_range);
             vec3 im = clamp(texelColour.rgb, 0.0, 1.0);
-            gl_FragColor = vec4(grays2rgb(im), texelColour.a);                                   
-        }                                 
+            
+            vec3 color1 = hexToRgb(first_channel_color);
+            vec3 color2 = hexToRgb(second_channel_color);
+            
+            // Create individual channel colors
+            vec3 channel1 = color1 * im.r;
+            vec3 channel2 = color2 * im.g;
+            
+            // Use max to overlay colors like before
+            vec3 finalColor = vec3(
+                max(channel1.r, channel2.r),
+                max(channel1.g, channel2.g),
+                max(channel1.b, channel2.b)
+            );
+            
+            gl_FragColor = vec4(finalColor, texelColour.a);
+        }
         `;
+
+
+        
 
         var customCRS = L.extend(L.CRS.Simple, {
             projection: L.extend(L.Projection.LonLat, {
@@ -420,20 +452,22 @@ ATATTTACTACCTA
                 min_total_count_range: Number(0.0),
                 min_query_range: Number(0.0),
                 max_total_count_range: Number(1.0),
-                max_query_range: Number(1.0)
+                max_query_range: Number(1.0),
+                first_channel_color: [0.0, 107.0, 107.0],  // Default cyan
+                second_channel_color: [134.0, 0.0, 134.0]  // Default magenta
             },
             fragmentShader: fragmentShader,
             maxZoom: 7,
             minZoom: -1,
-            opacity: 0.75,
+            opacity: 1,
             noWrap: true,
             attribution: '&copy; 2024 Rajewsky Lab',
-            tileUrls: ['{{ base_prefix }}/tiles/{z}/{x}/{y}.png'],
+            tileUrls: ['{{ base_prefix }}tiles/{z}/{x}/{y}.png'],
             zIndex: -1,
             updateWhenIdle: false,
-            keepBuffer: 2,
+            keepBuffer: 20,
             maxRetries: 1,
-            retryDelay: 500
+            retryDelay: 500,
         });
 
         
@@ -460,7 +494,7 @@ ATATTTACTACCTA
         function updateMapTiles(){
             counter++;
             for (i = 0; i < mapdata._tileLayers.length; i++) {
-                mapdata._tileLayers[i]._url = "{{ base_prefix }}/tiles/{z}/{x}/{y}.png?" + counter;
+                mapdata._tileLayers[i]._url = "{{ base_prefix }}tiles/{z}/{x}/{y}.png?" + counter;
                 setTimeout(function() {
                     mapdata.checkMissingTiles();
                 }, 500);
@@ -709,33 +743,46 @@ ATATTTACTACCTA
         function sendQueryToServer(query, queryType) {
             $('#btn-submit').prop("disabled", true);
             $('#modal-loading').modal('show');
+
+            // Construct URL parameters
+            const params = new URLSearchParams({
+                selectsequence: query,
+                queryType: queryType,
+                sliding_size: $('#slidingsize').val(),
+                pct_threshold: $('#pctthreshold').slider("option", "value") / 100,
+                countmaxkmer: $('#countmaxkmer').slider("option", "value"),
+                countminkmer: $('#countminkmer').slider("option", "value"),
+                low_complexity_filter: $('#lowComplexityFilterChecked').is(':checked')
+            });
+
             $.ajax({
-                data: {
-                    selectsequence: query,
-                    queryType: queryType,
-                    sliding_size: $('#slidingsize').val(),
-                    pct_threshold: $('#pctthreshold').slider("option", "value") / 100,
-                    countmaxkmer: $('#countmaxkmer').slider("option", "value"),
-                    countminkmer: $('#countminkmer').slider("option", "value"),
-                    low_complexity_filter: $('#lowComplexityFilterChecked').is(':checked')
-                },
                 type: 'POST',
-                url: "{{ url_for('map.index') }}",
-                success: function (data) {
-                    updateMapTiles();
-                    $('#btn-submit').prop("disabled", false);
-                    $('#modal-loading').modal('hide');
-                    updateCard();
+                url: `{{ url_for('search') }}?${params.toString()}`,
+                // Don't send any data in the body
+                data: {},
+                success: function(data) {
+                updateMapTiles();
+                $('#btn-submit').prop("disabled", false);
+                $('#modal-loading').modal('hide');
+                updateCard();
                 },
-                error: function (e) {
-                    response = JSON.parse(e.responseText)
-                    $('#modal-loading').modal('hide');
-                    $('#btn-submit').prop("disabled", false);
-                    bsAlert(response.error, response.help);
-                    $("#bs-alert").modal('show');
+                error: function(e) {
+                let response;
+                try {
+                    response = JSON.parse(e.responseText);
+                } catch (parseError) {
+                    response = {
+                    error: "Unknown error occurred",
+                    help: "Please try again later"
+                    };
+                }
+                $('#modal-loading').modal('hide');
+                $('#btn-submit').prop("disabled", false);
+                bsAlert(response.error, response.help);
+                $("#bs-alert").modal('show');
                 }
             });
-        }
+            }
     
         $(document).ready(function() {
             updateCard();
@@ -930,6 +977,37 @@ ATATTTACTACCTA
                     $('#query_range_slider').slider('values', 0) / 1000);
                 mapdata.setUniform('max_query_range', isHidden ? 1.0 : 
                     $('#query_range_slider').slider('values', 1) / 1000);
+                mapdata.reRender();
+            });
+
+            function rgbStringToArray(rgbString) {
+                const matches = rgbString.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+                return [Number(matches[1]), Number(matches[2]), Number(matches[3])];
+            }
+
+            document.getElementById('firstChannelColor').addEventListener('change', function(e) {
+                const rgbArray = rgbStringToArray(e.target.value);
+                mapdata.setUniform('first_channel_color', rgbArray);
+                
+                // Update UI elements
+                $('#total_counts_range_slider').slider().find('.ui-slider-range')
+                    .css("background", e.target.value);
+                $('.VOhV7b h1.MMkI0c span:first-of-type').css("color", e.target.value);
+                $('#totalCountsToggle .google-symbols').css("color", e.target.value);
+                
+                mapdata.reRender();
+            });
+
+            document.getElementById('secondChannelColor').addEventListener('change', function(e) {
+                const rgbArray = rgbStringToArray(e.target.value);
+                mapdata.setUniform('second_channel_color', rgbArray);
+                
+                // Update UI elements
+                $('#query_range_slider').slider().find('.ui-slider-range')
+                    .css("background", e.target.value);
+                $('.VOhV7b h1.MMkI0c span:last-of-type').css("color", e.target.value);
+                $('#queryToggle .google-symbols').css("color", e.target.value);
+                
                 mapdata.reRender();
             });
 
