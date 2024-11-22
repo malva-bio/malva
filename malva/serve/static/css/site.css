@@ -204,6 +204,31 @@ a, button, h1, h2, h3, h4, h5, h6, input, ol, p, textarea, th, ul {
 	transition-timing-function: cubic-bezier(0,0,.2,1);
 }
 
+.color-select {
+    width: auto !important;
+    min-width: 140px;
+    font-size: 14px !important;
+    padding: 4px 24px 4px 8px !important;
+    border-radius: 4px !important;
+    background-color: #fff !important;
+    border: 1px solid #ced4da !important;
+}
+
+.color-select option {
+    padding: 8px !important;
+}
+
+/* Custom styling for the select arrow */
+.color-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
+    background-repeat: no-repeat;
+    background-position: right 0.5rem center;
+    background-size: 16px 12px;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+}
+
 .vasquette-margin-enabled.id-rap-card, .vasquette-margin-enabled.id-omnibox {
 	margin: 12px 0 12px 16px;
 }
