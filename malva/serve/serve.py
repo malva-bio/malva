@@ -366,7 +366,7 @@ class UserSession:
 def create_app(init_state=True, _uuid=None):
     """Application factory function"""
     app = Flask(__name__)
-    
+
     # Configure app
     app.config.update(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev_key"),
@@ -374,13 +374,22 @@ def create_app(init_state=True, _uuid=None):
         SESSION_PERMANENT=True,
     )
 
+    prefix = ""
+
     if _uuid:
         # Set application root for proper URL generation
-        app.config['APPLICATION_ROOT'] = f"/api/malva/view/{_uuid}"
+        prefix = f"/api/malva/view/{_uuid}"
+        app.config['APPLICATION_ROOT'] = prefix
         
         # Apply proxy fixes in correct order
         app.wsgi_app = MalvaProxyFix(app.wsgi_app, _uuid)
         app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+    class PrefixedStaticFlask(Flask):
+        def get_send_file_max_age(self, name):
+            return 0  # Disable caching for development
+            
+    app.view_functions['static'] = PrefixedStaticFlask.send_static_file.__get__(app)
     
     Session(app)
 
@@ -421,7 +430,7 @@ def create_app(init_state=True, _uuid=None):
         return response
     
     # Create map blueprint
-    map_bp = Blueprint('map', __name__, url_prefix='/map')
+    map_bp = Blueprint('map', __name__, url_prefix=f'{prefix}/map')
     
     # Session management
     user_sessions = {}
@@ -443,12 +452,17 @@ def create_app(init_state=True, _uuid=None):
     
     @app.before_request
     def before_request():
-        """Set up user session before each request"""
-        try:
-            g.user_session = get_user_session()
-        except Exception as e:
-            logger.error(f"Error in before_request: {str(e)}")
-            return jsonify({"error": "Internal server error"}), 500
+        """Set up user session before each request
+        
+        Note: we should never get these via the /api/malva/view
+        or other
+        """
+        if not request.path.startswith("/health"):
+            try:
+                g.user_session = get_user_session()
+            except Exception as e:
+                logger.error(f"Error in before_request: {str(e)}")
+                return jsonify({"error": "Internal server error"}), 500
     
     @map_bp.route("/", methods=["GET", "POST"])
     def index():
