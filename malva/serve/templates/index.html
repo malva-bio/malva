@@ -24,7 +24,7 @@
     <script src='https://unpkg.com/leaflet.tilelayer.gl@latest/src/Leaflet.TileLayer.GL'></script>
 
 
-    <link rel="stylesheet" href="{{ asset_url('static/css/site.css') }}">
+    <link rel="stylesheet" href="{{ base_prefix }}/static/css/site.css">
 
      <script src="https://d3js.org/d3.v7.min.js"></script>
      <style>
@@ -428,7 +428,7 @@ ATATTTACTACCTA
             opacity: 0.75,
             noWrap: true,
             attribution: '&copy; 2024 Rajewsky Lab',
-            tileUrls: ['{{ asset_url("tiles/{z}/{x}/{y}.png") }}'],
+            tileUrls: ['{{ base_prefix }}/tiles/{z}/{x}/{y}.png'],
             zIndex: -1,
             updateWhenIdle: false,
             keepBuffer: 2,
@@ -460,7 +460,7 @@ ATATTTACTACCTA
         function updateMapTiles(){
             counter++;
             for (i = 0; i < mapdata._tileLayers.length; i++) {
-                mapdata._tileLayers[i]._url = "/tiles/{z}/{x}/{y}.png?" + counter;
+                mapdata._tileLayers[i]._url = "{{ base_prefix }}/tiles/{z}/{x}/{y}.png?" + counter;
                 setTimeout(function() {
                     mapdata.checkMissingTiles();
                 }, 500);
