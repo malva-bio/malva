@@ -157,3 +157,70 @@ Everyone interacting in the `malva` project's codebases, issue trackers, and dis
 
 ## License
 The software tools of this project are under the GNU License - see the [LICENSE](LICENSE) file for details.
+
+## Testing `malva`
+
+## Setting up the test environment
+
+1. Install test dependencies:
+```bash
+pip install pytest pytest-cov pytest-xdist cython coverage
+```
+
+2. Create a `.coveragerc` file in your project root:
+```ini
+[run]
+plugins = Cython.Coverage
+source = malva
+include = */malva/*
+parallel = True
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    pass
+    raise Import.*
+```
+
+3. Install malva in development mode with coverage support:
+```bash
+# Clean any previous builds
+rm -rf build/ *.so .coverage* *.gcda *.gcno
+
+# Install with coverage enabled
+CFLAGS="-coverage" CXXFLAGS="-coverage" pip install -e .
+```
+
+### Running the tests
+
+To run all tests:
+
+```bash
+pytest tests/
+```
+
+To run tests with coverage reporting:
+
+```bash
+pytest --cov=malva tests/
+```
+
+For a detailed HTML coverage report:
+
+```bash
+pytest --cov=malva --cov-report=html tests/
+```
+
+### Test Data
+
+The test suite includes utilities for generating test data:
+
+- Random DNA sequences
+- FASTQ files with mock reads
+- Spatial coordinate files
+- Barcode lists
+
+Test data is generated automatically during test execution and cleaned up afterward.
