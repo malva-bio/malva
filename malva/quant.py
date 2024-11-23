@@ -165,7 +165,7 @@ def _run_quant(args):
     # the output directory must not exist
     outdir_exists = check_directory_exists(args.folder_out)
     if not outdir_exists:
-        logging.warn("The specified output directory did not exist. Creating...")
+        logging.warning("The specified output directory did not exist. Creating...")
         os.mkdir(args.folder_out)
 
     reference_file = get_reference_cache(args.reference)

@@ -147,7 +147,7 @@ cdef class MalvaIndex:
         if kmer_size < 8 or kmer_size > 32:
             raise ValueError("`kmer_size` must be between 8 and 32 (inclusive)")
         if kmer_size < 24:
-            logging.warn(f"For accuracy and speed, we recommend using > 24-mers (currently using {kmer_size}-mers)")
+            logging.warning(f"For accuracy and speed, we recommend using > 24-mers (currently using {kmer_size}-mers)")
 
         self.kmer_size = kmer_size
         self.initialize_kmer_index()
@@ -222,7 +222,7 @@ cdef class MalvaIndex:
             uint32_t current_data
 
         if self._n_kmers_processed == 0:
-            logging.warn("There are no kmers to process!")
+            logging.warning("There are no kmers to process!")
             return
 
         _chunk = self.n_chunks
@@ -626,7 +626,7 @@ cdef class MalvaIndex:
             size_t total_length, chunk_end
 
         if self.n_chunks > 1:
-            logging.warn(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
+            logging.warning(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
 
         total_length = len(self.index[f'index_{chunk_id}_indices'])
 

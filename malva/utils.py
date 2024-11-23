@@ -167,7 +167,7 @@ def check_adata_structure(f):
             raise KeyError("The Open-ST h5 object does not have the 'obs/total_counts' property.")
 
         if "spatial_aligned" in file:
-            logging.warn("The Open-ST h5 object has a 'spatial_aligned' layer")
+            logging.warning("The Open-ST h5 object has a 'spatial_aligned' layer")
 
 
 def load_properties_from_adata(f, properties: list = ["obsm/spatial"], backed: bool = False) -> dict:

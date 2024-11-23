@@ -70,7 +70,7 @@ def _run_show(args):
 
     outdir_exists = check_directory_exists(args.image_out)
     if not outdir_exists:
-        logging.warn("The specified output directory did not exist. Creating...")
+        logging.warning("The specified output directory did not exist. Creating...")
         os.mkdir(args.image_out)
 
     multi_out = {}
@@ -79,7 +79,7 @@ def _run_show(args):
         logging.info(f"Opened FASTA file {args.query}")
         for i, record in enumerate(f):
             if len(record.sequence) < kmer_index.kmer_size:
-                logging.warn(f"[{i}/n] Skipping sequence {record.name} - too short")
+                logging.warning(f"[{i}/n] Skipping sequence {record.name} - too short")
                 continue
 
             logging.info(f"[{i}/n] Querying sequence {record.name}")
