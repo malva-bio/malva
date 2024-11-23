@@ -51,7 +51,7 @@ def process_gene(
     # one count was found 
     # TODO: if one of the sequences has a lot of counts but not another,
     # this will lead undercounting because of the large number of "seqs_gene"
-    counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
+    # counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
 
     for loc, count in zip(locs, counts):
         mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
@@ -137,7 +137,7 @@ def process_reference(
             seqs_gene.append(seq[1])
 
         if seqs_gene:
-            nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1)
+            nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count, use_background_model)
             total_nnz += nnz
             current_col += 1
 
@@ -145,10 +145,12 @@ def process_reference(
 
     kmer_index.close()
 
-    # TODO: the n_spatial is calcualted from lims, but sum one, otherwise not correct!
-    # TODO: check in indexes.pyx if this is correct (how to compute n_spatial)
-    # we need to add +1 because indices from mtx file start at 1, not 0
-    n_spatial = kmer_index.n_spatial + 1
+    # the n_spatial is calcualted from lims, but sum one, otherwise not correct!
+    if 'spatial_coord' in kmer_index.index:
+        n_spatial = kmer_index.n_spatial
+    # we need to add +1 because indices from mtx file start at 1, not 0 (for the scRNA data)
+    else:
+        n_spatial = kmer_index.n_spatial + 1
 
     with open(os.path.join(folder_out, "matrix.mtx"), "r+b") as mtx_file:
         mtx_file.seek(0)
@@ -163,20 +165,22 @@ def _run_quant(args):
     # the output directory must not exist
     outdir_exists = check_directory_exists(args.folder_out)
     if not outdir_exists:
-        logging.warn("The specified output directory did not exist. Creating...")
+        logging.warning("The specified output directory did not exist. Creating...")
         os.mkdir(args.folder_out)
 
     reference_file = get_reference_cache(args.reference)
     logging.info(f"Will load reference '{args.reference}'")
 
-    background_model = None
-    if args.background_model is not None:
-        check_file_exists(args.background_model, except_when=False)
-        background_model = BackgroundModel(kmer_index.kmer_size)
-        background_model.load(args.background_model)
-        kmer_index.set_background_model(background_model)
 
     if not check_file_exists(os.path.join(args.folder_out, "matrix.mtx")):
+        background_model = None
+        if args.background_model is not None:
+            logging.info(f"Loading background model")
+            check_file_exists(args.background_model, except_when=False)
+            background_model = BackgroundModel(kmer_index.kmer_size)
+            background_model.load(args.background_model)
+            kmer_index.set_background_model(background_model)
+
         logging.info(f"Running pseudo-quantification")
         process_reference(
             kmer_index,

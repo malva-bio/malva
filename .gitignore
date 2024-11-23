@@ -4,6 +4,9 @@
 *$py.class
 *_ignore_git_*/
 
+# Ignore manuscript
+*manuscript/
+
 # C extensions
 *.so
 

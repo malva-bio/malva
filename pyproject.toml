@@ -1,5 +1,5 @@
 [build-system]
-requires = ["poetry", "Cython", "setuptools", "wheel", "numpy"]
+requires = ["poetry", "Cython>=0.29.21", "setuptools", "wheel", "numpy"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
@@ -57,9 +57,14 @@ datashader = ">0.15.0"
 flask = ">2.3.0"
 biopython = ">=1.83"
 scikit-image = ">=0.24.0"
+flask_session = ">=0.8.0"
+ollama = ">=0.3.1"
 
 [tool.poetry.dev-dependencies]
-Cython = "^0.29.21"  # Latest version at time of publishing
+Cython = "^0.29.21"
+pytest = ">=7.0.0"
+pytest-cov = ">=4.0.0"
+coverage = ">=7.0.0"
 
 [tool.poetry.urls]
 "Documentation" = "https://rajewsky-lab.github.io/malva"
@@ -68,3 +73,23 @@ Cython = "^0.29.21"  # Latest version at time of publishing
 
 [tool.poetry.scripts]
 malva = 'malva.__main__:run_malva'
+
+[tool.coverage.run]
+plugins = ["Cython.Coverage"]
+source = ["malva"]
+parallel = true
+branch = true
+relative_files = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise Import.*"
+]
+
+[tool.coverage.html]
+directory = "htmlcov"

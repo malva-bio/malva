@@ -206,8 +206,8 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "mouse_utr", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'mouse_utr', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
+        choices=["human_utr", "human_cdna", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--background-model",
@@ -417,6 +417,12 @@ def get_serve_parser():
         Otherwise, an exception will be thrown.""",
     )
     parser.add_argument(
+        "--uuid",
+        type=str,
+        default=None,
+        help="""UUID for the server""",
+    )
+    parser.add_argument(
         "--port",
         type=int,
         default=8888,
@@ -429,9 +435,10 @@ def get_serve_parser():
         help="""Address where the webserver will be available at""",
     )
     parser.add_argument(
-        "--lazy-index",
-        action="store_true",
-        help="""No part of the index will be loaded to main memory (full-disk queries)""",
+        "--max-mem",
+        type=str,
+        default=None,
+        help="""Maximum allowed memory usage for the k-mer index""",
     )
     parser.add_argument(
         "--max-len",
