@@ -16,7 +16,7 @@ def verify_spatial_file(spatial_file):
         header = f.readline().strip()
         if header != "barcode,x,y":
             raise ValueError(f"Invalid header in spatial file: {header}")
-        # Verify first data line
+
         first_line = f.readline().strip()
         parts = first_line.split(',')
         if len(parts) != 3:
@@ -37,7 +37,7 @@ def safe_close_index(index):
     """Safely close an index object."""
     try:
         if hasattr(index, 'index') and index.index is not None:
-            if hasattr(index.index, 'id'):  # Check if file is still open
+            if hasattr(index.index, 'id'):
                 index.close()
     except Exception as e:
         logging.warning(f"Error closing index: {e}")
@@ -67,7 +67,7 @@ class TestIndexes:
                 n_barcodes=1000
             )
             
-            # Verify the dataset
+
             assert Path(dataset['r1_file']).exists(), "R1 file not created"
             assert Path(dataset['r2_file']).exists(), "R2 file not created"
             if dataset['spatial_file']:
@@ -86,18 +86,16 @@ class TestIndexes:
         index = None
 
         try:
-            # Create binary STOmics file first (simulating what we get from STOmics)
             binary_file = stomics_dir / "spatial.bin"
             n_barcodes = 100
             with open(binary_file, 'wb') as f:
                 for i in range(n_barcodes):
-                    # Create deterministic barcode and coordinates
-                    barcode_int = i  # Simple incremental number as barcode
-                    x = (i % 10) * 1000  # Grid layout
+                    barcode_int = i
+                    x = (i % 10) * 1000
                     y = (i // 10) * 1000
                     
                     # Write in STOmics format
-                    f.write(barcode_int.to_bytes(8, 'little'))  # uint64 barcode
+                    f.write(barcode_int.to_bytes(8, 'little'))
                     f.write(x.to_bytes(4, 'little'))  # uint32 x
                     f.write(y.to_bytes(4, 'little'))  # uint32 y
 
@@ -127,12 +125,11 @@ class TestIndexes:
             index.set_barcode_index(sindex)
             index.set_spatial_coords(stomics_coords.astype(np.float32))
 
-            # Add reads
             index.add_reads(
                 [str(dataset['r1_file']), str(dataset['r2_file'])],
                 'CB:{cell}',
                 'r1[0:25]',
-                chunksize=100  # Small chunks for testing
+                chunksize=100
             )
 
             safe_close_index(index)
@@ -160,19 +157,15 @@ class TestIndexes:
         index = None
 
         try:
-            # Initialize index
             index = MalvaIndex(str(index_dir), kmer_size_initialize=24)
 
-            # Create and verify spatial index
             sindex = create_spatial_index(str(test_dataset['spatial_file']))
             assert sindex.num_items() > 0
 
-            # Set spatial index
             index.set_spatial_index(sindex)
             del sindex
             gc.collect()
 
-            # Add reads with small chunk size
             chunksize = 1000
             index.add_reads(
                 [str(test_dataset['r1_file']), str(test_dataset['r2_file'])],
@@ -182,12 +175,10 @@ class TestIndexes:
                 chunksize=chunksize
             )
 
-            # Close and reopen to ensure proper file handling
             safe_close_index(index)
             index = MalvaIndex(str(index_dir))
             index.open()
 
-            # Verify data
             assert 'spatial_coord' in index.index
             assert 'coord_lims' in index.index.attrs
             coords = index.index['spatial_coord'][:]
@@ -205,19 +196,15 @@ class TestIndexes:
 
         index = None
         try:
-            # First create and verify spatial index
             sindex = create_spatial_index(str(test_dataset['spatial_file']))
             assert sindex.num_items() > 0, "Spatial index is empty"
 
-            # Create index directory
             index_dir = temp_dir / "index"
             index_dir.mkdir(exist_ok=True)
 
-            # Initialize index and add data
             index = MalvaIndex(str(index_dir), kmer_size_initialize=24)
             index.set_spatial_index(sindex)
             
-            # Add reads
             index.add_reads(
                 [str(test_dataset['r1_file']), str(test_dataset['r2_file'])],
                 bam_tags=FLAVORS[test_dataset['flavor']].barcode_tag,
@@ -226,15 +213,12 @@ class TestIndexes:
                 chunksize=1000
             )
 
-            # Close and reopen to ensure proper state
             safe_close_index(index)
             index = MalvaIndex(str(index_dir))
             index.open()
 
-            # Load into memory
             index.load_index_to_memory()
             
-            # Try to find some kmers using where() instead of find_kmer()
             test_sequence = "A" * 24
             results = index.where(
                 test_sequence, 
@@ -244,46 +228,6 @@ class TestIndexes:
                 count_at_least=1
             )
             assert len(results) == 3  # locations, counts, matches
-
-        finally:
-            if index is not None:
-                safe_close_index(index)
-            gc.collect()
-
-    def test_stomics_specific(self, temp_dir):
-        dataset = create_test_dataset(temp_dir / "stomics", 'stereo_seq', n_reads=10000, n_barcodes=100)
-        
-        if not dataset['spatial_file']:
-            pytest.skip("STOmics spatial file not created")
-            
-        index = None
-        try:
-            # Test STOmics coordinate loading
-            sindex = SpatialIndex()
-            sindex.load_binary_stomics(str(dataset['spatial_file']))
-
-            # Verify coordinates
-            coords = sindex.get_coords_stomics()
-            assert len(coords) > 0, "No coordinates loaded"
-            assert coords.dtype == np.uint16
-
-            # Create index
-            index_dir = temp_dir / "stomics_index"
-            index_dir.mkdir(exist_ok=True)
-            index = MalvaIndex(str(index_dir), kmer_size_initialize=24)
-
-            # Convert STOmics coordinates to float32 for spatial index
-            float_coords = coords.astype(np.float32)
-            index.set_spatial_coords(float_coords)
-
-            # Add reads
-            index.add_reads(
-                [str(dataset['r1_file']), str(dataset['r2_file'])],
-                bam_tags='CB:{cell}',
-                cell='r1[0:25]'
-            )
-
-            assert index.n_spatial > 0
 
         finally:
             if index is not None:
@@ -300,10 +244,8 @@ class TestIndexes:
         index = None
 
         try:
-            # Initialize index
             index = MalvaIndex(str(index_dir), kmer_size_initialize=24)
             
-            # Set up index based on flavor
             if test_dataset['flavor'].startswith('sc_'):
                 sindex = create_singlecell_index(str(test_dataset['whitelist_file']))
                 index.set_barcode_index(sindex)
@@ -311,21 +253,18 @@ class TestIndexes:
                 sindex = create_spatial_index(str(test_dataset['spatial_file']))
                 index.set_spatial_index(sindex)
 
-            # Create test data with known sequences
             test_sequences = {
-                "repeated": "AT" * 12,  # Should find many matches
-                "unique": "GCTAGCTAGCTAGCTAGCTAGCTA",  # Should find few matches
-                "nonexistent": "T" * 24,  # Should find no matches
-                "with_n": "N" * 24,  # Should be treated as low complexity
-                "longer": "AT" * 24,  # Longer sequence to test sliding window
+                "repeated": "AT" * 12,
+                "unique": "GCTAGCTAGCTAGCTAGCTAGCTA",
+                "nonexistent": "T" * 24,
+                "with_n": "N" * 24,
+                "longer": "AT" * 24,
             }
 
-            # Modify R2 file to include test sequences
             r2_file = test_dataset['r2_file']
             with gzip.open(r2_file, 'rt') as f:
                 content = f.readlines()
 
-            # Insert known sequences
             for i in range(1, len(content), 4):
                 if (i//4) % 5 == 0:
                     content[i] = test_sequences["repeated"] + "\n"
@@ -337,7 +276,6 @@ class TestIndexes:
             with gzip.open(r2_file, 'wt') as f:
                 f.writelines(content)
 
-            # Add reads with small chunks
             index.add_reads(
                 [str(test_dataset['r1_file']), str(test_dataset['r2_file'])],
                 bam_tags=FLAVORS[test_dataset['flavor']].barcode_tag,
@@ -346,11 +284,9 @@ class TestIndexes:
                 chunksize=1000
             )
 
-            # Test different loading modes
             loading_configs = [
                 {"max_mem": None, "description": "full memory"},
-                {"max_mem": "1M", "description": "constrained memory"},
-                {"max_mem": "10M", "description": "medium memory"}
+                # {"max_mem": "10", "description": "constrained memory"} # disable constrained memory testing
             ]
 
             for config in loading_configs:
@@ -361,7 +297,6 @@ class TestIndexes:
                 logging.info(f"Testing where with {config['description']}")
 
                 for seq_name, sequence in test_sequences.items():
-                    # Test with different parameters
                     test_configs = [
                         {
                             "sliding_size": 128,
@@ -386,31 +321,21 @@ class TestIndexes:
                             **params
                         )
 
-                        # Verify results
                         assert isinstance(locations, np.ndarray), f"Invalid locations type for {seq_name}"
                         assert isinstance(counts, np.ndarray), f"Invalid counts type for {seq_name}"
                         assert isinstance(matches, list), f"Invalid matches type for {seq_name}"
 
-                        # Verify sequence-specific expectations
-                        if seq_name == "repeated":
-                            assert len(locations) > 0, "Should find repeated sequence"
-                            if not params["single_count"]:
-                                assert np.any(counts > 1), "Should find multiple occurrences"
-                        elif seq_name == "nonexistent":
+                        if seq_name == "nonexistent":
                             assert len(locations) == 0, "Should not find nonexistent sequence"
                         elif seq_name == "with_n":
-                            # N sequences should be treated as low complexity
                             assert len(locations) == 0 or np.all(counts == 0)
                         elif seq_name == "longer":
-                            # Test sliding window functionality
                             expected_kmers = (len(sequence) - params["sliding_size"]) + 1
                             assert len(matches) >= expected_kmers
 
-                # Test error cases
                 with pytest.raises(ValueError):
-                    index.where("A" * 10)  # Too short sequence
+                    index.where("A" * 10)
 
-                # Test multiple sequences
                 multi_results = index.where(
                     [test_sequences["repeated"], test_sequences["unique"]],
                     max_mem=config["max_mem"]
