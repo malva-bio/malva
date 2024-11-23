@@ -63,7 +63,7 @@ class TestIndexes:
             dataset = create_test_dataset(
                 dataset_dir, 
                 request.param, 
-                n_reads=10000,
+                n_reads=100000,
                 n_barcodes=1000
             )
             
@@ -103,7 +103,7 @@ class TestIndexes:
             dataset = create_test_dataset(
                 stomics_dir,
                 'stereo_seq',
-                n_reads=1000,
+                n_reads=100000,
                 n_barcodes=n_barcodes
             )
 
