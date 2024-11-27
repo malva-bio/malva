@@ -46,6 +46,26 @@ cdef int compare_indexed_value(const pair[uint64_t, uint32_t]& a, const pair[uin
 
 cdef extern from *:
     """
+    struct SearchGroup {
+        std::vector<std::pair<uint64_t, size_t>> kmers;
+        uint64_t start;
+        uint64_t end;
+        
+        // Default constructor
+        SearchGroup() : start(0), end(0) {}
+        
+        // Constructor with parameters
+        SearchGroup(uint64_t s, uint64_t e) : start(s), end(e) {}
+    };
+    """
+    struct SearchGroup:
+        vector[pair[uint64_t, size_t]] kmers
+        uint64_t start
+        uint64_t end
+
+
+cdef extern from *:
+    """
     struct CompareFirst {
         bool operator()(const std::pair<uint64_t, std::pair<uint64_t, uint64_t>>& lhs, const uint64_t& rhs) const {
             return lhs.first < rhs;
@@ -105,9 +125,13 @@ cdef class MalvaIndex:
         public int _n_kmers_processed
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
         map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
-        vector[pair[uint64_t, pair[uint32_t, uint32_t]]] _cindex
         SpatialIndex spatial_index
         BackgroundModel background_model
+
+        # for the hierarchical index
+        bint using_hierarchical
+        vector[size_t] hierarchical_sizes
+        int page_size
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
         self.index_dir = index_dir
@@ -122,7 +146,11 @@ cdef class MalvaIndex:
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
         self._index_backed = map[uint64_t, pair[uint64_t, uint64_t]]()
-        self._cindex = vector[pair[uint64_t, pair[uint32_t, uint32_t]]]()
+
+        # for the hierarchical index
+        self.using_hierarchical = False
+        self.hierarchical_sizes = vector[size_t]()
+        self.page_size = 1024
 
         if rewrite:
             if os.path.exists(self.index_dir):
@@ -158,6 +186,76 @@ cdef class MalvaIndex:
         self.index.attrs['n_chunks'] = self.n_chunks
         self.close()
 
+    cdef void _create_hierarchical_index(self, int chunk_id):
+        """Creates hierarchical index structure in HDF5 file."""
+        if self.verbose:
+            logging.info(f"Creating hierarchical index for chunk {chunk_id}")
+            
+        cdef:
+            size_t base_size = len(self.index[f'index_{chunk_id}_indices'])
+            size_t current_size = (base_size + self.page_size - 1) // self.page_size
+            vector[size_t] level_sizes
+            np.ndarray source_data
+            str level_name
+            size_t i, level
+
+        # Calculate sizes for each level
+        while current_size > self.page_size:
+            level_sizes.push_back(current_size)
+            if self.verbose:
+                logging.info(f"Level size: {current_size}")
+            current_size = (current_size + self.page_size - 1) // self.page_size
+
+        level_sizes.push_back(current_size)
+        if self.verbose:
+            logging.info(f"Final level size: {current_size}")
+            
+        self.hierarchical_sizes = level_sizes
+
+        # Ensure we're in write mode
+        self.index.flush()
+        if not self.index.mode == 'r+':
+            logging.error(f"HDF5 file not in write mode! Current mode: {self.index.mode}")
+            return
+
+        # Store sizes
+        level_sizes_name = f"hierarchical_{chunk_id}_sizes"
+        if level_sizes_name in self.index:
+            del self.index[level_sizes_name]
+        
+        sizes_array = np.array([level_sizes[i] for i in range(level_sizes.size())])
+        self.index.create_dataset(level_sizes_name, data=sizes_array)
+        
+        # Create datasets for each level
+        for level in range(len(level_sizes)):
+            level_name = f"hierarchical_{chunk_id}_level_{level}"
+            if self.verbose:
+                logging.info(f"Creating level {level} dataset: {level_name}")
+                
+            if level_name in self.index:
+                del self.index[level_name]
+            
+            if level == 0:
+                source_data = self.index[f'index_{chunk_id}_indices'][::self.page_size]
+            else:
+                source_data = self.index[f"hierarchical_{chunk_id}_level_{level-1}"][::self.page_size]
+
+            dset = self.index.create_dataset(
+                level_name, 
+                shape=(level_sizes[level],), 
+                dtype=np.uint64,
+                chunks=(min(self.page_size, level_sizes[level]),)
+            )
+            dset[:len(source_data)] = source_data[:level_sizes[level]]
+            
+            if self.verbose:
+                logging.info(f"Created dataset {level_name} with size {len(source_data)}")
+
+        self.index.flush()
+        if self.verbose:
+            logging.info("Completed hierarchical index creation")
+            logging.info(f"Available datasets: {list(self.index.keys())}")
+
     # TODO: rename to BarcodeIndex
     def set_spatial_index(self, SpatialIndex sindex):
         self.spatial_index = sindex
@@ -189,7 +287,7 @@ cdef class MalvaIndex:
         self.index.attrs['n_spatial'] = self.n_spatial
         self.close()
 
-    def open(self, str mode='r'):
+    def open(self, str mode='r+'):
         self.index = h5py.File(self.index_file, mode, driver="split")
         if 'kmer_size' in self.index.attrs:
             self.kmer_size = self.index.attrs['kmer_size']
@@ -559,64 +657,163 @@ cdef class MalvaIndex:
 
         return vals
     
+    cdef vector[pair[uint64_t, pair[uint64_t, uint64_t]]] _batch_find_in_hierarchy(self, vector[uint64_t]& kmers, int chunk_id):
+        """Batch binary search in hierarchy for multiple kmers."""
+        cdef:
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] results
+            vector[SearchGroup] current_groups
+            vector[SearchGroup] next_groups
+            np.ndarray level_data
+            uint64_t kmer
+            size_t i, j
+            int current_level = len(self.hierarchical_sizes) - 1
+            SearchGroup initial_group
+            SearchGroup new_group
+            
+        # Initialize first group with all kmers at highest level
+        initial_group.start = 0
+        initial_group.end = self.hierarchical_sizes[current_level]
+        for i in range(kmers.size()):
+            initial_group.kmers.push_back(pair[uint64_t, size_t](kmers[i], i))
+        current_groups.push_back(initial_group)
+        
+        while current_level >= 0:
+            level_data = self.index[f"hierarchical_{chunk_id}_level_{current_level}"][:]
+            next_groups.clear()
+            
+            # Process each group at this level
+            for i in range(current_groups.size()):
+                if current_groups[i].kmers.empty():
+                    continue
+                
+                # Binary search for each kmer in the group's range
+                for j in range(current_groups[i].kmers.size()):
+                    kmer = current_groups[i].kmers[j].first
+                    
+                    # Find position in current level's range
+                    start_pos = current_groups[i].start
+                    end_pos = current_groups[i].end
+                    
+                    # Binary search in this range
+                    while start_pos < end_pos:
+                        mid = (start_pos + end_pos) // 2
+                        if level_data[mid] < kmer:
+                            start_pos = mid + 1
+                        else:
+                            end_pos = mid
+                    
+                    if current_level == 0:
+                        # At leaf level, calculate final range
+                        range_start = max(0, start_pos - 1) * self.page_size
+                        range_end = min((start_pos + 1) * self.page_size, 
+                                    len(self.index[f'index_{chunk_id}_indices']))
+                        results.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](
+                            kmer,
+                            pair[uint64_t, uint64_t](range_start, range_end)
+                        ))
+                    else:
+                        # Create new group for next level
+                        new_group.start = max(0, start_pos - 1) * self.page_size
+                        new_group.end = min((start_pos + 1) * self.page_size,
+                                        self.hierarchical_sizes[current_level - 1])
+                        new_group.kmers.clear()
+                        new_group.kmers.push_back(current_groups[i].kmers[j])
+                        next_groups.push_back(new_group)
+            
+            current_groups = next_groups
+            current_level -= 1
+        
+        return results
+
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
-        # TODO: does not work! something is off here - what is returned by the binary_search function?
+        """Find kmers using hierarchical index structure with batch processing."""
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
-            pair[uint64_t, pair[uint32_t, uint32_t]] _cindex_res
-            pair[uint64_t, uint64_t] _indptr
-            uint64_t kmer, _start, _end, _indptr_first, _indptr_second
-            int chunk_len
-            np.ndarray _res
-            uint32_t _res_item
+            vector[uint64_t] kmer_vec
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_data_ranges
+            uint64_t kmer, start_idx, end_idx, data_start, data_end
             unordered_set[uint32_t] _set
-
+            np.ndarray indices_chunk, indptr_chunk, data_chunk
+            int exact_idx
+            double t0, t1
+            size_t i
+            
         _data = self.index[f'index_{chunk_id}_data']
-        _index_chunk = self.index[f'index_{chunk_id}_indices']
-        chunk_len = len(self.index[f'index_{chunk_id}_indices'])
+        _indices = self.index[f'index_{chunk_id}_indices']
+        _indptr = self.index[f'index_{chunk_id}_indptr']
 
         if self.verbose:
-            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
+            iterator = track(kmers, description=f'Processing kmers at chunk {chunk_id}')
         else:
             iterator = kmers
 
+        # Phase 1: Find all index ranges for kmers using batch search
+        t0 = time.time()
+        # Convert kmers to vector
         for kmer in iterator:
-            # find the approximate location using cindex (on memory)
-            _cindex_res = binary_search(self._cindex, kmer)
-            _start, _end = _cindex_res.second.first, _cindex_res.second.second
+            kmer_vec.push_back(kmer)
+        
+        # Perform batch hierarchical search
+        valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
 
-            # find the exact location in the index file (on disk)
-            # we need _start and _end to define a _high and _low
-            _index_idx = backed_binary_search_int(_index_chunk, _start, _end, kmer)
+        t1 = time.time()
+        if self.verbose:
+            print(f"Time finding hierarchical ranges: {t1-t0:.2f}s")
 
-            # when binary search does not succeed
-            if _index_idx == -1:
-                continue
+        # Phase 2: Batch process indices and indptr lookups
+        t0 = time.time()
+        for i in range(valid_ranges.size()):
+            kmer = valid_ranges[i].first
+            start_idx = valid_ranges[i].second.first
+            end_idx = valid_ranges[i].second.second
             
-            # we get the indptrs (on disk) using the location
-            _indptr_first = self.index[f'index_{chunk_id}_indptr'][_index_idx]
-            _indptr_second = self.index[f'index_{chunk_id}_indptr'][_index_idx+1] if _index_idx < chunk_len else chunk_len
+            indices_chunk = _indices[start_idx:end_idx]
+            exact_idx = backed_binary_search_int(indices_chunk, 0, len(indices_chunk)-1, kmer)
             
-            # this is the same as for self._find_kmer(...), output datastructure should be compatible!
-            if ((_indptr_second - _indptr_first) >= count_at_most) or ((_indptr_second - _indptr_first) <= count_at_least):
+            if exact_idx == -1:
                 continue
+                
+            exact_idx += start_idx
+            indptr_chunk = _indptr[exact_idx:exact_idx+2]
+            data_start = indptr_chunk[0]
+            data_end = indptr_chunk[1]
+            
+            if ((data_end - data_start) >= count_at_most) or ((data_end - data_start) <= count_at_least):
+                continue
+                
+            valid_data_ranges.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](
+                kmer,
+                pair[uint64_t, uint64_t](data_start, data_end)
+            ))
+        t1 = time.time()
+        if self.verbose:
+            print(f"Time processing indices and indptr: {t1-t0:.2f}s")
 
-            _res = _data[_indptr_first:_indptr_second]
+        # Phase 3: Batch process data lookups
+        t0 = time.time()
+        for i in range(valid_data_ranges.size()):
+            kmer = valid_data_ranges[i].first
+            data_start = valid_data_ranges[i].second.first
+            data_end = valid_data_ranges[i].second.second
+            
+            _res = _data[data_start:data_end]
             _set = unordered_set[uint32_t]()
             for _res_item in _res:
                 _set.insert(_res_item)
-
             vals[kmer] = _set
+        t1 = time.time()
+        if self.verbose:
+            print(f"Time processing data: {t1-t0:.2f}s")
 
         return vals
     
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
-        if not self._index_backed.empty():
+        """Enhanced find_kmer to support both standard and hierarchical approaches."""
+        if not self.using_hierarchical:
             return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
-        elif not self._cindex.empty():
-            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
         else:
-            raise Exception("ERROR: index not found in memory.")
+            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
 
     cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         cdef:
@@ -656,45 +853,39 @@ cdef class MalvaIndex:
                 total_length
             )
 
-    cdef void _load_index_to_constrained_memory(self, int chunk_id = 0, int max_mem_bytes = 0):
-        # calculate the size of the constrained index (cindex)
-        # each element will at least 3*64bit integers, plus some data-structure overhead
+    cdef void _load_index_to_constrained_memory(self, int chunk_id=0, int max_mem_bytes=0):
+        """Initialize hierarchical index structure if it doesn't exist."""
         cdef:
-            int OVERHEAD = 2
-            int cindex_size = max_mem_bytes//(24*OVERHEAD)
-            int chunk_len, chunk_each
-            size_t i = 0
-            np.ndarray _cindex_indices, _cindex_indptr
-            uint64_t _last_cindex_indices
-
-        chunk_len = len(self.index[f'index_{chunk_id}_indices']) - 1
+            str level_name = f"hierarchical_{chunk_id}_level_0"
+            str sizes_name = f"hierarchical_{chunk_id}_sizes"
+            np.ndarray sizes_array
+            size_t i
         
-        chunk_each = chunk_len//cindex_size
-        if chunk_each == 1:
-            logging.debug("Maximum memory compatible with chunk length - falling back to loading entire index (no cindex)")
-            self._load_index_to_memory(chunk_id)
-            return
-
-        _cindex_indices = self.index[f'index_{chunk_id}_indices'][::chunk_each]
-        _cindex_indptr = np.arange(0, chunk_len, chunk_each)
-
-        for i in range(len(_cindex_indices)-1):
-            self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_cindex_indices[i], pair[uint32_t, uint32_t](_cindex_indptr[i], _cindex_indptr[i+1])))
-
-        # we add the last position
-        _last_cindex_indices = self.index[f'index_{chunk_id}_indices'][chunk_len]
-        self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_last_cindex_indices, pair[uint32_t, uint32_t](_cindex_indptr[i+1], chunk_len)))
+        if level_name not in self.index:
+            if self.verbose:
+                logging.info("Creating hierarchical index")
+            self._create_hierarchical_index(chunk_id)
+        else:
+            # Load existing hierarchical sizes
+            if self.verbose:
+                logging.info("Loading existing hierarchical index")
+            sizes_array = self.index[sizes_name][:]
+            self.hierarchical_sizes.clear()
+            for i in range(len(sizes_array)):
+                self.hierarchical_sizes.push_back(sizes_array[i])
+        
+        self.using_hierarchical = True
 
     def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 50_000_000, max_mem: str = None, force: bool = False, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
 
-        if (not self._index_backed.empty() or not self._cindex.empty()) and not force:
+        if (not self._index_backed.empty() or self.using_hierarchical) and not force:
             return
         
         # we make sure to clear both backed and constrained index
         # in case we load different modes at different times
         self._index_backed.clear()
-        self._cindex.clear()
+        self.using_hierarchical = False
 
         if max_mem_bytes <= 0:
             self._load_index_to_memory(chunk_id, chunk_size, count_at_most, count_at_least)
@@ -757,6 +948,8 @@ cdef class MalvaIndex:
         # TODO: find which kmers are duplicate, and these are used for weighting correctly the overrepresentation score
         all_kmer_list = np.unique(np.concatenate(all_kmer_list))
         all_kmer_list = all_kmer_list[all_kmer_list != 0]
+
+        print("processing kmers", len(all_kmer_list))
 
         if len(all_kmer_list) == 0:
             return (kmer_locations, kmer_count, seq_matches)
