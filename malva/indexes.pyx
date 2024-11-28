@@ -111,6 +111,18 @@ cdef struct SpatialCoord:
     uint32_t y
 
 cdef class MalvaIndex:
+    """
+    A spatial indexing system for k-mer sequences.
+
+    Manages creation, storage, and querying of k-mer indices with associated spatial coordinates.
+    Supports both memory-efficient and performance-optimized indexing strategies.
+
+    Attributes:
+        index_dir (str): Directory where index files are stored
+        kmer_size (int): Length of k-mers used in the index
+        verbose (bool): Whether to print detailed logging information
+        n_chunks (int): Number of chunks the index is split into
+    """
     cdef:
         public str index_dir
         public str index_file
@@ -909,6 +921,28 @@ cdef class MalvaIndex:
         return all_sliding
 
     def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, *args, **kwargs):
+        """
+        Locate spatial positions where a sequence or set of sequences appear.
+
+        Parameters:
+            sequence (Union[str, List[str]]): Query sequence(s) to search for
+            sliding_size (int): Size of sliding window for k-mer generation
+            pct_threshold (float): Minimum percentage of matching k-mers required
+            count_at_most (int): Maximum count threshold for k-mer consideration
+            count_at_least (int): Minimum count threshold for k-mer consideration
+            chunk_id (int): Index chunk to search in
+            single_count (bool): Whether to count each match only once
+            max_mem (str): Maximum memory constraint
+            force_reload (bool): Force index reload
+            use_background_model (bool): Use background model for filtering
+
+        Returns:
+            Tuple containing:
+            - np.ndarray: Spatial locations where sequences were found
+            - np.ndarray: Count of occurrences at each location
+            - List: Matching details for sequence positions
+        """
+
         # TODO: reimplement seq_matches again, supporting various sequences...
         # TODO: when using cDNA, we get less matches than when using UTR. cDNA sequences contain the UTR, does not make sense!!!!!!
         cdef:
@@ -949,7 +983,8 @@ cdef class MalvaIndex:
         all_kmer_list = np.unique(np.concatenate(all_kmer_list))
         all_kmer_list = all_kmer_list[all_kmer_list != 0]
 
-        print("processing kmers", len(all_kmer_list))
+        if self.verbose:
+            logging.info(f"Will process {len(all_kmer_list)} {self.kmer_size}-mers")
 
         if len(all_kmer_list) == 0:
             return (kmer_locations, kmer_count, seq_matches)
@@ -1042,6 +1077,12 @@ cdef struct LineData:
 # TODO: then there's a SpatialIndex class inherited from BarcodeIndex
 # TODO: this also gets the flavor, and chooses the reader based on that
 cdef class SpatialIndex:
+    """
+    Manages spatial coordinates and their associated cell barcodes.
+
+    Provides efficient lookup and storage of spatial positions indexed by cell barcodes.
+    Supports both standard spatial transcriptomics and STOmics data formats.
+    """
     cdef:
         map[uint64_t, uint32_t] index
         vector[pair[float, float]] coords
@@ -1194,6 +1235,18 @@ cdef void process_line(const char* line, int line_length, LineData* data, bint e
             start = i + 1
 
 def create_spatial_index(str spatial_barcode_file):
+    """
+    Create a spatial index from a barcode coordinate file.
+
+    Parameters:
+        spatial_barcode_file (str): Path to file containing barcode coordinates
+
+    Returns:
+        SpatialIndex: Index mapping barcodes to spatial coordinates
+
+    Processes a CSV/TSV file containing cell barcodes and their x,y coordinates
+    to build an efficient lookup structure.
+    """
     cdef:
         SpatialIndex sindex = SpatialIndex()
         FILE* file
@@ -1252,6 +1305,18 @@ cdef void process_line_whitelist(const char* line, int line_length, LineData* da
                 data.cell_bc = encode_kmer(kmer.decode("ascii")[:i])
 
 def create_singlecell_index(str whitelist_file):
+    """
+    Create an index from a single-cell barcode whitelist.
+
+    Parameters:
+        whitelist_file (str): Path to file containing valid cell barcodes
+
+    Returns:
+        SpatialIndex: Index containing valid cell barcodes
+
+    Processes a whitelist file containing one barcode per line to create
+    a lookup structure for valid cell identifiers.
+    """
     cdef:
         SpatialIndex sindex = SpatialIndex()
         FILE* file
@@ -1291,6 +1356,17 @@ def create_singlecell_index(str whitelist_file):
     return sindex
 
 cdef class BackgroundModel:
+    """
+    Models background k-mer frequencies for filtering common sequences.
+
+    Maintains counts of k-mer occurrences in reference sequences to identify
+    and filter out highly abundant or common k-mers during searches.
+
+    Attributes:
+        total_mers (int): Total number of k-mers processed
+        kmer_size (int): Length of k-mers being counted
+        verbose (bool): Whether to print detailed logging information
+    """
     cdef:
         map[uint64_t, uint16_t] model
         size_t total_mers
@@ -1304,6 +1380,16 @@ cdef class BackgroundModel:
         self.verbose = verbose
 
     def create_from_reference(self, str filename, bint consecutive_genes = True):
+        """
+        Build background model from a reference sequence file.
+
+        Parameters:
+            filename (str): Path to reference sequence file
+            consecutive_genes (bool): Whether to group consecutive genes
+
+        Processes reference sequences to count k-mer frequencies,
+        optionally combining counts for consecutive genes with same name.
+        """
         from malva.reader import iterate_fasta
         from malva.utils import check_file_exists
 
