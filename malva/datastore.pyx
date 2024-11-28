@@ -24,16 +24,23 @@ cdef extern from "numpy/arrayobject.h":
     np.ndarray PyArray_SimpleNew(int nd, np.npy_intp* dims, int typenum) nogil
 
 cdef class PageCache:
-    def __cinit__(self, str filename, size_t page_size=PAGE_SIZE, size_t n_pages=CACHE_SIZE):
+    def __cinit__(self, str filename, size_t page_size=PAGE_SIZE, size_t n_pages=CACHE_SIZE, size_t dtype_size=8):
         self.filename = filename
         self.page_size = page_size
         self.n_pages = n_pages
+        self.dtype_size = dtype_size  # Store dtype_size
+        
+        # Ensure page_size is aligned with dtype_size
+        if self.page_size % dtype_size != 0:
+            self.page_size = ((self.page_size + dtype_size - 1) // dtype_size) * dtype_size
+        
         self.pages = <CachePage*>malloc(n_pages * sizeof(CachePage))
         if not self.pages:
             raise MemoryError()
         
         for i in range(n_pages):
-            self.pages[i].data = malloc(page_size)
+            # Allocate aligned memory for each page
+            self.pages[i].data = malloc(self.page_size)
             if not self.pages[i].data:
                 raise MemoryError()
             self.pages[i].page_number = 0
@@ -110,8 +117,6 @@ cdef class PageCache:
 
 cdef class PageAlignedArray:
     def __cinit__(self, Py_ssize_t size, dtype='uint64', bint mmap_mode=False, str filename=None):
-        cdef Py_ssize_t aligned_size
-        
         self._dtype = np.dtype(dtype)
         self._np_dtype = self._dtype
         self._dtype_size = self._dtype.itemsize
@@ -123,7 +128,8 @@ cdef class PageAlignedArray:
         if filename is None:
             raise ValueError("Filename required for both mmap and non-mmap modes")
             
-        aligned_size = (size * self._dtype_size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)
+        # Ensure size is properly aligned based on dtype
+        cdef Py_ssize_t aligned_size = (size * self._dtype_size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)
         
         if not os.path.exists(filename):
             with open(filename, 'wb') as f:
@@ -133,7 +139,8 @@ cdef class PageAlignedArray:
         if mmap_mode:
             self._init_mmap(filename, aligned_size)
         else:
-            self._cache = PageCache(filename, PAGE_SIZE)
+            # Pass dtype_size to PageCache
+            self._cache = PageCache(filename, PAGE_SIZE, CACHE_SIZE, self._dtype_size)
 
     def __dealloc__(self):
         if self._mmap_mode and self._mmap is not None:
@@ -165,28 +172,38 @@ cdef class PageAlignedArray:
             size_t offset_in_page
             void* page_data
             size_t bytes_to_copy
+            size_t item_size = self._dtype_size  # Cache dtype size
             
         while i < stop:
-            page_number = (i * self._dtype_size) // PAGE_SIZE
-            offset_in_page = (i * self._dtype_size) % PAGE_SIZE
+            # Fix page number calculation to account for item size
+            page_number = (i * item_size) // PAGE_SIZE
+            offset_in_page = (i * item_size) % PAGE_SIZE
             
             if self._mmap_mode:
-                memcpy((<char*>dest) + idx * self._dtype_size,
-                      <char*>(<uintptr_t>self._mmap.buf) + i * self._dtype_size,
-                      self._dtype_size)
+                memcpy(
+                    <char*>dest + (idx * item_size),  # Fix stride
+                    <char*>(<uintptr_t>self._mmap.buf) + (i * item_size),
+                    item_size
+                )
             else:
                 page_data = self._cache.get_page(page_number)
-                bytes_to_copy = min(PAGE_SIZE - offset_in_page, self._dtype_size)
-                memcpy((<char*>dest) + idx * self._dtype_size,
-                      (<char*>page_data) + offset_in_page,
-                      bytes_to_copy)
+                bytes_to_copy = min(PAGE_SIZE - offset_in_page, item_size)
                 
-                if bytes_to_copy < self._dtype_size:
-                    # Handle case where data spans two pages
+                # Main copy
+                memcpy(
+                    <char*>dest + (idx * item_size),
+                    <char*>page_data + offset_in_page,
+                    bytes_to_copy
+                )
+                
+                # Handle page boundary crossing
+                if bytes_to_copy < item_size:
                     page_data = self._cache.get_page(page_number + 1)
-                    memcpy((<char*>dest) + idx * self._dtype_size + bytes_to_copy,
-                          <char*>page_data,
-                          self._dtype_size - bytes_to_copy)
+                    memcpy(
+                        <char*>dest + (idx * item_size) + bytes_to_copy,
+                        <char*>page_data,
+                        item_size - bytes_to_copy
+                    )
             
             idx += 1
             i += step
@@ -194,39 +211,48 @@ cdef class PageAlignedArray:
     cdef void _set_slice_data(self, Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, void* src) except *:
         cdef:
             Py_ssize_t chunk_size = stop - start
-            Py_ssize_t i, idx = 0
+            Py_ssize_t i = start, idx = 0
             uint64_t page_number
             size_t offset_in_page
             void* page_data
             size_t bytes_to_copy
+            size_t item_size = self._dtype_size  # Cache dtype size
 
-        # For large sequential writes, use direct write
-        if step == 1 and chunk_size * self._dtype_size >= self._buffer_size:
+        # Use direct write for large sequential writes
+        if step == 1 and chunk_size * item_size >= self._buffer_size:
             self._direct_write(src, start, chunk_size)
             return
 
-        # For smaller writes or non-sequential access, use page cache
         while i < stop:
-            page_number = (i * self._dtype_size) // PAGE_SIZE
-            offset_in_page = (i * self._dtype_size) % PAGE_SIZE
+            # Fix page number calculation to account for item size
+            page_number = (i * item_size) // PAGE_SIZE
+            offset_in_page = (i * item_size) % PAGE_SIZE
             
             if self._mmap_mode:
-                memcpy(<char*>(<uintptr_t>self._mmap.buf) + i * self._dtype_size,
-                      (<char*>src) + idx * self._dtype_size,
-                      self._dtype_size)
+                memcpy(
+                    <char*>(<uintptr_t>self._mmap.buf) + (i * item_size),
+                    <char*>src + (idx * item_size),
+                    item_size
+                )
             else:
                 page_data = self._cache.get_page(page_number, True)
-                bytes_to_copy = min(PAGE_SIZE - offset_in_page, self._dtype_size)
-                memcpy((<char*>page_data) + offset_in_page,
-                      (<char*>src) + idx * self._dtype_size,
-                      bytes_to_copy)
+                bytes_to_copy = min(PAGE_SIZE - offset_in_page, item_size)
                 
-                if bytes_to_copy < self._dtype_size:
-                    # Handle case where data spans two pages
+                # Main copy
+                memcpy(
+                    <char*>page_data + offset_in_page,
+                    <char*>src + (idx * item_size),
+                    bytes_to_copy
+                )
+                
+                # Handle page boundary crossing
+                if bytes_to_copy < item_size:
                     page_data = self._cache.get_page(page_number + 1, True)
-                    memcpy(<char*>page_data,
-                          (<char*>src) + idx * self._dtype_size + bytes_to_copy,
-                          self._dtype_size - bytes_to_copy)
+                    memcpy(
+                        <char*>page_data,
+                        <char*>src + (idx * item_size) + bytes_to_copy,
+                        item_size - bytes_to_copy
+                    )
             
             idx += 1
             i += step

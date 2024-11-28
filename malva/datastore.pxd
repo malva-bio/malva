@@ -14,8 +14,9 @@ cdef class PageCache:
         CachePage* pages
         size_t n_pages
         size_t page_size
-        object file  # Using object instead of FILE* for better Python integration
+        object file
         str filename
+        size_t dtype_size  # Add dtype_size to PageCache
 
     cdef void flush(self) except *
     cdef void _write_page(self, size_t cache_idx) except *
@@ -31,7 +32,7 @@ cdef class PageAlignedArray:
         object _mmap
         PageCache _cache
         str _filename
-        Py_ssize_t _buffer_size  # Added for optimized writes
+        Py_ssize_t _buffer_size
 
     cdef void _init_mmap(self, str filename, Py_ssize_t size) except *
     cdef void _get_slice_data(self, Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, void* dest) except *
