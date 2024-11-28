@@ -69,6 +69,15 @@ def get_extensions():
             define_macros=[('CYTHON_TRACE', '1'),
                          ('CYTHON_TRACE_NOGIL', '1')],
         ),
+        Extension(
+            "malva.datastore",
+            ["malva/datastore.pyx"],
+            include_dirs=[unordered_dense_include, numpy.get_include()],
+            language="c++",
+            extra_compile_args=["-std=c++17"],
+            define_macros=[('CYTHON_TRACE', '1'),
+                         ('CYTHON_TRACE_NOGIL', '1')],
+        ),
     ]
     
     return cythonize(extensions, 
