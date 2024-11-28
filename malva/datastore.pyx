@@ -19,6 +19,7 @@ DEF DEFAULT_CHUNK_SIZE = 16384
 DEF CACHE_SIZE = 1024
 DEF WRITE_BUFFER_SIZE = 1024 * 1024
 DEF FREAD_BUFFER_SIZE = 4096
+DEF MAX_DIMS = 32
 
 cdef extern from "numpy/arrayobject.h":
     void* PyArray_DATA(np.ndarray arr) nogil
@@ -134,11 +135,10 @@ cdef class PageCache:
         return self._data.pages[lru_idx].data
 
 cdef class PageAlignedArray:
-    def __cinit__(self, Py_ssize_t size, dtype='uint64', bint mmap_mode=False, str filename=None):
+    def __cinit__(self, tuple shape, dtype='uint64', bint mmap_mode=False, str filename=None):
         self._dtype = np.dtype(dtype)
         self._np_dtype = self._dtype
         self._dtype_size = self._dtype.itemsize
-        self._size = size
         self._mmap_mode = mmap_mode
         self._filename = filename
         self._read_buffer_size = FREAD_BUFFER_SIZE
@@ -146,8 +146,9 @@ cdef class PageAlignedArray:
         
         if filename is None:
             raise ValueError("Filename required for both mmap and non-mmap modes")
-            
-        aligned_size = (size * self._dtype_size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)
+        
+        self._init_shape(shape)
+        aligned_size = (self._shape.total_size * self._dtype_size + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1)
         
         if not os.path.exists(filename):
             with open(filename, 'wb') as f:
@@ -163,13 +164,57 @@ cdef class PageAlignedArray:
         with open(filename, 'r+b') as f:
             self._mmap = py_mmap.mmap(f.fileno(), size, access=py_mmap.ACCESS_WRITE)
 
-    cdef void _direct_write(self, void* src, Py_ssize_t start, Py_ssize_t size) except *:
+    cdef Py_ssize_t _compute_flat_index(self, Py_ssize_t* indices) nogil:
         cdef:
-            Py_ssize_t offset = start * self._dtype_size
+            Py_ssize_t flat_idx = 0
+            Py_ssize_t stride = 1
+            int i
+        
+        for i in range(self._shape.ndim - 1, -1, -1):
+            flat_idx += indices[i] * stride
+            stride *= self._shape.dims[i]
+        
+        return flat_idx
+
+    cdef void _init_shape(self, tuple shape) except *:
+        cdef int i
+        self._shape.ndim = len(shape)
+        self._shape.dims = <Py_ssize_t*>malloc(self._shape.ndim * sizeof(Py_ssize_t))
+        if not self._shape.dims:
+            raise MemoryError()
+        
+        self._shape.total_size = 1
+        for i in range(self._shape.ndim):
+            self._shape.dims[i] = shape[i]
+            self._shape.total_size *= shape[i]
+
+    cdef tuple _get_shape(self):
+        """
+        Get the shape of the array as a tuple.
+        """
+        return tuple([self._shape.dims[i] for i in range(self._shape.ndim)])
+
+    cpdef tuple get_shape(self):
+        """
+        Public method to get the shape
+        """
+        return self._get_shape()
+
+    @property 
+    def shape(self):
+        """
+        Public property to access array shape
+        """
+        return self._get_shape()
+
+    cdef void _direct_write(self, void* src, Py_ssize_t* indices, Py_ssize_t size) except *:
+        cdef:
+            Py_ssize_t flat_idx = self._compute_flat_index(indices)
+            Py_ssize_t offset = flat_idx * self._dtype_size
             size_t bytes_to_write = size * self._dtype_size
             
         if self._mmap_mode:
-            memcpy(<char*>(<uintptr_t>self._mmap.buf), src, bytes_to_write)
+            memcpy(<char*>(<uintptr_t>self._mmap.buf) + offset, src, bytes_to_write)
             self._mmap.flush()
         else:
             data = bytes((<char[:bytes_to_write]>src)[:bytes_to_write])
@@ -177,106 +222,84 @@ cdef class PageAlignedArray:
                 f.seek(offset)
                 f.write(data)
 
-    cdef void _get_slice_data(self, Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, void* dest) except *:
+    cdef void _get_slice_data(self, Py_ssize_t* indices, Py_ssize_t size, void* dest) except *:
         cdef:
-            Py_ssize_t i = start, idx = 0
-            uint64_t page_number
-            size_t offset_in_page
-            void* page_data
-            size_t bytes_to_copy
-            size_t item_size = self._dtype_size
-            Py_ssize_t chunk_size = stop - start
-            char* temp_buffer
+            Py_ssize_t flat_idx = self._compute_flat_index(indices)
+            Py_ssize_t offset = flat_idx * self._dtype_size
+            size_t bytes_to_read = size * self._dtype_size
             
-        if step == 1 and chunk_size * item_size >= self._read_buffer_size:
-            with open(self._filename, 'rb') as f:
-                f.seek(start * item_size)
-                data = f.read(chunk_size * item_size)
-                memcpy(dest, <char*>data, len(data))
+        # Fast path for large contiguous reads
+        if bytes_to_read >= self._read_buffer_size:
+            if self._mmap_mode:
+                memcpy(dest, <char*>(<uintptr_t>self._mmap.buf) + offset, bytes_to_read)
+            else:
+                with open(self._filename, 'rb') as f:
+                    f.seek(offset)
+                    data = f.read(bytes_to_read)
+                    memcpy(dest, <char*>data, len(data))
             return
 
-        while i < stop:
-            page_number = (i * item_size) // PAGE_SIZE
-            offset_in_page = (i * item_size) % PAGE_SIZE
-            
-            if self._mmap_mode:
-                memcpy(
-                    <char*>dest + (idx * item_size),
-                    <char*>self._mmap.buf + (i * item_size),
-                    item_size
-                )
-            else:
-                page_data = self._cache.get_page(page_number)
-                bytes_to_copy = min(PAGE_SIZE - offset_in_page, item_size)
-                
-                memcpy(
-                    <char*>dest + (idx * item_size),
-                    <char*>page_data + offset_in_page,
-                    bytes_to_copy
-                )
-                
-                if bytes_to_copy < item_size:
-                    page_data = self._cache.get_page(page_number + 1)
-                    memcpy(
-                        <char*>dest + (idx * item_size) + bytes_to_copy,
-                        <char*>page_data,
-                        item_size - bytes_to_copy
-                    )
-            
-            idx += 1
-            i += step
-
-    cdef void _set_slice_data(self, Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, void* src) except *:
+        # Page-based reading for smaller or non-contiguous access
         cdef:
-            Py_ssize_t chunk_size = stop - start
-            Py_ssize_t i = start, idx = 0
-            uint64_t page_number
-            size_t offset_in_page
+            uint64_t page_number = offset // PAGE_SIZE
+            size_t offset_in_page = offset % PAGE_SIZE
+            size_t bytes_remaining = bytes_to_read
+            size_t bytes_this_page
             void* page_data
-            size_t bytes_to_copy
-            size_t item_size = self._dtype_size  # Cache dtype size
+            
+        while bytes_remaining > 0:
+            page_data = self._cache.get_page(page_number, False)
+            bytes_this_page = min(PAGE_SIZE - offset_in_page, bytes_remaining)
+            
+            memcpy(
+                <char*>dest + (bytes_to_read - bytes_remaining),
+                <char*>page_data + offset_in_page,
+                bytes_this_page
+            )
+            
+            bytes_remaining -= bytes_this_page
+            page_number += 1
+            offset_in_page = 0
 
-        # Use direct write for large sequential writes
-        if step == 1 and chunk_size * item_size >= self._write_buffer_size:
-            self._direct_write(src, start, chunk_size)
+    cdef void _set_slice_data(self, Py_ssize_t* indices, Py_ssize_t size, void* src) except *:
+        cdef:
+            Py_ssize_t flat_idx = self._compute_flat_index(indices)
+            Py_ssize_t offset = flat_idx * self._dtype_size
+            size_t bytes_to_write = size * self._dtype_size
+            
+        # Fast path for large contiguous writes
+        if bytes_to_write >= self._write_buffer_size:
+            if self._mmap_mode:
+                memcpy(<char*>(<uintptr_t>self._mmap.buf) + offset, src, bytes_to_write)
+                self._mmap.flush()
+            else:
+                data = bytes((<char[:bytes_to_write]>src)[:bytes_to_write])
+                with open(self._filename, 'rb+') as f:
+                    f.seek(offset)
+                    f.write(data)
             return
 
-        while i < stop:
-            # Fix page number calculation to account for item size
-            page_number = (i * item_size) // PAGE_SIZE
-            offset_in_page = (i * item_size) % PAGE_SIZE
+        # Page-based writing for smaller or non-contiguous access
+        cdef:
+            uint64_t page_number = offset // PAGE_SIZE
+            size_t offset_in_page = offset % PAGE_SIZE
+            size_t bytes_remaining = bytes_to_write
+            size_t bytes_this_page
+            void* page_data
             
-            if self._mmap_mode:
-                memcpy(
-                    <char*>(<uintptr_t>self._mmap.buf) + (i * item_size),
-                    <char*>src + (idx * item_size),
-                    item_size
-                )
-            else:
-                page_data = self._cache.get_page(page_number, True)
-                bytes_to_copy = min(PAGE_SIZE - offset_in_page, item_size)
-                
-                # Main copy
-                memcpy(
-                    <char*>page_data + offset_in_page,
-                    <char*>src + (idx * item_size),
-                    bytes_to_copy
-                )
-                
-                # Handle page boundary crossing
-                if bytes_to_copy < item_size:
-                    page_data = self._cache.get_page(page_number + 1, True)
-                    memcpy(
-                        <char*>page_data,
-                        <char*>src + (idx * item_size) + bytes_to_copy,
-                        item_size - bytes_to_copy
-                    )
+        while bytes_remaining > 0:
+            page_data = self._cache.get_page(page_number, True)
+            bytes_this_page = min(PAGE_SIZE - offset_in_page, bytes_remaining)
             
-            idx += 1
-            i += step
-
-        if self._mmap_mode:
-            self._mmap.flush()
+            memcpy(
+                <char*>page_data + offset_in_page,
+                <char*>src + (bytes_to_write - bytes_remaining),
+                bytes_this_page
+            )
+            
+            bytes_remaining -= bytes_this_page
+            page_number += 1
+            offset_in_page = 0
 
     def flush(self):
         """Ensure all changes are written to disk"""
@@ -287,67 +310,322 @@ cdef class PageAlignedArray:
 
     def __getitem__(self, key):
         cdef:
-            Py_ssize_t start, stop, step
+            Py_ssize_t[MAX_DIMS] indices
             np.ndarray result
-            np.npy_intp dims[1]
+            np.npy_intp dims[MAX_DIMS]
             void* result_data
-            Py_ssize_t idx
-        
-        if isinstance(key, slice):
-            start = key.start if key.start is not None else 0
-            stop = key.stop if key.stop is not None else self._size
-            step = key.step if key.step is not None else 1
+            int i
+            Py_ssize_t total_size = 1
+            bint is_contiguous = True
             
-            if start < 0 or stop > self._size:
-                raise IndexError("Index out of bounds")
+        # Handle different key types
+        if isinstance(key, (int, slice)):
+            # Convert single index/slice to tuple for consistent handling
+            key = (key,)
+            
+            # For 1D access of multi-dimensional array, reshape the access
+            if self._shape.ndim > 1:
+                # Create a flattened view
+                total_elements = self._shape.total_size
+                if isinstance(key[0], int):
+                    if key[0] >= total_elements:
+                        raise IndexError("Index out of bounds")
+                    indices[0] = key[0]
+                    total_size = 1
+                else:
+                    start = key[0].start if key[0].start is not None else 0
+                    stop = key[0].stop if key[0].stop is not None else total_elements
+                    step = key[0].step if key[0].step is not None else 1
+                    if start >= total_elements or (stop is not None and stop > total_elements):
+                        raise IndexError("Index out of bounds")
+                    indices[0] = start
+                    total_size = (stop - start) // step
+                    if step != 1:
+                        is_contiguous = False
                 
-            dims[0] = (stop - start) // step
-            result = PyArray_SimpleNew(1, dims, self._np_dtype.num)
-            result_data = PyArray_DATA(result)
-            self._get_slice_data(start, stop, step, result_data)
-            return result
+                # Create 1D result array
+                dims[0] = 1 if isinstance(key[0], int) else total_size
+                ndim = 1
+                
+            else:
+                # Normal 1D array handling
+                if isinstance(key[0], int):
+                    if key[0] >= self._shape.dims[0]:
+                        raise IndexError("Index out of bounds")
+                    indices[0] = key[0]
+                    total_size = 1
+                else:
+                    start = key[0].start if key[0].start is not None else 0
+                    stop = key[0].stop if key[0].stop is not None else self._shape.dims[0]
+                    step = key[0].step if key[0].step is not None else 1
+                    if start >= self._shape.dims[0] or (stop is not None and stop > self._shape.dims[0]):
+                        raise IndexError("Index out of bounds")
+                    indices[0] = start
+                    total_size = (stop - start) // step
+                    if step != 1:
+                        is_contiguous = False
+                
+                dims[0] = 1 if isinstance(key[0], int) else total_size
+                ndim = 1
+                
+        elif isinstance(key, tuple):
+            # Multi-dimensional indexing
+            if len(key) > self._shape.ndim:
+                raise IndexError(f"Too many indices: got {len(key)}, maximum allowed is {self._shape.ndim}")
+                
+            ndim = len(key)
+            stride = 1
+            for i in range(ndim):
+                if isinstance(key[i], slice):
+                    start = key[i].start if key[i].start is not None else 0
+                    stop = key[i].stop if key[i].stop is not None else self._shape.dims[i]
+                    step = key[i].step if key[i].step is not None else 1
+                    if start >= self._shape.dims[i] or (stop is not None and stop > self._shape.dims[i]):
+                        raise IndexError("Index out of bounds")
+                    dims[i] = (stop - start) // step
+                    indices[i] = start
+                    total_size *= dims[i]
+                    if step != 1:
+                        is_contiguous = False
+                else:
+                    if key[i] >= self._shape.dims[i]:
+                        raise IndexError("Index out of bounds")
+                    indices[i] = key[i]
+                    dims[i] = 1
+                    
+            # Fill remaining dimensions with full slices if any
+            for i in range(ndim, self._shape.ndim):
+                dims[i] = self._shape.dims[i]
+                indices[i] = 0
+                total_size *= dims[i]
         else:
-            idx = <Py_ssize_t>key
-            if idx < 0 or idx >= self._size:
-                raise IndexError("Index out of bounds")
-                
-            dims[0] = 1
-            result = PyArray_SimpleNew(1, dims, self._np_dtype.num)
-            result_data = PyArray_DATA(result)
-            self._get_slice_data(idx, idx + 1, 1, result_data)
-            return result[0]
+            raise IndexError("Invalid index type")
+            
+        # Create the result array
+        result = PyArray_SimpleNew(ndim, dims, self._np_dtype.num)
+        result_data = PyArray_DATA(result)
+        
+        if is_contiguous:
+            self._get_slice_data(indices, total_size, result_data)
+        else:
+            self._get_strided_data(key, result_data)
+        
+        return np.squeeze(result)
 
     def __setitem__(self, key, value):
         cdef:
-            Py_ssize_t start, stop, step, idx
+            Py_ssize_t[MAX_DIMS] indices
             np.ndarray arr
             void* arr_data
+            int i
+            Py_ssize_t total_size = 1
+            bint is_contiguous = True
             
-        if isinstance(key, slice):
-            start = key.start if key.start is not None else 0
-            stop = key.stop if key.stop is not None else self._size
-            step = key.step if key.step is not None else 1
+        # Handle different key types
+        if isinstance(key, (int, slice)):
+            # Convert single index/slice to tuple for consistent handling
+            key = (key,)
             
-            if start < 0 or stop > self._size:
-                raise IndexError("Index out of bounds")
+            # For 1D access of multi-dimensional array, reshape the access
+            if self._shape.ndim > 1:
+                # Create a flattened view
+                total_elements = self._shape.total_size
+                if isinstance(key[0], int):
+                    if key[0] >= total_elements:
+                        raise IndexError("Index out of bounds")
+                    indices[0] = key[0]
+                    total_size = 1
+                else:
+                    start = key[0].start if key[0].start is not None else 0
+                    stop = key[0].stop if key[0].stop is not None else total_elements
+                    step = key[0].step if key[0].step is not None else 1
+                    if start >= total_elements or (stop is not None and stop > total_elements):
+                        raise IndexError("Index out of bounds")
+                    indices[0] = start
+                    total_size = (stop - start) // step
+                    if step != 1:
+                        is_contiguous = False
+            else:
+                # Normal 1D array handling
+                if isinstance(key[0], int):
+                    if key[0] >= self._shape.dims[0]:
+                        raise IndexError("Index out of bounds")
+                    indices[0] = key[0]
+                    total_size = 1
+                else:
+                    start = key[0].start if key[0].start is not None else 0
+                    stop = key[0].stop if key[0].stop is not None else self._shape.dims[0]
+                    step = key[0].step if key[0].step is not None else 1
+                    if start >= self._shape.dims[0] or (stop is not None and stop > self._shape.dims[0]):
+                        raise IndexError("Index out of bounds")
+                    indices[0] = start
+                    total_size = (stop - start) // step
+                    if step != 1:
+                        is_contiguous = False
+                        
+        elif isinstance(key, tuple):
+            # Multi-dimensional indexing
+            if len(key) > self._shape.ndim:
+                raise IndexError(f"Too many indices: got {len(key)}, maximum allowed is {self._shape.ndim}")
                 
-            arr = np.ascontiguousarray(value, dtype=self._np_dtype)
-            if (stop - start) // step != len(arr):
-                raise ValueError("Value length does not match slice")
-            
-            arr_data = PyArray_DATA(arr)
-            self._set_slice_data(start, stop, step, arr_data)
+            for i in range(len(key)):
+                if isinstance(key[i], slice):
+                    start = key[i].start if key[i].start is not None else 0
+                    stop = key[i].stop if key[i].stop is not None else self._shape.dims[i]
+                    step = key[i].step if key[i].step is not None else 1
+                    if start >= self._shape.dims[i] or (stop is not None and stop > self._shape.dims[i]):
+                        raise IndexError("Index out of bounds")
+                    indices[i] = start
+                    total_size *= (stop - start) // step
+                    if step != 1:
+                        is_contiguous = False
+                else:
+                    if key[i] >= self._shape.dims[i]:
+                        raise IndexError("Index out of bounds")
+                    indices[i] = key[i]
+                    
+            # Fill remaining dimensions if any
+            for i in range(len(key), self._shape.ndim):
+                indices[i] = 0
+                total_size *= self._shape.dims[i]
         else:
-            idx = <Py_ssize_t>key
-            if idx < 0 or idx >= self._size:
-                raise IndexError("Index out of bounds")
-                
-            arr = np.ascontiguousarray([value], dtype=self._np_dtype)
-            arr_data = PyArray_DATA(arr)
-            self._set_slice_data(idx, idx + 1, 1, arr_data)
+            raise IndexError("Invalid index type")
+            
+        # Convert input value to array and check shape
+        arr = np.ascontiguousarray(value, dtype=self._np_dtype)
+        if arr.size != total_size:
+            raise ValueError("Value size does not match slice size")
+            
+        arr_data = PyArray_DATA(arr)
+        
+        if is_contiguous:
+            self._set_slice_data(indices, total_size, arr_data)
+        else:
+            self._set_strided_data(key, arr)
+
+    cdef void _get_strided_data(self, tuple key, void* dest) except *:
+        cdef:
+            Py_ssize_t[MAX_DIMS] starts, stops, steps, position
+            int i
+            np.ndarray temp_arr
+            void* temp_data
+            Py_ssize_t flat_idx, total_elements = 1
+            void* page_data
+            Py_ssize_t dest_idx = 0
+            
+        # Parse slices
+        for i in range(self._shape.ndim):
+            if isinstance(key[i], slice):
+                starts[i] = key[i].start if key[i].start is not None else 0
+                stops[i] = key[i].stop if key[i].stop is not None else self._shape.dims[i]
+                steps[i] = key[i].step if key[i].step is not None else 1
+                total_elements *= (stops[i] - starts[i]) // steps[i]
+            else:
+                starts[i] = stops[i] = key[i]
+                steps[i] = 1
+        
+        # Initialize position array
+        for i in range(self._shape.ndim):
+            position[i] = starts[i]
+        
+        # Create temporary array for the result
+        temp_arr = np.zeros(total_elements, dtype=self._np_dtype)
+        temp_data = PyArray_DATA(temp_arr)
+        
+        dest_idx = 0
+        while True:
+            # Read single element
+            flat_idx = self._compute_flat_index(position)
+            if self._mmap_mode:
+                memcpy(
+                    <char*>dest + dest_idx * self._dtype_size,
+                    <char*>(<uintptr_t>self._mmap.buf) + flat_idx * self._dtype_size,
+                    self._dtype_size
+                )
+            else:
+                page_data = self._cache.get_page(
+                    (flat_idx * self._dtype_size) // PAGE_SIZE, False
+                )
+                memcpy(
+                    <char*>dest + dest_idx * self._dtype_size,
+                    <char*>page_data + (flat_idx * self._dtype_size) % PAGE_SIZE,
+                    self._dtype_size
+                )
+            
+            dest_idx += 1
+            
+            # Update position
+            for i in range(self._shape.ndim - 1, -1, -1):
+                position[i] += steps[i]
+                if position[i] < stops[i]:
+                    break
+                if i > 0:
+                    position[i] = starts[i]
+            else:
+                break
+
+    cdef void _set_strided_data(self, tuple key, np.ndarray value) except *:
+        cdef:
+            Py_ssize_t[MAX_DIMS] starts, stops, steps, position
+            int i
+            void* src_data = PyArray_DATA(value)
+            Py_ssize_t flat_idx, total_elements = 1
+            Py_ssize_t src_idx = 0
+            void* page_data
+            
+        # Parse slices
+        for i in range(self._shape.ndim):
+            if isinstance(key[i], slice):
+                starts[i] = key[i].start if key[i].start is not None else 0
+                stops[i] = key[i].stop if key[i].stop is not None else self._shape.dims[i]
+                steps[i] = key[i].step if key[i].step is not None else 1
+                total_elements *= (stops[i] - starts[i]) // steps[i]
+            else:
+                starts[i] = stops[i] = key[i]
+                steps[i] = 1
+        
+        # Initialize position array
+        for i in range(self._shape.ndim):
+            position[i] = starts[i]
+        
+        src_idx = 0
+        while True:
+            # Write single element
+            flat_idx = self._compute_flat_index(position)
+            if self._mmap_mode:
+                memcpy(
+                    <char*>(<uintptr_t>self._mmap.buf) + flat_idx * self._dtype_size,
+                    <char*>src_data + src_idx * self._dtype_size,
+                    self._dtype_size
+                )
+            else:
+                page_data = self._cache.get_page(
+                    (flat_idx * self._dtype_size) // PAGE_SIZE, True
+                )
+                memcpy(
+                    <char*>page_data + (flat_idx * self._dtype_size) % PAGE_SIZE,
+                    <char*>src_data + src_idx * self._dtype_size,
+                    self._dtype_size
+                )
+            
+            src_idx += 1
+            
+            # Update position
+            for i in range(self._shape.ndim - 1, -1, -1):
+                position[i] += steps[i]
+                if position[i] < stops[i]:
+                    break
+                if i > 0:
+                    position[i] = starts[i]
+            else:
+                break
+        
+        if self._mmap_mode:
+            self._mmap.flush()
 
     def __len__(self):
-        return self._size
+        """Return the total size of the array"""
+        return self._shape.total_size
 
 cdef class ChunkedStore:
     def __cinit__(self, str filename_base, str mode='r', bint mmap_mode=False, Py_ssize_t chunk_size=DEFAULT_CHUNK_SIZE):
@@ -359,7 +637,7 @@ cdef class ChunkedStore:
         
         if mode == 'r' and os.path.exists(f"{filename_base}.meta"):
             self._load_metadata()
-            
+
     cdef void _load_metadata(self) except *:
         import pickle
         with open(f"{self._filename_base}.meta", 'rb') as f:
@@ -368,7 +646,7 @@ cdef class ChunkedStore:
             
             for name, info in metadata['datasets'].items():
                 self._datasets[name] = PageAlignedArray(
-                    info['size'],
+                    info['shape'],  # Now using shape instead of size
                     info['dtype'],
                     self._mmap_mode,
                     f"{self._filename_base}_{name}.dat"
@@ -376,9 +654,16 @@ cdef class ChunkedStore:
                 
     cdef PageAlignedArray _create_dataset(self, str name, tuple shape, object dtype) except *:
         cdef PageAlignedArray arr
-        size = int(np.prod(shape))
+        
+        # Validate shape
+        if not shape:
+            raise ValueError("Shape cannot be empty")
+        for dim in shape:
+            if dim <= 0:
+                raise ValueError("All dimensions must be positive")
+
         arr = PageAlignedArray(
-            size, 
+            shape,  # Pass the full shape tuple
             dtype,
             self._mmap_mode,
             f"{self._filename_base}_{name}.dat"
@@ -386,17 +671,40 @@ cdef class ChunkedStore:
         self._datasets[name] = arr
         return arr
 
-    def create_dataset(self, str name, tuple shape, dtype='uint64', **kwargs):
+    def create_dataset(self, str name, tuple shape, dtype='float64', **kwargs):
+        """
+        Create a new dataset with the specified shape and type.
+        
+        Parameters:
+        -----------
+        name : str
+            Name of the dataset
+        shape : tuple
+            Shape of the dataset (e.g., (100, 200) for 2D array)
+        dtype : str or numpy.dtype
+            Data type of the dataset
+        **kwargs : dict
+            Additional arguments (for compatibility)
+            
+        Returns:
+        --------
+        PageAlignedArray
+            The newly created dataset
+        """
         return self._create_dataset(name, shape, dtype)
         
     def __getitem__(self, name):
+        if name not in self._datasets:
+            raise KeyError(f"Dataset '{name}' not found")
         return self._datasets[name]
-        
+
     def __setitem__(self, name, value):
         if isinstance(value, np.ndarray):
             if name not in self._datasets:
                 self.create_dataset(name, value.shape, value.dtype)
             self._datasets[name][:] = value
+        else:
+            raise TypeError("Value must be a numpy array")
 
     def __iter__(self):
         """Make ChunkedStore iterable."""
@@ -431,25 +739,130 @@ cdef class ChunkedStore:
         return self._attrs
         
     def flush(self):
+        """
+        Flush all changes to disk and save metadata
+        """
         import pickle
+        
+        # First flush all datasets
+        for dataset in self._datasets.values():
+            dataset.flush()
+        
+        # Prepare and save metadata
         metadata = {
             'attrs': self._attrs,
             'datasets': {
                 name: {
-                    'size': arr._size,
+                    'shape': arr.get_shape(),
                     'dtype': str(arr._dtype)
                 }
                 for name, arr in self._datasets.items()
             }
         }
+        
         with open(f"{self._filename_base}.meta", 'wb') as f:
             pickle.dump(metadata, f)
-            
+
     def close(self):
         self.flush()
         self._datasets.clear()
 
-def convert_h5_to_chunked(h5_filename, output_base, chunk_size=DEFAULT_CHUNK_SIZE):
+    def get_chunk_indices(self, dataset_name):
+        """
+        Generate chunk indices for efficient iteration over a dataset
+        
+        Parameters:
+        -----------
+        dataset_name : str
+            Name of the dataset
+            
+        Yields:
+        -------
+        tuple
+            Slice objects for each dimension
+        """
+        if dataset_name not in self._datasets:
+            raise KeyError(f"Dataset '{dataset_name}' not found")
+            
+        dataset = self._datasets[dataset_name]
+        shape = dataset._get_shape()
+        ndim = len(shape)
+        
+        # Calculate chunks for each dimension
+        chunk_sizes = []
+        for dim_size in shape:
+            chunk_size = min(self._chunk_size, dim_size)
+            chunk_sizes.append(chunk_size)
+        
+        # Generate all combinations of chunks
+        current_indices = [0] * ndim
+        while True:
+            # Create slices for current chunk
+            slices = []
+            for dim in range(ndim):
+                start = current_indices[dim]
+                stop = min(start + chunk_sizes[dim], shape[dim])
+                slices.append(slice(start, stop))
+            
+            yield tuple(slices)
+            
+            # Update indices
+            for dim in range(ndim - 1, -1, -1):
+                current_indices[dim] += chunk_sizes[dim]
+                if current_indices[dim] < shape[dim]:
+                    break
+                current_indices[dim] = 0
+                if dim == 0:
+                    return
+
+    def copy_dataset(self, source_name, dest_name):
+        """
+        Copy a dataset within the store
+        """
+        if source_name not in self._datasets:
+            raise KeyError(f"Source dataset '{source_name}' not found")
+            
+        source = self._datasets[source_name]
+        dest = self.create_dataset(dest_name, source._get_shape(), source._dtype)
+        
+        # Copy data in chunks
+        for slices in self.get_chunk_indices(source_name):
+            dest[slices] = source[slices]
+
+    def resize_dataset(self, name, new_shape):
+        """
+        Resize a dataset to a new shape
+        """
+        if name not in self._datasets:
+            raise KeyError(f"Dataset '{name}' not found")
+            
+        old_dataset = self._datasets[name]
+        old_shape = old_dataset._get_shape()
+        
+        # Create new dataset with new shape
+        temp_name = f"{name}_temp"
+        new_dataset = self.create_dataset(temp_name, new_shape, old_dataset._dtype)
+        
+        # Copy data from old dataset to new dataset
+        # Calculate common shape (minimum dimensions)
+        common_shape = tuple(min(old, new) for old, new in zip(old_shape, new_shape))
+        slices = tuple(slice(0, dim) for dim in common_shape)
+        
+        # Copy data in chunks
+        chunk_slices = [slice(None)] * len(new_shape)
+        for chunk_start in range(0, common_shape[0], self._chunk_size):
+            chunk_end = min(chunk_start + self._chunk_size, common_shape[0])
+            chunk_slices[0] = slice(chunk_start, chunk_end)
+            new_dataset[tuple(chunk_slices)] = old_dataset[tuple(chunk_slices)]
+        
+        # Replace old dataset with new dataset
+        del self._datasets[name]
+        os.remove(f"{self._filename_base}_{name}.dat")
+        os.rename(f"{self._filename_base}_{temp_name}.dat", f"{self._filename_base}_{name}.dat")
+        self._datasets[name] = new_dataset
+        del self._datasets[temp_name]
+
+def convert_h5_to_chunked(h5_filename, output_base, chunk_size=10000000):
     """
     Convert HDF5 file to chunked store format with memory-efficient processing.
     """
@@ -459,7 +872,7 @@ def convert_h5_to_chunked(h5_filename, output_base, chunk_size=DEFAULT_CHUNK_SIZ
     
     logging.info(f"Converting {h5_filename} to chunked store format")
     
-    with h5py.File(h5_filename, 'r') as h5f:
+    with h5py.File(h5_filename, 'r', driver='split') as h5f:
         store = ChunkedStore(output_base, 'w', chunk_size=chunk_size)
         
         # Copy attributes
@@ -471,16 +884,31 @@ def convert_h5_to_chunked(h5_filename, output_base, chunk_size=DEFAULT_CHUNK_SIZ
             logging.info(f"Processing dataset {name}")
             store.create_dataset(name, dataset.shape, dataset.dtype)
             
-            # Calculate optimal chunk size
-            chunk_size = min(chunk_size, dataset.shape[0])
-            n_chunks = (dataset.shape[0] + chunk_size - 1) // chunk_size
+            # Calculate optimal chunk size for first dimension
+            first_dim_chunk_size = min(chunk_size, dataset.shape[0])
+            n_chunks = (dataset.shape[0] + first_dim_chunk_size - 1) // first_dim_chunk_size
             
-            for start_idx in track(range(0, dataset.shape[0], chunk_size),
-                                 description=f"Converting {name}",
-                                 total=n_chunks):
-                end_idx = min(start_idx + chunk_size, dataset.shape[0])
-                chunk_data = dataset[start_idx:end_idx]
-                store[name][start_idx:end_idx] = chunk_data
+            if len(dataset.shape) == 1:
+                # Handle 1D arrays as before
+                for start_idx in track(range(0, dataset.shape[0], first_dim_chunk_size),
+                                    description=f"Converting {name}",
+                                    total=n_chunks):
+                    end_idx = min(start_idx + first_dim_chunk_size, dataset.shape[0])
+                    chunk_data = dataset[start_idx:end_idx]
+                    store[name][start_idx:end_idx] = chunk_data
+            else:
+                # Handle multi-dimensional arrays
+                # Create a complete slice list with ':' for all dimensions except first
+                slice_list = [slice(None)] * len(dataset.shape)
+                
+                for start_idx in track(range(0, dataset.shape[0], first_dim_chunk_size),
+                                    description=f"Converting {name}",
+                                    total=n_chunks):
+                    end_idx = min(start_idx + first_dim_chunk_size, dataset.shape[0])
+                    # Update only the first dimension slice
+                    slice_list[0] = slice(start_idx, end_idx)
+                    chunk_data = dataset[tuple(slice_list)]
+                    store[name][tuple(slice_list)] = chunk_data
                 
         store.close()
         

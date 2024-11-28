@@ -1,7 +1,5 @@
 # distutils: language = c++
-# cython: boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
-
-from libc.stdint cimport uint64_t
+from libc.stdint cimport uint64_t, uintptr_t
 cimport numpy as np
 
 cdef struct CachePage:
@@ -15,12 +13,17 @@ cdef struct PageCacheData:
     size_t page_size
     size_t dtype_size
 
+cdef struct ArrayShape:
+    Py_ssize_t* dims
+    int ndim
+    Py_ssize_t total_size
+
 cdef class PageCache:
     cdef:
         PageCacheData* _data
         object file
         str filename
-        
+
     cdef void flush(self) except *
     cdef void _write_page(self, size_t cache_idx) except *
     cdef void* get_page(self, uint64_t page_number, bint for_writing=*) except *
@@ -30,7 +33,7 @@ cdef class PageCache:
 
 cdef class PageAlignedArray:
     cdef:
-        public Py_ssize_t _size
+        ArrayShape _shape
         public object _dtype
         Py_ssize_t _dtype_size
         np.dtype _np_dtype
@@ -40,11 +43,17 @@ cdef class PageAlignedArray:
         str _filename
         Py_ssize_t _read_buffer_size
         Py_ssize_t _write_buffer_size
-        
+
     cdef void _init_mmap(self, str filename, Py_ssize_t size) except *
-    cdef void _get_slice_data(self, Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, void* dest) except *
-    cdef void _set_slice_data(self, Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, void* src) except *
-    cdef void _direct_write(self, void* src, Py_ssize_t start, Py_ssize_t size) except *
+    cdef void _get_slice_data(self, Py_ssize_t* indices, Py_ssize_t size, void* dest) except *
+    cdef void _set_slice_data(self, Py_ssize_t* indices, Py_ssize_t size, void* src) except *
+    cdef void _get_strided_data(self, tuple key, void* dest) except *
+    cdef void _set_strided_data(self, tuple key, np.ndarray value) except *
+    cdef void _direct_write(self, void* src, Py_ssize_t* indices, Py_ssize_t size) except *
+    cdef Py_ssize_t _compute_flat_index(self, Py_ssize_t* indices) nogil
+    cdef void _init_shape(self, tuple shape) except *
+    cdef tuple _get_shape(self)
+    cpdef tuple get_shape(self)
 
 cdef class ChunkedStore:
     cdef:
@@ -53,7 +62,7 @@ cdef class ChunkedStore:
         str _filename_base
         bint _mmap_mode
         Py_ssize_t _chunk_size
-        
+
     cdef void _load_metadata(self) except *
     cdef PageAlignedArray _create_dataset(self, str name, tuple shape, object dtype) except *
     cpdef bint contains(self, str key) except *
