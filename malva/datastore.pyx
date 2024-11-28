@@ -16,8 +16,9 @@ np.import_array()
 
 DEF PAGE_SIZE = 4096
 DEF DEFAULT_CHUNK_SIZE = 16384
-DEF CACHE_SIZE = 1024  # Number of pages to cache
-DEF WRITE_BUFFER_SIZE = 1024 * 1024  # 1MB write buffer
+DEF CACHE_SIZE = 1024
+DEF WRITE_BUFFER_SIZE = 1024 * 1024
+DEF FREAD_BUFFER_SIZE = 4096
 
 cdef extern from "numpy/arrayobject.h":
     void* PyArray_DATA(np.ndarray arr) nogil
@@ -25,65 +26,75 @@ cdef extern from "numpy/arrayobject.h":
 
 cdef class PageCache:
     def __cinit__(self, str filename, size_t page_size=PAGE_SIZE, size_t n_pages=CACHE_SIZE):
+        self._data = <PageCacheData*>malloc(sizeof(PageCacheData))
+        if not self._data:
+            raise MemoryError()
+            
+        self._data.page_size = page_size
+        self._data.n_pages = n_pages
         self.filename = filename
-        self.page_size = page_size
-        self.n_pages = n_pages
-        self.file = None  # Initialize to None
-        self.pages = <CachePage*>malloc(n_pages * sizeof(CachePage))
-        if not self.pages:
+        
+        self._data.pages = <CachePage*>malloc(n_pages * sizeof(CachePage))
+        if not self._data.pages:
+            free(self._data)
             raise MemoryError()
         
+        self._init_pages_nogil(self._data.pages, n_pages, page_size)
+        self._init_file(filename, page_size)
+
+    cdef void _init_pages_nogil(self, CachePage* pages, size_t n_pages, size_t page_size) nogil:
+        cdef size_t i
         for i in range(n_pages):
-            # Initialize with zeroes
-            self.pages[i].data = malloc(page_size)
-            if not self.pages[i].data:
-                raise MemoryError()
-            memset(self.pages[i].data, 0, page_size)
-            self.pages[i].page_number = 0
-            self.pages[i].dirty = False
-        
-        # Open file and ensure it's properly initialized
+            pages[i].data = malloc(page_size)
+            if pages[i].data == NULL:
+                with gil:
+                    raise MemoryError()
+            memset(pages[i].data, 0, page_size)
+            pages[i].page_number = 0
+            pages[i].dirty = False
+            
+    cdef void _init_file(self, str filename, size_t page_size) except *:
         if os.path.exists(filename):
             self.file = open(filename, 'rb+')
-            # Read first page to ensure proper initialization
             data = self.file.read(page_size)
             if data:
-                memcpy(self.pages[0].data, <char*>data, len(data))
+                memcpy(self._data.pages[0].data, <char*>data, len(data))
         else:
             self.file = open(filename, 'wb+')
-            # Initialize first page with zeroes
             self.file.write(b'\0' * page_size)
             self.file.flush()
 
     def __dealloc__(self):
-        if self.pages:
-            for i in range(self.n_pages):
-                if self.pages[i].data:
-                    # Ensure dirty pages are written before freeing
-                    if self.pages[i].dirty and self.file is not None:
-                        self._write_page(i)
-                    free(self.pages[i].data)
-            free(self.pages)
+        if self._data:
+            if self._data.pages:
+                self._cleanup_pages_nogil(self._data.pages, self._data.n_pages)
+                free(self._data.pages)
+            free(self._data)
         
         if self.file is not None:
             self.file.flush()
             self.file.close()
-            self.file = None
+
+    cdef void _cleanup_pages_nogil(self, CachePage* pages, size_t n_pages) nogil:
+        cdef size_t i
+        for i in range(n_pages):
+            if pages[i].data != NULL:
+                free(pages[i].data)
 
     cdef void flush(self) except *:
         cdef size_t i
-        if self.file is not None:    
-            for i in range(self.n_pages):
-                if self.pages[i].dirty:
+        if self.file is not None:
+            for i in range(self._data.n_pages):
+                if self._data.pages[i].dirty:
                     self._write_page(i)
-                    self.pages[i].dirty = False
+                    self._data.pages[i].dirty = False
             self.file.flush()
 
     cdef void _write_page(self, size_t cache_idx) except *:
         cdef:
-            size_t offset = self.pages[cache_idx].page_number * self.page_size
-            bytes data = bytes((<char[:self.page_size]>self.pages[cache_idx].data)[:self.page_size])
-            
+            size_t offset = self._data.pages[cache_idx].page_number * self._data.page_size
+            bytes data = bytes((<char[:self._data.page_size]>self._data.pages[cache_idx].data)[:self._data.page_size])
+        
         self.file.seek(offset)
         self.file.write(data)
 
@@ -92,39 +103,35 @@ cdef class PageCache:
             size_t i, lru_idx = 0
             uint64_t oldest_access = 0xFFFFFFFFFFFFFFFF
             bytes data
-            size_t bytes_read
         
-        # Look for page in cache
-        for i in range(self.n_pages):
-            if self.pages[i].page_number == page_number:
-                if for_writing:
-                    self.pages[i].dirty = True
-                return self.pages[i].data
+        with nogil:
+            # Find page in cache or LRU page
+            for i in range(self._data.n_pages):
+                if self._data.pages[i].page_number == page_number:
+                    if for_writing:
+                        self._data.pages[i].dirty = True
+                    return self._data.pages[i].data
 
-        # Not found - find LRU page to evict
-        for i in range(self.n_pages):
-            if self.pages[i].page_number < oldest_access:
-                oldest_access = self.pages[i].page_number
-                lru_idx = i
+            # Find LRU page
+            for i in range(self._data.n_pages):
+                if self._data.pages[i].page_number < oldest_access:
+                    oldest_access = self._data.pages[i].page_number
+                    lru_idx = i
 
-        # Write back dirty page if needed
-        if self.pages[lru_idx].dirty:
+        if self._data.pages[lru_idx].dirty:
             self._write_page(lru_idx)
 
-        # Load new page
-        self.pages[lru_idx].page_number = page_number
-        self.pages[lru_idx].dirty = for_writing
+        self._data.pages[lru_idx].page_number = page_number
+        self._data.pages[lru_idx].dirty = for_writing
         
-        # Zero the page before loading new data
-        memset(self.pages[lru_idx].data, 0, self.page_size)
+        memset(self._data.pages[lru_idx].data, 0, self._data.page_size)
         
-        # Read the page data
-        self.file.seek(page_number * self.page_size)
-        data = self.file.read(self.page_size)
+        self.file.seek(page_number * self._data.page_size)
+        data = self.file.read(self._data.page_size)
         if data:
-            memcpy(self.pages[lru_idx].data, <char*>data, len(data))
+            memcpy(self._data.pages[lru_idx].data, <char*>data, len(data))
         
-        return self.pages[lru_idx].data
+        return self._data.pages[lru_idx].data
 
 cdef class PageAlignedArray:
     def __cinit__(self, Py_ssize_t size, dtype='uint64', bint mmap_mode=False, str filename=None):
@@ -134,7 +141,8 @@ cdef class PageAlignedArray:
         self._size = size
         self._mmap_mode = mmap_mode
         self._filename = filename
-        self._buffer_size = WRITE_BUFFER_SIZE
+        self._read_buffer_size = FREAD_BUFFER_SIZE
+        self._write_buffer_size = WRITE_BUFFER_SIZE
         
         if filename is None:
             raise ValueError("Filename required for both mmap and non-mmap modes")
@@ -149,31 +157,26 @@ cdef class PageAlignedArray:
         if mmap_mode:
             self._init_mmap(filename, aligned_size)
         else:
-            self._cache = PageCache(filename, PAGE_SIZE)  # Keep original three arguments
+            self._cache = PageCache(filename, PAGE_SIZE)
 
-    def __dealloc__(self):
-        if self._mmap_mode and self._mmap is not None:
-            self._mmap.close()
-
-    cdef void _direct_write(self, void* src, Py_ssize_t start, Py_ssize_t size) except *:
-        """Direct write to file for large chunks."""
-        cdef:
-            Py_ssize_t offset = start * self._dtype_size
-            size_t bytes_to_write = size * self._dtype_size
-            bytes data = bytes((<char[:bytes_to_write]>src)[:bytes_to_write])
-            
-        if self._mmap_mode:
-            memcpy(<char*>(<uintptr_t>self._mmap.buf) + offset, src, bytes_to_write)
-            self._mmap.flush()
-        else:
-            with open(self._filename, 'rb+') as f:
-                f.seek(offset)
-                f.write(data)
-        
     cdef void _init_mmap(self, str filename, Py_ssize_t size) except *:
         with open(filename, 'r+b') as f:
             self._mmap = py_mmap.mmap(f.fileno(), size, access=py_mmap.ACCESS_WRITE)
+
+    cdef void _direct_write(self, void* src, Py_ssize_t start, Py_ssize_t size) except *:
+        cdef:
+            Py_ssize_t offset = start * self._dtype_size
+            size_t bytes_to_write = size * self._dtype_size
             
+        if self._mmap_mode:
+            memcpy(<char*>(<uintptr_t>self._mmap.buf), src, bytes_to_write)
+            self._mmap.flush()
+        else:
+            data = bytes((<char[:bytes_to_write]>src)[:bytes_to_write])
+            with open(self._filename, 'rb+') as f:
+                f.seek(offset)
+                f.write(data)
+
     cdef void _get_slice_data(self, Py_ssize_t start, Py_ssize_t stop, Py_ssize_t step, void* dest) except *:
         cdef:
             Py_ssize_t i = start, idx = 0
@@ -183,16 +186,15 @@ cdef class PageAlignedArray:
             size_t bytes_to_copy
             size_t item_size = self._dtype_size
             Py_ssize_t chunk_size = stop - start
+            char* temp_buffer
             
-        # For large sequential reads, use direct file read
-        if step == 1 and chunk_size * item_size >= self._buffer_size:
+        if step == 1 and chunk_size * item_size >= self._read_buffer_size:
             with open(self._filename, 'rb') as f:
                 f.seek(start * item_size)
                 data = f.read(chunk_size * item_size)
                 memcpy(dest, <char*>data, len(data))
             return
 
-        # For smaller or non-sequential reads, use page cache
         while i < stop:
             page_number = (i * item_size) // PAGE_SIZE
             offset_in_page = (i * item_size) % PAGE_SIZE
@@ -200,7 +202,7 @@ cdef class PageAlignedArray:
             if self._mmap_mode:
                 memcpy(
                     <char*>dest + (idx * item_size),
-                    <char*>(<uintptr_t>self._mmap.buf) + (i * item_size),
+                    <char*>self._mmap.buf + (i * item_size),
                     item_size
                 )
             else:
@@ -235,7 +237,7 @@ cdef class PageAlignedArray:
             size_t item_size = self._dtype_size  # Cache dtype size
 
         # Use direct write for large sequential writes
-        if step == 1 and chunk_size * item_size >= self._buffer_size:
+        if step == 1 and chunk_size * item_size >= self._write_buffer_size:
             self._direct_write(src, start, chunk_size)
             return
 
@@ -395,6 +397,34 @@ cdef class ChunkedStore:
             if name not in self._datasets:
                 self.create_dataset(name, value.shape, value.dtype)
             self._datasets[name][:] = value
+
+    def __iter__(self):
+        """Make ChunkedStore iterable."""
+        return iter(self._datasets)
+        
+    def __len__(self):
+        """Return number of datasets."""
+        return len(self._datasets)
+
+    def keys(self):
+        """Return dataset keys."""
+        return self._datasets.keys()
+        
+    def values(self):
+        """Return dataset values."""
+        return self._datasets.values()
+
+    def items(self):
+        """Return dataset items."""
+        return self._datasets.items()
+
+    def __contains__(self, key):
+        """Enable 'in' operator."""
+        return self.contains(key)
+        
+    cpdef bint contains(self, str key) except *:
+        """Check if dataset exists."""
+        return key in self._datasets
             
     @property
     def attrs(self):
