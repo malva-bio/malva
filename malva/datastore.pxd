@@ -1,17 +1,13 @@
 # distutils: language = c++
 from libc.stdint cimport uint64_t, uintptr_t
+from libcpp.unordered_map cimport unordered_map
 cimport numpy as np
 
 cdef struct CachePage:
     void* data
     uint64_t page_number
     bint dirty
-
-cdef struct PageCacheData:
-    CachePage* pages
-    size_t n_pages
-    size_t page_size
-    size_t dtype_size
+    uint64_t last_access
 
 cdef struct ArrayShape:
     Py_ssize_t* dims
@@ -20,15 +16,18 @@ cdef struct ArrayShape:
 
 cdef class PageCache:
     cdef:
-        PageCacheData* _data
+        CachePage* pages
+        size_t n_pages
+        size_t page_size
+        uint64_t access_counter
         object file
         str filename
+        unordered_map[uint64_t, size_t] page_map
 
     cdef void flush(self) except *
     cdef void _write_page(self, size_t cache_idx) except *
     cdef void* get_page(self, uint64_t page_number, bint for_writing=*) except *
-    cdef void _init_pages_nogil(self, CachePage* pages, size_t n_pages, size_t page_size) nogil
-    cdef void _cleanup_pages_nogil(self, CachePage* pages, size_t n_pages) nogil
+    cdef void _init_pages_nogil(self, size_t n_pages, size_t page_size) nogil
     cdef void _init_file(self, str filename, size_t page_size) except *
 
 cdef class PageAlignedArray:

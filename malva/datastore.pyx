@@ -14,7 +14,7 @@ import logging
 
 np.import_array()
 
-DEF PAGE_SIZE = 4096
+DEF PAGE_SIZE = 65536#4096
 DEF DEFAULT_CHUNK_SIZE = 16384
 DEF CACHE_SIZE = 1024
 DEF WRITE_BUFFER_SIZE = 1024 * 1024
@@ -27,112 +27,115 @@ cdef extern from "numpy/arrayobject.h":
 
 cdef class PageCache:
     def __cinit__(self, str filename, size_t page_size=PAGE_SIZE, size_t n_pages=CACHE_SIZE):
-        self._data = <PageCacheData*>malloc(sizeof(PageCacheData))
-        if not self._data:
-            raise MemoryError()
-            
-        self._data.page_size = page_size
-        self._data.n_pages = n_pages
+        self.page_size = page_size
+        self.n_pages = n_pages
+        self.access_counter = 0
         self.filename = filename
-        
-        self._data.pages = <CachePage*>malloc(n_pages * sizeof(CachePage))
-        if not self._data.pages:
-            free(self._data)
+
+        self.page_map = unordered_map[uint64_t, size_t]()
+
+        self.pages = <CachePage*>malloc(n_pages * sizeof(CachePage))
+        if not self.pages:
             raise MemoryError()
         
-        self._init_pages_nogil(self._data.pages, n_pages, page_size)
+        self._init_pages_nogil(n_pages, page_size)
         self._init_file(filename, page_size)
 
-    cdef void _init_pages_nogil(self, CachePage* pages, size_t n_pages, size_t page_size) nogil:
-        cdef size_t i
-        for i in range(n_pages):
-            pages[i].data = malloc(page_size)
-            if pages[i].data == NULL:
-                with gil:
-                    raise MemoryError()
-            memset(pages[i].data, 0, page_size)
-            pages[i].page_number = 0
-            pages[i].dirty = False
-            
-    cdef void _init_file(self, str filename, size_t page_size) except *:
-        if os.path.exists(filename):
-            self.file = open(filename, 'rb+')
-            data = self.file.read(page_size)
-            if data:
-                memcpy(self._data.pages[0].data, <char*>data, len(data))
-        else:
-            self.file = open(filename, 'wb+')
-            self.file.write(b'\0' * page_size)
-            self.file.flush()
-
     def __dealloc__(self):
-        if self._data:
-            if self._data.pages:
-                self._cleanup_pages_nogil(self._data.pages, self._data.n_pages)
-                free(self._data.pages)
-            free(self._data)
+        if self.pages:
+            self._cleanup_pages_nogil(self.n_pages)
+            free(self.pages)
         
         if self.file is not None:
             self.file.flush()
             self.file.close()
 
-    cdef void _cleanup_pages_nogil(self, CachePage* pages, size_t n_pages) nogil:
-        cdef size_t i
-        for i in range(n_pages):
-            if pages[i].data != NULL:
-                free(pages[i].data)
+    cdef void _init_file(self, str filename, size_t page_size) except *:
+        if os.path.exists(filename):
+            self.file = open(filename, 'rb+')
+            data = self.file.read(page_size)
+            if data:
+                memcpy(self.pages[0].data, <char*>data, len(data))
+        else:
+            self.file = open(filename, 'wb+')
+            self.file.write(b'\0' * page_size)
+            self.file.flush()
 
     cdef void flush(self) except *:
         cdef size_t i
         if self.file is not None:
-            for i in range(self._data.n_pages):
-                if self._data.pages[i].dirty:
+            for i in range(self.n_pages):
+                if self.pages[i].dirty:
                     self._write_page(i)
-                    self._data.pages[i].dirty = False
+                    self.pages[i].dirty = False
             self.file.flush()
 
     cdef void _write_page(self, size_t cache_idx) except *:
         cdef:
-            size_t offset = self._data.pages[cache_idx].page_number * self._data.page_size
-            bytes data = bytes((<char[:self._data.page_size]>self._data.pages[cache_idx].data)[:self._data.page_size])
+            size_t offset = self.pages[cache_idx].page_number * self.page_size
+            bytes data = bytes((<char[:self.page_size]>self.pages[cache_idx].data)[:self.page_size])
         
         self.file.seek(offset)
         self.file.write(data)
 
+    cdef void _init_pages_nogil(self, size_t n_pages, size_t page_size) nogil:
+        cdef size_t i
+        for i in range(n_pages):
+            self.pages[i].data = malloc(page_size)
+            if self.pages[i].data == NULL:
+                with gil:
+                    raise MemoryError()
+            memset(self.pages[i].data, 0, page_size)
+            self.pages[i].page_number = 0
+            self.pages[i].dirty = False
+            self.pages[i].last_access = 0
+
     cdef void* get_page(self, uint64_t page_number, bint for_writing=False) except *:
         cdef:
             size_t i, lru_idx = 0
-            uint64_t oldest_access = 0xFFFFFFFFFFFFFFFF
+            uint64_t oldest_access = self.access_counter
             bytes data
+            
+        # Try fast lookup first
+        if self.page_map.count(page_number):
+            lru_idx = self.page_map[page_number]
+            if for_writing:
+                self.pages[lru_idx].dirty = True
+            self.pages[lru_idx].last_access = self.access_counter
+            self.access_counter += 1
+            return self.pages[lru_idx].data
+
+        # Not found, find LRU page
+        for i in range(self.n_pages):
+            if self.pages[i].last_access < oldest_access:
+                oldest_access = self.pages[i].last_access
+                lru_idx = i
+
+        # Remove old page from map
+        if self.page_map.count(self.pages[lru_idx].page_number):
+            self.page_map.erase(self.pages[lru_idx].page_number)
         
-        with nogil:
-            # Find page in cache or LRU page
-            for i in range(self._data.n_pages):
-                if self._data.pages[i].page_number == page_number:
-                    if for_writing:
-                        self._data.pages[i].dirty = True
-                    return self._data.pages[i].data
-
-            # Find LRU page
-            for i in range(self._data.n_pages):
-                if self._data.pages[i].page_number < oldest_access:
-                    oldest_access = self._data.pages[i].page_number
-                    lru_idx = i
-
-        if self._data.pages[lru_idx].dirty:
+        # Write if dirty
+        if self.pages[lru_idx].dirty:
             self._write_page(lru_idx)
-
-        self._data.pages[lru_idx].page_number = page_number
-        self._data.pages[lru_idx].dirty = for_writing
         
-        memset(self._data.pages[lru_idx].data, 0, self._data.page_size)
+        # Setup new page
+        self.pages[lru_idx].page_number = page_number
+        self.pages[lru_idx].dirty = for_writing
+        self.pages[lru_idx].last_access = self.access_counter
+        self.access_counter += 1
         
-        self.file.seek(page_number * self._data.page_size)
-        data = self.file.read(self._data.page_size)
+        # Add to map
+        self.page_map[page_number] = lru_idx
+        
+        # Clear and load data
+        memset(self.pages[lru_idx].data, 0, self.page_size)
+        self.file.seek(page_number * self.page_size)
+        data = self.file.read(self.page_size)
         if data:
-            memcpy(self._data.pages[lru_idx].data, <char*>data, len(data))
-        
-        return self._data.pages[lru_idx].data
+            memcpy(self.pages[lru_idx].data, <char*>data, len(data))
+            
+        return self.pages[lru_idx].data
 
 cdef class PageAlignedArray:
     def __cinit__(self, tuple shape, dtype='uint64', bint mmap_mode=False, str filename=None):
