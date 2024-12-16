@@ -3,6 +3,24 @@
 from libcpp.vector cimport vector
 from libc.stdint cimport uint64_t, uint32_t
 
+from libcpp.string cimport string
+
+from libcpp.unordered_set cimport unordered_set
+import numpy as np
+cimport numpy as np
+np.import_array()
+
+cdef class FastKmerProcessor:
+    cdef:
+        readonly int kmer_size
+        readonly bint overlapping
+        vector[string] stored_sequences
+        unordered_set[uint64_t] unique_kmers
+        int min_valid_sequence_size
+
+    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) nogil except -1
+    cdef np.ndarray process_sequences(self, sequences)
+
 cdef class KmerFastqParser:
     cdef:
         Py_ssize_t buffer_size
@@ -14,6 +32,7 @@ cdef class KmerFastqParser:
         char *record_start
         int kmer_size
         bint overlapping
+        int jump_amount
     cdef readonly Py_ssize_t number_of_records
 
     cdef _read_into_buffer(self)
