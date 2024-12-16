@@ -17,13 +17,22 @@ np.import_array()
 DEF PAGE_SIZE = 65536#4096
 DEF DEFAULT_CHUNK_SIZE = 16384
 DEF CACHE_SIZE = 1024
-DEF WRITE_BUFFER_SIZE = 1024 * 1024
+DEF WRITE_BUFFER_SIZE = 1024 * 1024 * 4
 DEF FREAD_BUFFER_SIZE = 4096
 DEF MAX_DIMS = 32
 
 cdef extern from "numpy/arrayobject.h":
     void* PyArray_DATA(np.ndarray arr) nogil
     np.ndarray PyArray_SimpleNew(int nd, np.npy_intp* dims, int typenum) nogil
+
+cdef extern from *:
+    """
+    #include <x86intrin.h>
+    static inline int count_leading_zeros(unsigned long long x) {
+        return __builtin_clzll(x);
+    }
+    """
+    int count_leading_zeros(unsigned long long x) nogil
 
 cdef class PageCache:
     def __cinit__(self, str filename, size_t page_size=PAGE_SIZE, size_t n_pages=CACHE_SIZE):
@@ -49,6 +58,12 @@ cdef class PageCache:
         if self.file is not None:
             self.file.flush()
             self.file.close()
+
+    cdef void _cleanup_pages_nogil(self, size_t n_pages) nogil:
+        cdef size_t i
+        for i in range(n_pages):
+            if self.pages[i].data != NULL:
+                free(self.pages[i].data)
 
     cdef void _init_file(self, str filename, size_t page_size) except *:
         if os.path.exists(filename):
@@ -90,46 +105,49 @@ cdef class PageCache:
             self.pages[i].dirty = False
             self.pages[i].last_access = 0
 
-    cdef void* get_page(self, uint64_t page_number, bint for_writing=False) except *:
+    cdef inline void* get_page(self, uint64_t page_number, bint for_writing=False) except *:
         cdef:
-            size_t i, lru_idx = 0
-            uint64_t oldest_access = self.access_counter
+            size_t i, lru_idx
+            uint64_t oldest_access
             bytes data
             
-        # Try fast lookup first
-        if self.page_map.count(page_number):
-            lru_idx = self.page_map[page_number]
-            if for_writing:
-                self.pages[lru_idx].dirty = True
-            self.pages[lru_idx].last_access = self.access_counter
-            self.access_counter += 1
-            return self.pages[lru_idx].data
+        # Fast lookup with nogil where possible
+        with nogil:
+            # Use map lookup first
+            if self.page_map.count(page_number):
+                lru_idx = self.page_map[page_number]
+                if for_writing:
+                    self.pages[lru_idx].dirty = True
+                self.pages[lru_idx].last_access = self.access_counter
+                self.access_counter += 1
+                return self.pages[lru_idx].data
 
-        # Not found, find LRU page
-        for i in range(self.n_pages):
-            if self.pages[i].last_access < oldest_access:
-                oldest_access = self.pages[i].last_access
-                lru_idx = i
+            # Cache miss - find LRU
+            oldest_access = self.access_counter
+            for i in range(self.n_pages):
+                if self.pages[i].last_access < oldest_access:
+                    oldest_access = self.pages[i].last_access
+                    lru_idx = i
 
-        # Remove old page from map
-        if self.page_map.count(self.pages[lru_idx].page_number):
-            self.page_map.erase(self.pages[lru_idx].page_number)
-        
-        # Write if dirty
+            # Remove old page from map
+            if self.page_map.count(self.pages[lru_idx].page_number):
+                self.page_map.erase(self.pages[lru_idx].page_number)
+
+        # Handle file I/O (requires GIL)
         if self.pages[lru_idx].dirty:
             self._write_page(lru_idx)
         
-        # Setup new page
         self.pages[lru_idx].page_number = page_number
         self.pages[lru_idx].dirty = for_writing
         self.pages[lru_idx].last_access = self.access_counter
         self.access_counter += 1
-        
-        # Add to map
         self.page_map[page_number] = lru_idx
         
-        # Clear and load data
-        memset(self.pages[lru_idx].data, 0, self.page_size)
+        # Use buffered read for better I/O performance
+        cdef size_t bytes_read
+        with nogil:
+            memset(self.pages[lru_idx].data, 0, self.page_size)
+            
         self.file.seek(page_number * self.page_size)
         data = self.file.read(self.page_size)
         if data:
@@ -225,42 +243,45 @@ cdef class PageAlignedArray:
                 f.seek(offset)
                 f.write(data)
 
-    cdef void _get_slice_data(self, Py_ssize_t* indices, Py_ssize_t size, void* dest) except *:
+    cdef void _get_slice_data(self, Py_ssize_t* indices, Py_ssize_t size, void* dest) nogil except *:
         cdef:
             Py_ssize_t flat_idx = self._compute_flat_index(indices)
             Py_ssize_t offset = flat_idx * self._dtype_size
             size_t bytes_to_read = size * self._dtype_size
+            uint64_t page_number
+            size_t offset_in_page
+            size_t bytes_remaining
+            size_t bytes_this_page
+            void* page_data
+            char* dest_ptr = <char*>dest
             
-        # Fast path for large contiguous reads
+        if self._mmap_mode:
+            # TODO: we don't support mmap yet
+            return
+
+        # For large reads, use direct file access
         if bytes_to_read >= self._read_buffer_size:
-            if self._mmap_mode:
-                memcpy(dest, <char*>(<uintptr_t>self._mmap.buf) + offset, bytes_to_read)
-            else:
-                with open(self._filename, 'rb') as f:
-                    f.seek(offset)
-                    data = f.read(bytes_to_read)
+            with gil:
+                self._cache.file.seek(offset)
+                data = self._cache.file.read(bytes_to_read)
+                if data:
                     memcpy(dest, <char*>data, len(data))
             return
 
-        # Page-based reading for smaller or non-contiguous access
-        cdef:
-            uint64_t page_number = offset // PAGE_SIZE
-            size_t offset_in_page = offset % PAGE_SIZE
-            size_t bytes_remaining = bytes_to_read
-            size_t bytes_this_page
-            void* page_data
-            
+        # Optimized page-based reading
+        page_number = offset // PAGE_SIZE
+        offset_in_page = offset % PAGE_SIZE
+        bytes_remaining = bytes_to_read
+        
         while bytes_remaining > 0:
-            page_data = self._cache.get_page(page_number, False)
-            bytes_this_page = min(PAGE_SIZE - offset_in_page, bytes_remaining)
+            with gil:
+                page_data = self._cache.get_page(page_number, False)
             
-            memcpy(
-                <char*>dest + (bytes_to_read - bytes_remaining),
-                <char*>page_data + offset_in_page,
-                bytes_this_page
-            )
+            bytes_this_page = min(PAGE_SIZE - offset_in_page, bytes_remaining)
+            memcpy(dest_ptr, <char*>page_data + offset_in_page, bytes_this_page)
             
             bytes_remaining -= bytes_this_page
+            dest_ptr += bytes_this_page
             page_number += 1
             offset_in_page = 0
 
@@ -273,8 +294,8 @@ cdef class PageAlignedArray:
         # Fast path for large contiguous writes
         if bytes_to_write >= self._write_buffer_size:
             if self._mmap_mode:
-                memcpy(<char*>(<uintptr_t>self._mmap.buf) + offset, src, bytes_to_write)
-                self._mmap.flush()
+                # TODO: we don't support mmap
+                return
             else:
                 data = bytes((<char[:bytes_to_write]>src)[:bytes_to_write])
                 with open(self._filename, 'rb+') as f:
@@ -420,91 +441,145 @@ cdef class PageAlignedArray:
             Py_ssize_t[MAX_DIMS] indices
             np.ndarray arr
             void* arr_data
-            int i
+            int i, dim
             Py_ssize_t total_size = 1
             bint is_contiguous = True
             
-        # Handle different key types
-        if isinstance(key, (int, slice)):
-            # Convert single index/slice to tuple for consistent handling
+        # Convert single index/slice to tuple
+        if not isinstance(key, tuple):
             key = (key,)
             
-            # For 1D access of multi-dimensional array, reshape the access
-            if self._shape.ndim > 1:
-                # Create a flattened view
-                total_elements = self._shape.total_size
-                if isinstance(key[0], int):
-                    if key[0] >= total_elements:
-                        raise IndexError("Index out of bounds")
-                    indices[0] = key[0]
-                    total_size = 1
-                else:
-                    start = key[0].start if key[0].start is not None else 0
-                    stop = key[0].stop if key[0].stop is not None else total_elements
-                    step = key[0].step if key[0].step is not None else 1
-                    if start >= total_elements or (stop is not None and stop > total_elements):
-                        raise IndexError("Index out of bounds")
-                    indices[0] = start
-                    total_size = (stop - start) // step
-                    if step != 1:
-                        is_contiguous = False
-            else:
-                # Normal 1D array handling
-                if isinstance(key[0], int):
-                    if key[0] >= self._shape.dims[0]:
-                        raise IndexError("Index out of bounds")
-                    indices[0] = key[0]
-                    total_size = 1
-                else:
-                    start = key[0].start if key[0].start is not None else 0
-                    stop = key[0].stop if key[0].stop is not None else self._shape.dims[0]
-                    step = key[0].step if key[0].step is not None else 1
-                    if start >= self._shape.dims[0] or (stop is not None and stop > self._shape.dims[0]):
-                        raise IndexError("Index out of bounds")
-                    indices[0] = start
-                    total_size = (stop - start) // step
-                    if step != 1:
-                        is_contiguous = False
-                        
-        elif isinstance(key, tuple):
-            # Multi-dimensional indexing
-            if len(key) > self._shape.ndim:
-                raise IndexError(f"Too many indices: got {len(key)}, maximum allowed is {self._shape.ndim}")
-                
-            for i in range(len(key)):
-                if isinstance(key[i], slice):
-                    start = key[i].start if key[i].start is not None else 0
-                    stop = key[i].stop if key[i].stop is not None else self._shape.dims[i]
-                    step = key[i].step if key[i].step is not None else 1
-                    if start >= self._shape.dims[i] or (stop is not None and stop > self._shape.dims[i]):
-                        raise IndexError("Index out of bounds")
-                    indices[i] = start
-                    total_size *= (stop - start) // step
-                    if step != 1:
-                        is_contiguous = False
-                else:
-                    if key[i] >= self._shape.dims[i]:
-                        raise IndexError("Index out of bounds")
-                    indices[i] = key[i]
-                    
-            # Fill remaining dimensions if any
-            for i in range(len(key), self._shape.ndim):
-                indices[i] = 0
-                total_size *= self._shape.dims[i]
-        else:
-            raise IndexError("Invalid index type")
-            
-        # Convert input value to array and check shape
-        arr = np.ascontiguousarray(value, dtype=self._np_dtype)
-        if arr.size != total_size:
-            raise ValueError("Value size does not match slice size")
-            
-        arr_data = PyArray_DATA(arr)
+        # Convert value to numpy array if it isn't already
+        arr = np.ascontiguousarray(value, dtype=self._dtype)
         
+        # Check dimensions
+        if len(key) > self._shape.ndim:
+            raise IndexError(f"Too many indices: got {len(key)}, maximum allowed is {self._shape.ndim}")
+            
+        # Calculate total size and validate slices
+        cdef list slice_dims = []
+        for i, k in enumerate(key):
+            if isinstance(k, slice):
+                start = k.start if k.start is not None else 0
+                stop = k.stop if k.stop is not None else self._shape.dims[i]
+                step = k.step if k.step is not None else 1
+                
+                # Handle negative indices
+                if start < 0:
+                    start += self._shape.dims[i]
+                if stop < 0:
+                    stop += self._shape.dims[i]
+                
+                # Validate bounds
+                if start < 0 or start >= self._shape.dims[i]:
+                    raise IndexError(f"Start index {start} out of bounds for axis {i}")
+                if stop < 0 or stop > self._shape.dims[i]:
+                    raise IndexError(f"Stop index {stop} out of bounds for axis {i}")
+                
+                dim_size = (stop - start + step - 1) // step
+                slice_dims.append(dim_size)
+                total_size *= dim_size
+                
+                if step != 1:
+                    is_contiguous = False
+            else:
+                # Handle integer index
+                idx = k if k >= 0 else k + self._shape.dims[i]
+                if idx < 0 or idx >= self._shape.dims[i]:
+                    raise IndexError(f"Index {k} out of bounds for axis {i}")
+                slice_dims.append(1)
+        
+        # Add remaining dimensions
+        for i in range(len(key), self._shape.ndim):
+            slice_dims.append(self._shape.dims[i])
+            total_size *= self._shape.dims[i]
+        
+        # Validate input array shape
+        expected_shape = tuple(d for d in slice_dims if d != 1)
+        if arr.size != total_size:
+            raise ValueError(f"Cannot assign array of size {arr.size} to slice of size {total_size}")
+        
+        # Handle multi-dimensional assignment
         if is_contiguous:
-            self._set_slice_data(indices, total_size, arr_data)
+            # Fast path for contiguous data
+            self._set_contiguous_slice(key, arr)
         else:
-            self._set_strided_data(key, arr)
+            # Fallback for non-contiguous slices
+            self._set_strided_slice(key, arr)
+
+    cdef void _set_contiguous_slice(self, tuple key, np.ndarray value) except *:
+        cdef:
+            Py_ssize_t start, stop, step
+            Py_ssize_t offset = 0
+            void* src_data = PyArray_DATA(value)
+            size_t bytes_to_write = value.size * self._dtype_size
+            size_t stride = 1
+            int i
+            uint64_t byte_offset
+            uint64_t page_number
+            size_t page_offset
+            size_t bytes_this_page
+            void* page_data
+            size_t bytes_written = 0
+            
+        # Calculate flat offset for the start of the slice
+        for i in range(len(key) - 1, -1, -1):
+            if isinstance(key[i], slice):
+                start = key[i].start if key[i].start is not None else 0
+                if start < 0:
+                    start += self._shape.dims[i]
+                offset += start * stride
+            else:
+                idx = key[i] if key[i] >= 0 else key[i] + self._shape.dims[i]
+                offset += idx * stride
+            stride *= self._shape.dims[i]
+        
+        byte_offset = offset * self._dtype_size
+        
+        # Sanity check
+        if byte_offset + bytes_to_write > self._shape.total_size * self._dtype_size:
+            raise IndexError("Write operation would exceed array bounds")
+            
+        # For large contiguous writes, use direct file I/O
+        if bytes_to_write >= self._write_buffer_size:
+            # Flush any existing pages that overlap with our write range
+            start_page = byte_offset // PAGE_SIZE
+            end_page = (byte_offset + bytes_to_write - 1) // PAGE_SIZE + 1
+            
+            for page_num in range(start_page, end_page):
+                if self._cache.page_map.count(page_num):
+                    idx = self._cache.page_map[page_num]
+                    if self._cache.pages[idx].dirty:
+                        self._cache._write_page(idx)
+                    self._cache.page_map.erase(page_num)
+            
+            # Write directly to file
+            data = bytes((<char[:bytes_to_write]>src_data)[:bytes_to_write])
+            with open(self._filename, 'rb+') as f:
+                f.seek(byte_offset)
+                f.write(data)
+                
+        else:
+            # Use page cache for smaller writes
+            while bytes_written < bytes_to_write:
+                page_number = (byte_offset + bytes_written) // PAGE_SIZE
+                page_offset = (byte_offset + bytes_written) % PAGE_SIZE
+                
+                bytes_this_page = min(
+                    PAGE_SIZE - page_offset,
+                    bytes_to_write - bytes_written
+                )
+                
+                page_data = self._cache.get_page(page_number, True)
+                
+                with nogil:
+                    memcpy(
+                        <char*>page_data + page_offset,
+                        <char*>src_data + bytes_written,
+                        bytes_this_page
+                    )
+                
+                bytes_written += bytes_this_page
 
     cdef void _get_strided_data(self, tuple key, void* dest) except *:
         cdef:
@@ -570,58 +645,106 @@ cdef class PageAlignedArray:
     cdef void _set_strided_data(self, tuple key, np.ndarray value) except *:
         cdef:
             Py_ssize_t[MAX_DIMS] starts, stops, steps, position
-            int i
+            int i, ndim
             void* src_data = PyArray_DATA(value)
             Py_ssize_t flat_idx, total_elements = 1
             Py_ssize_t src_idx = 0
             void* page_data
+            size_t page_number, offset
             
-        # Parse slices
-        for i in range(self._shape.ndim):
+        # Initialize arrays
+        for i in range(MAX_DIMS):
+            starts[i] = 0
+            stops[i] = 0
+            steps[i] = 1
+            position[i] = 0
+            
+        ndim = min(len(key), self._shape.ndim)
+        
+        # Parse slices with bounds checking
+        for i in range(ndim):
             if isinstance(key[i], slice):
                 starts[i] = key[i].start if key[i].start is not None else 0
                 stops[i] = key[i].stop if key[i].stop is not None else self._shape.dims[i]
                 steps[i] = key[i].step if key[i].step is not None else 1
-                total_elements *= (stops[i] - starts[i]) // steps[i]
+                
+                # Normalize negative indices
+                if starts[i] < 0:
+                    starts[i] += self._shape.dims[i]
+                if stops[i] < 0:
+                    stops[i] += self._shape.dims[i]
+                    
+                # Validate bounds
+                if starts[i] < 0 or starts[i] >= self._shape.dims[i]:
+                    raise IndexError(f"Start index out of bounds for dimension {i}")
+                if stops[i] < 0 or stops[i] > self._shape.dims[i]:
+                    raise IndexError(f"Stop index out of bounds for dimension {i}")
+                    
+                total_elements *= (stops[i] - starts[i] + steps[i] - 1) // steps[i]
             else:
-                starts[i] = stops[i] = key[i]
+                # Handle integer index
+                idx = key[i]
+                if idx < 0:
+                    idx += self._shape.dims[i]
+                if idx < 0 or idx >= self._shape.dims[i]:
+                    raise IndexError(f"Index out of bounds for dimension {i}")
+                    
+                starts[i] = stops[i] = idx
                 steps[i] = 1
-        
-        # Initialize position array
+                
+        # Fill remaining dimensions
+        for i in range(ndim, self._shape.ndim):
+            starts[i] = 0
+            stops[i] = self._shape.dims[i]
+            steps[i] = 1
+            total_elements *= self._shape.dims[i]
+            
+        # Initialize position
         for i in range(self._shape.ndim):
             position[i] = starts[i]
-        
-        src_idx = 0
+            
+        # Write data with bounds checking
         while True:
-            # Write single element
             flat_idx = self._compute_flat_index(position)
+            
             if self._mmap_mode:
+                if flat_idx * self._dtype_size >= self._mmap.size():
+                    raise IndexError("Array index out of bounds")
                 memcpy(
                     <char*>(<uintptr_t>self._mmap.buf) + flat_idx * self._dtype_size,
                     <char*>src_data + src_idx * self._dtype_size,
                     self._dtype_size
                 )
             else:
-                page_data = self._cache.get_page(
-                    (flat_idx * self._dtype_size) // PAGE_SIZE, True
-                )
-                memcpy(
-                    <char*>page_data + (flat_idx * self._dtype_size) % PAGE_SIZE,
-                    <char*>src_data + src_idx * self._dtype_size,
-                    self._dtype_size
-                )
+                page_number = (flat_idx * self._dtype_size) // PAGE_SIZE
+                offset = (flat_idx * self._dtype_size) % PAGE_SIZE
+                
+                # Ensure we don't write past the end of a page
+                if offset + self._dtype_size > PAGE_SIZE:
+                    raise IndexError("Invalid page access")
+                    
+                page_data = self._cache.get_page(page_number, True)
+                
+                with nogil:
+                    memcpy(
+                        <char*>page_data + offset,
+                        <char*>src_data + src_idx * self._dtype_size,
+                        self._dtype_size
+                    )
             
             src_idx += 1
-            
-            # Update position
+            if src_idx >= value.size:
+                break
+                
+            # Update position with bounds checking
             for i in range(self._shape.ndim - 1, -1, -1):
                 position[i] += steps[i]
                 if position[i] < stops[i]:
                     break
-                if i > 0:
+                if i > 0:  # Don't reset position[0] if we're done
                     position[i] = starts[i]
             else:
-                break
+                break  # We've processed all elements
         
         if self._mmap_mode:
             self._mmap.flush()
@@ -864,6 +987,167 @@ cdef class ChunkedStore:
         os.rename(f"{self._filename_base}_{temp_name}.dat", f"{self._filename_base}_{name}.dat")
         self._datasets[name] = new_dataset
         del self._datasets[temp_name]
+
+cdef class EliasPageCache:
+    def __cinit__(self, str filename, size_t page_size=PAGE_SIZE, size_t n_pages=CACHE_SIZE, bint compression_enabled=False):
+        self.page_size = page_size
+        self.n_pages = n_pages
+        self.access_counter = 0
+        self.filename = filename
+        self.compression_enabled = compression_enabled
+        self.page_map = unordered_map[uint64_t, size_t]()
+        
+        # Allocate pages with extra space for compressed data
+        self.pages = <EliasCachePage*>malloc(n_pages * sizeof(EliasCachePage))
+        if not self.pages:
+            raise MemoryError()
+            
+        for i in range(n_pages):
+            self.pages[i].data = malloc(page_size)
+            self.pages[i].compressed_data = malloc(page_size * 2)  # Worst case
+            if not self.pages[i].data or not self.pages[i].compressed_data:
+                raise MemoryError()
+            memset(self.pages[i].data, 0, page_size)
+            self.pages[i].page_number = 0
+            self.pages[i].dirty = False
+            self.pages[i].last_access = 0
+            self.pages[i].is_compressed = False
+            self.pages[i].compressed_size = 0
+
+    cdef inline uint32_t encode_value(self, uint64_t value, char* dest) nogil:
+        cdef:
+            uint32_t bits_required = 64 - count_leading_zeros(value | 1)
+            uint32_t len_bits = 64 - count_leading_zeros(bits_required | 1)
+            uint32_t total_bits = len_bits * 2 + bits_required - 1
+            uint32_t bytes_needed = (total_bits + 7) >> 3
+            uint64_t encoded = value & ((1ULL << bits_required) - 1)
+            
+        encoded = (encoded << len_bits) | bits_required
+        memcpy(dest, &encoded, bytes_needed)
+        return bytes_needed
+
+    cdef inline uint64_t decode_value(self, const char* src, uint32_t* bytes_read_ptr) nogil:
+        cdef:
+            uint64_t temp
+            uint32_t len_bits, value_bits
+            
+        memcpy(&temp, src, 8)
+        len_bits = temp & 0x3F
+        value_bits = (temp >> len_bits) & ((1ULL << len_bits) - 1)
+        
+        bytes_read_ptr[0] = (len_bits * 2 + value_bits - 1 + 7) >> 3
+        return value_bits
+
+    cdef size_t compress_page(self, void* src, void* dest, size_t size) nogil:
+        cdef:
+            size_t i, out_pos = 0
+            uint64_t* src_ptr = <uint64_t*>src
+            char* dest_ptr = <char*>dest
+            uint64_t prev_value = 0
+            uint64_t delta
+            uint32_t encoded_size
+            
+        for i in range(size // sizeof(uint64_t)):
+            delta = src_ptr[i]
+            if i > 0:
+                delta -= prev_value
+            encoded_size = self.encode_value(delta, dest_ptr + out_pos)
+            out_pos += encoded_size
+            prev_value = src_ptr[i]
+            
+        return out_pos
+
+    cdef size_t decompress_page(self, void* src, void* dest, size_t compressed_size) nogil:
+        cdef:
+            size_t in_pos = 0, out_pos = 0
+            char* src_ptr = <char*>src
+            uint64_t* dest_ptr = <uint64_t*>dest
+            uint64_t prev_value = 0
+            uint32_t bytes_read
+            
+        while in_pos < compressed_size:
+            dest_ptr[out_pos // sizeof(uint64_t)] = self.decode_value(
+                src_ptr + in_pos, &bytes_read) + prev_value
+            prev_value = dest_ptr[out_pos // sizeof(uint64_t)]
+            in_pos += bytes_read
+            out_pos += sizeof(uint64_t)
+            
+        return out_pos
+
+    cdef void* get_compressed_page(self, uint64_t page_number, bint for_writing=False) except *:
+        cdef:
+            size_t i, lru_idx
+            uint64_t oldest_access
+            bytes data
+            
+        with nogil:
+            if self.page_map.count(page_number):
+                lru_idx = self.page_map[page_number]
+                if for_writing:
+                    self.pages[lru_idx].dirty = True
+                self.pages[lru_idx].last_access = self.access_counter
+                self.access_counter += 1
+                
+                if self.pages[lru_idx].is_compressed and for_writing:
+                    # Decompress for writing
+                    self.decompress_page(
+                        self.pages[lru_idx].compressed_data,
+                        self.pages[lru_idx].data,
+                        self.pages[lru_idx].compressed_size
+                    )
+                    self.pages[lru_idx].is_compressed = False
+                    
+                return self.pages[lru_idx].data
+
+            # Cache miss - find LRU
+            oldest_access = self.access_counter
+            for i in range(self.n_pages):
+                if self.pages[i].last_access < oldest_access:
+                    oldest_access = self.pages[i].last_access
+                    lru_idx = i
+
+            # Remove old page from map
+            if self.page_map.count(self.pages[lru_idx].page_number):
+                self.page_map.erase(self.pages[lru_idx].page_number)
+
+        # Handle file I/O
+        if self.pages[lru_idx].dirty:
+            if self.compression_enabled and not self.pages[lru_idx].is_compressed:
+                self.pages[lru_idx].compressed_size = self.compress_page(
+                    self.pages[lru_idx].data,
+                    self.pages[lru_idx].compressed_data,
+                    self.page_size
+                )
+                self._write_compressed_page(lru_idx)
+            else:
+                self._write_page(lru_idx)
+                
+        self.pages[lru_idx].page_number = page_number
+        self.pages[lru_idx].dirty = for_writing
+        self.pages[lru_idx].last_access = self.access_counter
+        self.access_counter += 1
+        self.page_map[page_number] = lru_idx
+        
+        # Read page
+        with nogil:
+            memset(self.pages[lru_idx].data, 0, self.page_size)
+            
+        self.file.seek(page_number * self.page_size)
+        data = self.file.read(self.page_size)
+        
+        if data and self.compression_enabled:
+            self.pages[lru_idx].compressed_size = len(data)
+            memcpy(self.pages[lru_idx].compressed_data, <char*>data, len(data))
+            self.decompress_page(
+                self.pages[lru_idx].compressed_data,
+                self.pages[lru_idx].data,
+                len(data)
+            )
+            self.pages[lru_idx].is_compressed = False
+        elif data:
+            memcpy(self.pages[lru_idx].data, <char*>data, len(data))
+            
+        return self.pages[lru_idx].data
 
 def convert_h5_to_chunked(h5_filename, output_base, chunk_size=10000000):
     """
