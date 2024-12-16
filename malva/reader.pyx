@@ -24,7 +24,7 @@ def iterate_flavor(list reads_in,
 
     if num_reads == 2:
         iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, trim_start = start, trim_end = end)
-        iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = kmer_size)
+        iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = kmer_size, jump_amount = kmer_size)
         
         for r1, r2 in zip(iter_r1, iter_r2):
             yield r1, r2
