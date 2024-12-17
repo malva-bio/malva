@@ -1042,7 +1042,7 @@ cdef class MalvaIndex:
 
     def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
           count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
-          max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, *args, **kwargs):
+          max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, show_coverage: bool = False, *args, **kwargs):
         """
         Locate spatial positions where a sequence or set of sequences appear.
 
@@ -1059,12 +1059,13 @@ cdef class MalvaIndex:
             max_mem (str): Maximum memory constraint
             force_reload (bool): Force index reload
             use_background_model (bool): Use background model for filtering
+            show_coverage (bool): The coverage of passing k-mers across the query sequence will be tracked and returned
 
         Returns:
             List[Tuple]: List of tuples, one per group (or single tuple if input is str/List[str]), each containing:
                 - np.ndarray: Spatial locations where sequences were found
                 - np.ndarray: Count of occurrences at each location
-                - List: Matching details for sequence positions
+                - List: (only contains valid values when show_coverage = True) Coverage of passing k-mers 
         """
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
@@ -1084,9 +1085,13 @@ cdef class MalvaIndex:
             int BACKGROUND_THRESHOLD = 1
             uint32_t idx_kmer
             int idx = 0
-            list seq_matches = [[0, 1]]
 
             FastKmerProcessor processor = FastKmerProcessor(self.kmer_size, True, self.kmer_size)
+
+            np.ndarray[np.int32_t, ndim=1] position_counts
+            int seq_length, kmer_pos, seq_idx
+            list sequence_lengths = []
+            list all_position_counts = []
             
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
@@ -1116,25 +1121,37 @@ cdef class MalvaIndex:
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, 
                                     count_at_least=count_at_least, chunk_id=chunk_id)
 
-        ##### Processing sequence groups separately #####
-        for group in sequence_groups:
+        for group_idx, group in enumerate(sequence_groups):
             # we need to cleanup the secondary map and index
             secondary_map.clear()
             idx = 0
+
+            # Initialize position counts for each sequence in group
+            sequence_lengths = [len(seq) for seq in group]
+            if show_coverage:
+                group_position_counts = [np.zeros(length, dtype=np.int32) for length in sequence_lengths]
+            else:
+                group_position_counts = []
             
             # Get unique subsequences for this group
-            split_sliding_sequences = set()
-            for seq in group:
-                split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, sliding_size)))
+            split_sliding_sequences = []
+            for seq_idx, seq in enumerate(group):
+                sliding_windows = self.get_whole_sliding_sequence_chunk(seq, sliding_size)
+                split_sliding_sequences.extend(
+                    (window, seq_idx, pos) 
+                    for pos, window in enumerate(sliding_windows)
+                )
 
             if self.verbose:
-                iterator = track(list(split_sliding_sequences), description=f'Counting occurrences at kmers for group')
+                iterator = track(split_sliding_sequences, description=f'Counting occurrences at kmers for group')
             else:
-                iterator = list(split_sliding_sequences)
+                iterator = split_sliding_sequences
 
             # Process each subsequence in the group
-            for subseq in iterator:
+            for subseq, curr_seq_idx, start_pos in iterator:
                 group_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+                matches_threshold = False
+                window_positions = set()
 
                 for idx_kmer, kmer in enumerate(group_kmer_list):
                     if current_kmers.find(kmer) == current_kmers.end():
@@ -1153,8 +1170,19 @@ cdef class MalvaIndex:
                         primary_map[value].second = idx_kmer
                         primary_map[value].first = min(primary_map[value].first, <uint32_t>(sliding_size//self.kmer_size))
 
+                        if primary_map[value].first > CONST_THRESHOLD and show_coverage:
+                            matches_threshold = True
+                            for kmer_pos in range(self.kmer_size):
+                                window_positions.add(start_pos + idx_kmer + kmer_pos)
+
                     if ((idx_kmer + 1) < (sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(group_kmer_list)):
                         continue
+
+                    if matches_threshold and show_coverage:
+                        position_counts = group_position_counts[curr_seq_idx]
+                        for pos in window_positions:
+                            if 0 <= pos < len(position_counts):
+                                position_counts[pos] += 1
 
                     for item_primary in primary_map:
                         value = item_primary.first
@@ -1177,7 +1205,7 @@ cdef class MalvaIndex:
                 kmer_count[idx] = item.second
                 idx += 1
 
-            results.append((kmer_locations, kmer_count, seq_matches))
+            results.append((kmer_locations, kmer_count, group_position_counts))
 
         # If original input was str or List[str], return single result instead of list
         return results[0] if len(results) == 1 else results
