@@ -2,20 +2,21 @@ import io
 import logging
 import numpy as np
 import pandas as pd
-from flask import Flask, render_template, send_file, request, session, jsonify, Blueprint, g, url_for
+from flask import Flask, render_template, send_file, request, session, jsonify, Blueprint, g, url_for, make_response
 from flask_session import Session
 from flask_cors import CORS
 from PIL import Image
 import uuid
 import os
 from dataclasses import dataclass
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Union
 import datashader as ds
 from skimage.filters import gaussian
 from scipy.spatial import cKDTree
 import threading
 from pathlib import Path
 import tempfile
+import re
 
 # for proxy functionality
 from urllib.parse import urljoin
@@ -23,6 +24,7 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from malva.index import MalvaIndex
 from malva.dbutils import handle_sequence
+from malva.serve.reportgen import HTMLReportGenerator
 # from malva.utils import check_file_exists
 # from malva.serve.modeling import handle_natural_query, setup_model
 # from malva.serve.templates.strings import HINT_SEQUENCE_QUERY
@@ -30,6 +32,13 @@ from malva.dbutils import handle_sequence
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Errors
+class SequenceValidationError(ValueError):
+    """Custom error for sequence validation issues"""
+    def __init__(self, message: str, help_text: Optional[str] = None):
+        super().__init__(message)
+        self.help_text = help_text
 
 # Constants
 MAX_LOAD_ALL = 10_000_000
@@ -136,7 +145,7 @@ class GlobalState:
         with self._lock:
             try:
                 logger.info("Loading malva index and metadata")
-                self.kmer_index = MalvaIndex(index_path)
+                self.kmer_index = MalvaIndex(index_path, verbose=True)
                 self.kmer_index.open()
 
                 # Load the initial data points
@@ -551,65 +560,298 @@ def create_app(init_state=True, _uuid=None):
             "status": "healthy" if global_state.initialized else "initializing",
             "message": "Service is ready" if global_state.initialized else "Service is initializing"
         })
+    
+    def parse_gene_format(query: str) -> str:
+        """Parse various gene format inputs into standard format"""
+        if query.startswith('gene:') or query.startswith('ensembl:'):
+            return query
+        
+        if ';' in query and not query.startswith('gene:'):
+            return f"gene:{query}"
+        
+        return f"gene:{query};type:cdna"
+
+    def validate_window_size(sequences: Union[List[str], List[List[str]]], window_size: int, kmer_size: int) -> Tuple[int, Optional[str]]:
+        """
+        Validate window size against sequence lengths and k-mer size.
+        Handles both flat lists of sequences and lists of isoform lists.
+        
+        Args:
+            sequences: List of sequences or list of isoform lists
+            window_size: Requested window size
+            kmer_size: Size of k-mers used in index
+            
+        Returns:
+            Tuple of (validated_size, warning_message)
+        """
+        if window_size < kmer_size:
+            raise SequenceValidationError(
+                f"Window size ({window_size}) cannot be smaller than k-mer size ({kmer_size})",
+                "Please increase the window size parameter"
+            )
+        
+        # Flatten sequences if needed to find shortest length
+        flat_sequences = []
+        for seq in sequences:
+            if isinstance(seq, list):
+                # This is a list of isoforms
+                flat_sequences.extend(seq)
+            else:
+                # This is a single sequence
+                flat_sequences.append(seq)
+        
+        if not flat_sequences:
+            raise SequenceValidationError(
+                "No valid sequences to process",
+                "No sequences were found for the provided input"
+            )
+        
+        min_seq_length = min(len(seq) for seq in flat_sequences)
+        
+        if min_seq_length < kmer_size:
+            raise SequenceValidationError(
+                f"Shortest sequence length ({min_seq_length}) cannot be smaller than k-mer size ({kmer_size})",
+                "One or more sequences are too short for analysis"
+            )
+        
+        if window_size > min_seq_length:
+            new_size = min_seq_length
+            return new_size, f"Window size adjusted to {new_size} to match shortest sequence/isoform"
+        
+        return window_size, None
+
+    def process_sequence_input(query: str) -> List[str]:
+        """
+        Process input query into list of sequences.
+        Handles raw sequences, FASTA format, and gene IDs.
+        Supports multiple separators: commas, spaces, newlines
+        """
+        query = query.strip()
+        if not query:
+            return []
+
+        # Check if this is a FASTA sequence
+        if query.startswith('>'):
+            sequences = []
+            current_seq = []
+            
+            for line in query.split('\n'):
+                line = line.strip()
+                if not line:
+                    continue
+                    
+                if line.startswith('>'):
+                    if current_seq:
+                        sequences.append('\n'.join(current_seq))
+                    current_seq = [line]
+                else:
+                    current_seq.append(line)
+            
+            if current_seq:
+                sequences.append('\n'.join(current_seq))
+                
+            return sequences
+
+        # Not FASTA - handle as raw sequence(s) or gene IDs
+        parts = []
+        for line in query.split('\n'):
+            line_parts = re.split(r'[,\s]+', line.strip())
+            parts.extend(part for part in line_parts if part)
+        
+        sequences = []
+        for part in parts:
+            cleaned = part.strip()
+            
+            if not cleaned:
+                continue
+                
+            if cleaned.startswith('gene:') or cleaned.startswith('ensembl:'):
+                if ';type:' not in cleaned:
+                    cleaned = f"{cleaned};type:cdna"
+                sequences.append(cleaned)
+                
+            elif re.match(r'^[ACGTNUacgtnu]+$', cleaned):
+                sequences.append(cleaned.upper())
+
+            else:
+                sequences.append(f"gene:{cleaned};type:cdna")
+
+        return sequences
 
     @app.route("/search", methods=["POST"])
     def search():
         try:
-            # Get parameters from URL args instead of form
-            query = request.args.get("selectsequence", "")
+            query = request.args.get("selectsequence", "").strip()
+            if not query:
+                raise SequenceValidationError("No sequence provided", 
+                    "Please enter a sequence or gene name")
+            
+            logger.info("Starting sequence processing...")
+            
+            # Get parameters
             sliding_size = int(request.args.get("sliding_size", 128))
             pct_threshold = float(request.args.get("pct_threshold", 0.65))
-            low_complexity_filter = request.args.get("low_complexity_filter", "").lower() in ["true", "1", "true"]
-            countmaxkmer = 10 ** float(request.args.get("countmaxkmer", "5"))
-            countminkmer = 10 ** float(request.args.get("countminkmer", "1"))
-            standard_query = request.args.get("queryType") in ['1', 1]
-
-            # Print received parameters for debugging
-            print("Received parameters:", {
-                "query": query,
-                "sliding_size": sliding_size,
-                "pct_threshold": pct_threshold,
-                "low_complexity_filter": low_complexity_filter,
-                "countmaxkmer": countmaxkmer,
-                "countminkmer": countminkmer,
-                "standard_query": standard_query
-            })
-
-            if countminkmer >= countmaxkmer:
-                raise ValueError("k-mer 'in at least' must be smaller than 'in at most'")
-
-            seq_processed = handle_sequence(query)
-
-            if len(seq_processed) > MAX_SEQUENCE_LENGTH:
-                raise ValueError(f"Cannot have input sequences longer than {MAX_SEQUENCE_LENGTH}")
-
-            locs, ints, where_abundant = interactive_query_standard(
-                seq_processed,
-                sliding_size=sliding_size,
-                pct_threshold=pct_threshold,
-                low_complexity_filter=low_complexity_filter,
-                countmaxkmer=countmaxkmer,
-                countminkmer=countminkmer,
-            )
-
-            print(f"Query results: {len(locs)} locations, {len(ints)} intensities")
+            low_complexity_filter = request.args.get("low_complexity_filter", "").lower() in ["true", "1"]
+            countmaxkmer = int(float(request.args.get("countmaxkmer", 5)))
+            countminkmer = int(float(request.args.get("countminkmer", 1)))
             
-            # Store results in user session
+            # Process input
+            processed_sequences = process_sequence_input(query)
+            logger.info(f"Initial processing returned {len(processed_sequences)} sequences")
+            
+            if not processed_sequences:
+                raise SequenceValidationError(
+                    "No valid sequences found in input",
+                    "Check the format of your input. Examples are shown below."
+                )
+            
+            # Handle gene IDs and get actual sequences
+            final_sequences = []
+            warnings = []
+            errors = []
+            
+            for seq in processed_sequences:
+                try:
+                    if seq.startswith('>'):  # FASTA
+                        lines = seq.split('\n')
+                        sequence = ''.join(lines[1:]).upper()
+                        if not re.match(r'^[ACGTNU]+$', sequence):
+                            errors.append(f"Invalid FASTA sequence: {lines[0]}")
+                            continue
+                        final_sequences.append(sequence)
+                        
+                    elif seq.startswith('gene:') or seq.startswith('ensembl:') or ';' in seq:
+                        # Handle gene IDs
+                        result = handle_sequence(seq)
+                        if result is None:
+                            errors.append(f"Gene not found: {seq}")
+                            continue
+                            
+                        if isinstance(result, list):
+                            final_sequences.extend(result)
+                        else:
+                            final_sequences.append(result)
+                            
+                    else:
+                        # Must be raw sequence or simple gene
+                        if re.match(r'^[ACGTNUacgtnu]+$', seq):
+                            # It's a raw sequence
+                            final_sequences.append(seq.upper())
+                        else:
+                            # Try as simple gene name
+                            result = handle_sequence(f"gene:{seq}")
+                            if result is None:
+                                errors.append(f"Gene not found: {seq}")
+                                continue
+                                
+                            if isinstance(result, list):
+                                final_sequences.extend(result)
+                            else:
+                                final_sequences.append(result)
+                                
+                except Exception as e:
+                    errors.append(f"Error processing {seq[:20]}: {str(e)}")
+                    continue
+            
+            logger.info(f"Final processing yielded {len(final_sequences)} sequences")
+            
+            if not final_sequences:
+                error_msg = "No valid sequences could be processed."
+                if errors:
+                    error_msg += f" Errors: {'; '.join(errors)}"
+                raise SequenceValidationError(error_msg, 
+                    "Please check your input and try again")
+            
+            # Validate window size
+            kmer_size = global_state.kmer_index.kmer_size
+            min_seq_length = min(len(seq) for seq in final_sequences)
+            
+            if min_seq_length < kmer_size:
+                raise SequenceValidationError(
+                    f"Sequence length ({min_seq_length}) cannot be smaller than k-mer size ({kmer_size})",
+                    "One or more sequences are too short for analysis"
+                )
+            
+            if sliding_size > min_seq_length:
+                sliding_size = min_seq_length
+                warnings.append(f"Window size adjusted to {sliding_size} to match shortest sequence")
+            
+            # Query the index
+            try:
+                locs, ints, where_abundant = interactive_query_standard(
+                    final_sequences,
+                    sliding_size=sliding_size,
+                    pct_threshold=pct_threshold,
+                    low_complexity_filter=low_complexity_filter,
+                    countmaxkmer=10**countmaxkmer,
+                    countminkmer=10**countminkmer
+                )
+            except Exception as e:
+                logger.error(f"Query error: {str(e)}")
+                raise SequenceValidationError(
+                    "Error searching sequences",
+                    "Try adjusting the search parameters"
+                )
+            
+            # Check results
+            if len(locs) == 0:
+                raise SequenceValidationError(
+                    "No results found for any sequences",
+                    "Try adjusting the search parameters"
+                )
+            
+            # Store results
             g.user_session.add_query_result(
-                global_state.xy[locs],  # Convert indices to coordinates
+                global_state.xy[locs],
                 ints
             )
             
-            session["query_seq"] = seq_processed
+            # Store first sequence for display
+            session["query_seq"] = final_sequences[0]
             session["query_term"] = query
-            session["where_abundant"] = where_abundant
+            session["where_abundant"] = where_abundant.tolist() if isinstance(where_abundant, np.ndarray) else where_abundant
             
-            return jsonify({"success": True})
-        except Exception as e:
-            print("Error processing query:", str(e))
+            response = {"success": True}
+            if warnings:
+                response["warnings"] = warnings
+            if errors:
+                response["errors"] = errors
+            
+            logger.info("Search completed successfully")
+            return jsonify(response)
+            
+        except SequenceValidationError as e:
             return jsonify({
                 "error": str(e),
-                "help": "Please check your input parameters and try again"
+                "help": e.help_text
+            }), 400
+        except Exception as e:
+            logger.error(f"Unexpected error in search: {str(e)}")
+            return jsonify({
+                "error": "An unexpected error occurred",
+                "help": "Please try again or contact support if the problem persists"
+            }), 500
+        
+    # Add route to handle save request
+    @app.route("/save_report", methods=["POST"])
+    def save_report():
+        try:
+            # Create report
+            generator = HTMLReportGenerator(session)
+            zip_data = generator.create_report_zip()
+            
+            # Create response
+            response = make_response(zip_data)
+            response.headers['Content-Type'] = 'application/zip'
+            response.headers['Content-Disposition'] = 'attachment; filename=malva_report.zip'
+            
+            return response
+            
+        except Exception as e:
+            logger.error(f"Error generating report: {str(e)}")
+            return jsonify({
+                "error": "Failed to generate report",
+                "help": "Please try again or contact support if the problem persists"
             }), 500
 
     @app.route("/", methods=["GET"])

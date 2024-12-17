@@ -123,30 +123,69 @@
                         </div>
                     </div>
                     <hr/>
-                    <div class="form-check">
-                        <input class="form-check-input" type="checkbox" value="" id="lowComplexityFilterChecked">
-                        <label class="form-check-label" for="lowComplexityFilterChecked">
-                          Filter low complexity sequences
-                        </label>
-                    </div>
                     <div class="form-group">
-                        <div class="VOhV7b">
-                            <h1 class="MMkI0c">Read Length</h1>
+                        <div class="VOhV7b d-flex align-items-center">
+                            <h1 class="MMkI0c">Window Size (bp)</h1>
+                            <span class="info-tooltip ms-2" data-bs-toggle="tooltip" data-bs-html="true"
+                                  title="The query sequence is split into windows of this size.<br><br>These windows are used to search for matches in the data.<br><br>For short sequences (e.g., probes), set this between 50-100% of your sequence length.<br><br>For circRNA BSJs, ~75% of the BSJ length is recommended.">
+                                <i class="material-icons" style="font-size: 16px;">info</i>
+                            </span>
                         </div>
-                        <input type="text" id="slidingsize" name="slidingsize" class="form-control" value="128">
+                        <input type="text" id="slidingsize" name="slidingsize" class="form-control" value="90">
                     </div>
-                    <div class="VOhV7b">
-                        <h1 class="MMkI0c">k-mer presence (%)</h1>
+                    
+                    <div class="VOhV7b d-flex align-items-center">
+                        <h1 class="MMkI0c">Match Threshold (%)</h1>
+                        <span class="info-tooltip ms-2" data-bs-toggle="tooltip" data-bs-html="true" 
+                              title="Percentage of k-mers from a window that must match for a location to be counted.<br><br>Higher values (>70%) give more specific but fewer matches.<br><br>Lower values increase sensitivity but may include more false positives.">
+                            <i class="material-icons" style="font-size: 16px;">info</i>
+                        </span>
                     </div>
                     <div id="pctthreshold" class="range-slider-custom"></div>
-                    <div class="VOhV7b">
-                        <h1 class="MMkI0c">k-mers in at most [log10 % of reads]</h1>
+                    
+                    <div class="VOhV7b d-flex align-items-center">
+                        <h1 class="MMkI0c">Maximum Occurrence</h1>
+                        <span class="info-tooltip ms-2" data-bs-toggle="tooltip" data-bs-html="true"
+                              title="Ignore k-mers present in more than this many cells (log10 scale).<br><br>Helps filter out highly repetitive or common sequences.">
+                            <i class="material-icons" style="font-size: 16px;">info</i>
+                        </span>
                     </div>
                     <div id="countmaxkmer" class="range-slider-custom"></div>
-                    <div class="VOhV7b">
-                        <h1 class="MMkI0c">k-mers in at least [log10 % of reads]</h1>
+                    
+                    <div class="VOhV7b d-flex align-items-center">
+                        <h1 class="MMkI0c">Minimum Occurrence</h1>
+                        <span class="info-tooltip ms-2" data-bs-toggle="tooltip" data-bs-html="true"
+                              title="Ignore k-mers present in fewer than this many cells (log10 scale).<br><br>Helps filter out sequencing errors or rare variants.">
+                            <i class="material-icons" style="font-size: 16px;">info</i>
+                        </span>
                     </div>
                     <div id="countminkmer" class="range-slider-custom"></div>
+                    
+                    <div class="form-check d-flex align-items-center">
+                        <input class="form-check-input" type="checkbox" value="" id="lowComplexityFilterChecked">
+                        <label class="form-check-label ms-2" for="lowComplexityFilterChecked">
+                            Filter Low Complexity
+                            <span class="info-tooltip ms-2" data-bs-toggle="tooltip" data-bs-html="true"
+                                  title="Excludes k-mers from masked sequences:<br>- Lowercase letters (soft-masked)<br>- N's (hard-masked)<br><br>Helps avoid matching repetitive elements.">
+                                <i class="material-icons" style="font-size: 16px;">info</i>
+                            </span>
+                        </label>
+                    </div>
+
+                    <div id="examples" class="mt-3">
+                        <div class="VOhV7b">
+                            <h1 class="MMkI0c">Example Queries:</h1>
+                        </div>
+                        <pre class="example-query" data-example="Simple gene query">IGKC</pre>
+                        <pre class="example-query" data-example="Multiple genes">IGKC, ACTB, GAPDH</pre>
+                        <pre class="example-query" data-example="Gene with species">gene:Krt16;species:mus_musculus</pre>
+                        <pre class="example-query" data-example="Gene with region">gene:Acta2;species:mus_musculus;split:-256,-1</pre>
+                        <pre class="example-query" data-example="Ensembl ID">ensembl:ENSE00001507664</pre>
+                        <pre class="example-query" data-example="FASTA format">>sequence_1
+                    ATATTTACTACCTA
+                    >sequence_2
+                    GCTAGCTAGCTAGT</pre>
+                    </div>
                 </div>
             </div>
         </div>
@@ -288,8 +327,8 @@ ATATTTACTACCTA
                         </div>
                         <div class="dryRY ufjIR">
                             <div class="KNfEk Rqu0ae ">
-                                <button class="e2moi " aria-label="query">
-                                    <div class="tXNTee L6Bbsd T7HQDc ">
+                                <button id="saveButton" class="e2moi" aria-label="save">
+                                    <div class="tXNTee L6Bbsd T7HQDc">
                                         <div class="OyjIsf"></div>
                                         <span class="k48Abe google-symbols NhBTye G47vBd" aria-hidden="true">&#xe161;</span>
                                         <span class="uEubGf fontTitleSmall">Save</span>
@@ -697,6 +736,14 @@ ATATTTACTACCTA
             });
         }
 
+        // search with Ctrl+Enter (Windows) or Command+Enter (Mac)
+        document.getElementById('selectsequence').addEventListener('keydown', function(e) {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('btn-submit').click();
+            }
+        });
+
         // Get the input element
         var textArea = document.getElementById("selectsequence");
         var textAreaHighlight = document.getElementById("highlightedText");
@@ -740,14 +787,12 @@ ATATTTACTACCTA
         // avoid dragging the document when moving slider (mobile)
         $(document).delegate('.ui-page', 'touchmove', false);
 
-        function sendQueryToServer(query, queryType) {
+        function sendQueryToServer(query) {
             $('#btn-submit').prop("disabled", true);
             $('#modal-loading').modal('show');
 
-            // Construct URL parameters
             const params = new URLSearchParams({
                 selectsequence: query,
-                queryType: queryType,
                 sliding_size: $('#slidingsize').val(),
                 pct_threshold: $('#pctthreshold').slider("option", "value") / 100,
                 countmaxkmer: $('#countmaxkmer').slider("option", "value"),
@@ -758,31 +803,137 @@ ATATTTACTACCTA
             $.ajax({
                 type: 'POST',
                 url: `{{ url_for('search') }}?${params.toString()}`,
-                // Don't send any data in the body
                 data: {},
                 success: function(data) {
-                updateMapTiles();
-                $('#btn-submit').prop("disabled", false);
-                $('#modal-loading').modal('hide');
-                updateCard();
+                    if (data.warnings) {
+                        data.warnings.forEach(warning => showWarning(warning));
+                    }
+                    if (data.errors) {
+                        data.errors.forEach(error => showWarning(error));
+                    }
+                    
+                    updateMapTiles();
+                    updateCard();
+                    
+                    $('#btn-submit').prop("disabled", false);
+                    $('#modal-loading').modal('hide');
                 },
                 error: function(e) {
-                let response;
-                try {
-                    response = JSON.parse(e.responseText);
-                } catch (parseError) {
-                    response = {
-                    error: "Unknown error occurred",
-                    help: "Please try again later"
-                    };
-                }
-                $('#modal-loading').modal('hide');
-                $('#btn-submit').prop("disabled", false);
-                bsAlert(response.error, response.help);
-                $("#bs-alert").modal('show');
+                    let response;
+                    try {
+                        response = JSON.parse(e.responseText);
+                    } catch (parseError) {
+                        response = {
+                            error: "Unknown error occurred",
+                            help: "Please try again later"
+                        };
+                    }
+                    
+                    showError(response.error, response.help);
+                    
+                    $('#modal-loading').modal('hide');
+                    $('#btn-submit').prop("disabled", false);
                 }
             });
-            }
+        }
+
+        // Update your tooltip initialization
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl, {
+                trigger: 'hover click',
+                html: true,
+                container: 'body',
+                boundary: 'viewport',
+                placement: 'auto',
+                delay: { show: 50, hide: 50 },
+                popperConfig: {
+                    modifiers: [
+                        {
+                            name: 'preventOverflow',
+                            options: {
+                                boundary: 'viewport',
+                                padding: 8,
+                                altAxis: true
+                            }
+                        },
+                        {
+                            name: 'flip',
+                            options: {
+                                boundary: 'viewport',
+                                padding: 8
+                            }
+                        }
+                    ]
+                }
+            });
+        });
+
+        // Saving report
+        document.getElementById('saveButton').addEventListener('click', function() {
+            const originalContent = this.innerHTML;
+            this.innerHTML = '<div class="loading-spinner"></div>';
+            this.disabled = true;
+            
+            fetch('/save_report', {
+                method: 'POST',
+                credentials: 'same-origin'  // Include session cookies
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'malva_report.zip';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showError('Failed to generate report', 'Please try again or contact support.');
+            })
+            .finally(() => {
+                this.innerHTML = originalContent;
+                this.disabled = false;
+            });
+        });
+
+        // Ensure tooltips are positioned correctly when the window resizes
+        window.addEventListener('resize', function() {
+            tooltipList.forEach(function(tooltip) {
+                if (tooltip._isShown()) {
+                    tooltip.update();
+                }
+            });
+        });
+
+        // Hide tooltips when scrolling to prevent positioning issues
+        let scrollTimeout;
+        window.addEventListener('scroll', function() {
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(function() {
+                tooltipList.forEach(function(tooltip) {
+                    if (tooltip._isShown()) {
+                        tooltip.update();
+                    }
+                });
+            }, 100);
+        }, { passive: true });
+
+        document.querySelectorAll('.example-query').forEach(example => {
+            example.addEventListener('click', function() {
+                document.getElementById('selectsequence').value = this.textContent;
+                updateSearchSize();
+                updateHighlight();
+            });
+        });
     
         $(document).ready(function() {
             updateCard();
@@ -792,6 +943,47 @@ ATATTTACTACCTA
                 validateInput();
             });
         })
+
+        function showError(message, details = '') {
+            const errorHtml = `
+                <div class="alert alert-danger">
+                    <strong>Error:</strong> ${message}
+                    ${details ? `<br><small>${details}</small>` : ''}
+                </div>
+            `;
+            
+            // Show error in a non-intrusive way
+            const errorContainer = document.getElementById('error-container') || 
+                document.createElement('div');
+            errorContainer.id = 'error-container';
+            errorContainer.className = 'position-fixed top-0 end-0 p-3';
+            errorContainer.innerHTML = errorHtml;
+            document.body.appendChild(errorContainer);
+            
+            // Auto-hide after 5 seconds
+            setTimeout(() => {
+                errorContainer.remove();
+            }, 5000);
+        }
+
+        function showWarning(message) {
+            const warningHtml = `
+                <div class="alert alert-warning">
+                    <strong>Note:</strong> ${message}
+                </div>
+            `;
+            
+            const warningContainer = document.getElementById('warning-container') || 
+                document.createElement('div');
+            warningContainer.id = 'warning-container';
+            warningContainer.className = 'position-fixed bottom-0 end-0 p-3';
+            warningContainer.innerHTML = warningHtml;
+            document.body.appendChild(warningContainer);
+            
+            setTimeout(() => {
+                warningContainer.remove();
+            }, 5000);
+        }
 
         $(function () {
             $('[data-toggle="tooltip"]').tooltip({
@@ -824,48 +1016,14 @@ ATATTTACTACCTA
         function validateInput() {
             const textarea = document.getElementById('selectsequence');
             const input = textarea.value.trim();
-            let isValid = true;
-            let errorMessage = '';
-            let queryType = 0; // Default to 0 for natural language or invalid input
-
-            // Function to check if the input is a number
-            function isNumeric(str) {
-                return /^\d+$/.test(str);
-            }
-
-            // Function to check if the input is a single gene name or valid string
-            function isValidGeneQuery(str) {
-                return isGeneId(str) || isEnsemblId(str) || /^gene:.+/.test(str) || /^ensembl:.+/.test(str);
-            }
-
-            if (isNumeric(input)) {
-                // If the input is a number, it's valid but we keep queryType as 0
-                isValid = true;
-            } else if (isFastaSequence(input) || isDnaSequence(input)) {
-                // FASTA or DNA sequence
-                queryType = 1;
-            } else if (isValidGeneQuery(input)) {
-                // Single gene name or valid gene/ensembl string
-                queryType = 1;
-            } else {
-                // Assume it's a natural language query
-                // You might want to add some basic checks here, e.g., minimum length
-                if (input.length < 3) {
-                    isValid = false;
-                    errorMessage = 'Query is too short. Please enter a longer query or a valid gene/ensembl ID.';
-                }
-            }
-
-            if (!isValid) {
-                bsAlert(errorMessage, 'Examples of valid queries are DNA sequences, gene IDs, ensembl IDs, or natural language questions.');
-                $("#bs-alert").modal('show');
+            
+            if (!input) {
+                showError('Please enter a sequence or gene name');
                 return false;
             }
-
-            // If we've reached this point, the input is valid
-            // Now we can send the query to the server along with the queryType
-            sendQueryToServer(input, queryType);
-
+            
+            // Send to server for processing
+            sendQueryToServer(input, null);  // Remove queryType as server will determine
             return true;
         }
         
