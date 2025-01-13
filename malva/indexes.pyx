@@ -4,12 +4,14 @@
 cimport cython
 cimport numpy as np
 
+from cython.operator cimport preincrement as inc
 from libc.stdint cimport uint16_t, uint32_t, int32_t, uint64_t
 from libc.math cimport floor
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose, getline
 from libcpp.algorithm cimport lower_bound
+from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair, move
 from libcpp.unordered_set cimport unordered_set
@@ -30,6 +32,7 @@ from rich.progress import track
 from malva.fast_map cimport map
 from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser, FastKmerProcessor
 from malva.kmer_processing import encode_kmer, get_kmers_numeric, get_sliding_kmers_numeric
+from malva.kmer_processing cimport FastKmerExtractor
 from malva.utils import check_cell_string, convert_to_bytes
 from malva.xopen import xopen
 
@@ -743,7 +746,7 @@ cdef class MalvaIndex:
             size_t total_ranges = valid_ranges.size()
             size_t indices_size
             np.ndarray[np.uint64_t, ndim=1] indices_chunk
-            Py_ssize_t chunk_size = 4096 * 256 * 10
+            Py_ssize_t chunk_size = 4096 * 256
             
         # Get total size from PageAlignedArray
         indices_size = indices_obj.shape[0]
@@ -890,7 +893,7 @@ cdef class MalvaIndex:
                 pos = exact_indices[j].second - min_pos
                 
                 data_start = indptr_chunk[pos]
-                data_end = indptr_chunk[pos + 1]
+                data_end = indptr_chunk[pos + 1] if pos + 1 < len(indptr_chunk) else len(_data)
                 
                 if ((data_end - data_start) < count_at_most and 
                     (data_end - data_start) > count_at_least):
@@ -939,13 +942,97 @@ cdef class MalvaIndex:
             logging.info(f"Time processing data: {t1-t0:.2f}s")
 
         return vals
-    
+
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_adaptive(self, 
+        np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, 
+        uint32_t chunk_id=0):
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            vector[uint64_t] kmer_vec
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
+            vector[pair[uint64_t, size_t]] exact_indices
+            uint64_t kmer
+            unordered_set[uint32_t] _set
+            double t0, t1
+            size_t batch_size = 4096*256
+            size_t total_kmers = len(kmers)
+            size_t index_size
+            bint use_batched
+            vector[uint64_t] starts
+            vector[uint64_t] ends
+            size_t start_idx, end_idx
+            
+        _indices = self.index[f'index_{chunk_id}_indices']
+        _indptr = self.index[f'index_{chunk_id}_indptr']
+        _data = self.index[f'index_{chunk_id}_data']
+        index_size = len(_indices)
+
+        if self.verbose:
+            iterator = track(kmers, description=f'Processing kmers at chunk {chunk_id}')
+        else:
+            iterator = kmers
+
+        # phase 1 same from _constrained_memory approach
+        # find all index ranges using batch hierarchy search
+        # TODO: do not repeat
+        for kmer in iterator:
+            kmer_vec.push_back(kmer)
+        
+        valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
+        
+        # batch mode based on k-mers relative to index size
+        use_batched = (
+            (total_kmers > index_size * 0.001)
+        )
+        
+        if self.verbose:
+            logging.info(f"Strategy selected: {'batched' if use_batched else 'direct'}")
+        
+        if not use_batched:
+            starts.reserve(exact_indices.size())
+            ends.reserve(exact_indices.size())
+            
+            t0 = time.time()
+            exact_indices = self._find_exact_indices(valid_ranges, _indices)
+            t1 = time.time()
+            
+            if self.verbose:
+                logging.info(f"Time processing indices: {t1-t0:.2f}s")
+            
+            # get all indptr values at once, then (meta)data
+            for i in range(exact_indices.size()):
+                idx = exact_indices[i].second
+                start_idx = _indptr[idx]
+                end_idx = _indptr[idx + 1]
+                
+                if ((end_idx - start_idx) < count_at_most and 
+                    (end_idx - start_idx) > count_at_least):
+                    starts.push_back(start_idx)
+                    ends.push_back(end_idx)
+            
+            for i in range(starts.size()):
+                kmer = exact_indices[i].first
+                start_idx = starts[i]
+                end_idx = ends[i]
+                
+                _set = unordered_set[uint32_t]()
+                _set.reserve(end_idx - start_idx)
+                
+                for val in _data[start_idx:end_idx]:
+                    _set.insert(val)
+                    
+                vals[kmer] = _set
+        else:
+            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
+            
+        return vals
+        
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         """Enhanced find_kmer to support both standard and hierarchical approaches."""
         if not self.using_hierarchical:
             return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
         else:
-            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
+            return self._find_kmer_adaptive(kmers, count_at_most, count_at_least, chunk_id)
 
     cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         cdef:
@@ -1040,6 +1127,121 @@ cdef class MalvaIndex:
 
         return all_sliding
 
+    cdef inline vector[pair[uint32_t, uint32_t]] _process_sequence_group(
+            self,
+            const vector[uint64_t]& group_kmers,  
+            uint32_t window_size,
+            float const_threshold,
+            const unordered_map[uint64_t, unordered_set[uint32_t]]& current_kmers,
+            bint single_count) nogil:
+        cdef:
+            vector[pair[uint32_t, uint32_t]] results
+            unordered_map[uint32_t, uint32_t] window_hits
+            unordered_map[uint32_t, uint32_t] final_counts
+            size_t i, window_start = 0
+            uint64_t kmer
+            uint32_t value, count
+            unordered_map[uint64_t, unordered_set[uint32_t]].const_iterator it_kmers
+            unordered_set[uint32_t].const_iterator it_values
+            unordered_map[uint32_t, uint32_t].iterator it_map
+            const unordered_set[uint32_t]* values_ptr
+            
+        # Process each window
+        while window_start < group_kmers.size():
+            window_hits.clear()
+            
+            # Process k-mers in current window
+            for i in range(window_start, min(window_start + window_size, group_kmers.size())):
+                kmer = group_kmers[i]
+                
+                it_kmers = current_kmers.find(kmer)
+                if it_kmers == current_kmers.end():
+                    continue
+                    
+                # Add all values for this k-mer
+                values_ptr = &deref(it_kmers).second
+                it_values = values_ptr.begin()
+                while it_values != values_ptr.end():
+                    value = deref(it_values)
+                    window_hits[value] += 1
+                    inc(it_values)
+            
+            # Check counts for this window
+            it_map = window_hits.begin()
+            while it_map != window_hits.end():
+                value = deref(it_map).first
+                count = deref(it_map).second
+                if count > const_threshold:
+                    if not single_count or final_counts.find(value) == final_counts.end():
+                        final_counts[value] += 1
+                inc(it_map)
+                
+            window_start += 1  # Move to next window
+        
+        # Convert final counts to result format
+        results.reserve(final_counts.size())
+        it_map = final_counts.begin()
+        while it_map != final_counts.end():
+            results.push_back(pair[uint32_t, uint32_t](
+                deref(it_map).first, 
+                deref(it_map).second
+            ))
+            inc(it_map)
+        
+        return results
+
+    cdef vector[uint64_t] _optimized_process_sequences(self, list group, int sliding_size) except *:
+        """Optimized sequence processing method for the MalvaIndex class."""
+        cdef:
+            FastKmerExtractor extractor = FastKmerExtractor(self.kmer_size, True)
+            vector[uint64_t] current_kmers_vec
+            
+        current_kmers_vec = extractor.process_sequence_group(group, sliding_size)
+            
+        return current_kmers_vec
+
+    # Main processing function
+    cdef _process_groups(self,
+            list sequence_groups,
+            uint32_t sliding_size,
+            float const_threshold,
+            const unordered_map[uint64_t, unordered_set[uint32_t]]& current_kmers,
+            bint single_count) except *:
+        cdef:
+            vector[pair[uint32_t, uint32_t]] group_results
+            vector[uint64_t] current_kmers_vec
+            np.ndarray[np.uint32_t, ndim=1] locations
+            np.ndarray[np.uint32_t, ndim=1] values
+            size_t i
+            list results = []
+            list _seq_matches = [[0, 1]]
+            uint32_t window_size = sliding_size//self.kmer_size
+            
+        for group in sequence_groups:
+            current_kmers_vec = self._optimized_process_sequences(group, sliding_size)
+            
+            # Process k-mers with proper window handling
+            group_results = self._process_sequence_group(
+                current_kmers_vec,
+                window_size,
+                const_threshold,
+                current_kmers,
+                single_count
+            )
+            
+            # Convert to numpy arrays
+            # Convert to numpy arrays
+            locations = np.empty(group_results.size(), dtype=np.uint32)
+            values = np.empty(group_results.size(), dtype=np.uint32)
+            
+            for i in range(group_results.size()):
+                locations[i] = group_results[i].first
+                values[i] = group_results[i].second
+            
+            results.append((locations, values, _seq_matches))
+
+        return results
+
     def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
           count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
           max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, show_coverage: bool = False, *args, **kwargs):
@@ -1050,7 +1252,7 @@ cdef class MalvaIndex:
             sequence (Union[str, List[str], List[List[str]]]): Query sequence(s) to search for.
                                                             If List[List[str]], each sublist represents isoforms
                                                             of the same gene that should be quantified together.
-            sliding_size (int): Size of sliding window for k-mer generation
+            sliding_size (int): Size of sliding window for k-mer generation. If set to zero, the whole sequence is used.
             pct_threshold (float): Minimum percentage of matching k-mers required
             count_at_most (int): Maximum count threshold for k-mer consideration
             count_at_least (int): Minimum count threshold for k-mer consideration
@@ -1074,24 +1276,23 @@ cdef class MalvaIndex:
             int cumulative_seq_len = 0
             list sequence_groups = []
             list results = []
-
             np.ndarray all_kmer_list = np.array([])
-
-            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
             unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
             np.ndarray kmer_locations = np.array([0])
             np.ndarray kmer_count = np.array([0])
-            float CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
+            float CONST_THRESHOLD = float(sliding_size//self.kmer_size) * pct_threshold
             int BACKGROUND_THRESHOLD = 1
             uint32_t idx_kmer
             int idx = 0
-
+            list seq_matches = [[0, 1]]
             FastKmerProcessor processor = FastKmerProcessor(self.kmer_size, True, self.kmer_size)
-
-            np.ndarray[np.int32_t, ndim=1] position_counts
-            int seq_length, kmer_pos, seq_idx
-            list sequence_lengths = []
-            list all_position_counts = []
+            size_t num_kmers
+            unordered_map[uint32_t, uint32_t] window_hits
+            uint32_t window_size = sliding_size//self.kmer_size
+            uint64_t kmer
+            uint32_t value
+            uint32_t count
+            uint32_t _sliding_size
             
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
@@ -1111,6 +1312,7 @@ cdef class MalvaIndex:
 
         if self.verbose:
             logging.info(f"Will process {len(all_kmer_list)} {self.kmer_size}-mers across all sequence groups")
+            logging.info(f"Quantifying windows of length {sliding_size}; {int(CONST_THRESHOLD)}/{window_size} {self.kmer_size}-mers to pass")
 
         if len(all_kmer_list) == 0:
             return [(np.array([0]), np.array([0]), [[0, 1]])] * len(sequence_groups)
@@ -1121,94 +1323,9 @@ cdef class MalvaIndex:
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, 
                                     count_at_least=count_at_least, chunk_id=chunk_id)
 
-        for group_idx, group in enumerate(sequence_groups):
-            # we need to cleanup the secondary map and index
-            secondary_map.clear()
-            idx = 0
-
-            # Initialize position counts for each sequence in group
-            sequence_lengths = [len(seq) for seq in group]
-            if show_coverage:
-                group_position_counts = [np.zeros(length, dtype=np.int32) for length in sequence_lengths]
-            else:
-                group_position_counts = []
-            
-            # Get unique subsequences for this group
-            split_sliding_sequences = []
-            for seq_idx, seq in enumerate(group):
-                sliding_windows = self.get_whole_sliding_sequence_chunk(seq, sliding_size)
-                split_sliding_sequences.extend(
-                    (window, seq_idx, pos) 
-                    for pos, window in enumerate(sliding_windows)
-                )
-
-            if self.verbose:
-                iterator = track(split_sliding_sequences, description=f'Counting occurrences at kmers for group')
-            else:
-                iterator = split_sliding_sequences
-
-            # Process each subsequence in the group
-            for subseq, curr_seq_idx, start_pos in iterator:
-                group_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-                matches_threshold = False
-                window_positions = set()
-
-                for idx_kmer, kmer in enumerate(group_kmer_list):
-                    if current_kmers.find(kmer) == current_kmers.end():
-                        continue
-                    
-                    if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
-                        continue
-                    
-                    values = current_kmers[kmer] if kmer != 0 else []
-                    for value in values:
-                        if primary_map.find(value) == primary_map.end():
-                            primary_map[value].first = 1
-                        else:
-                            primary_map[value].first += 1
-                        
-                        primary_map[value].second = idx_kmer
-                        primary_map[value].first = min(primary_map[value].first, <uint32_t>(sliding_size//self.kmer_size))
-
-                        if primary_map[value].first > CONST_THRESHOLD and show_coverage:
-                            matches_threshold = True
-                            for kmer_pos in range(self.kmer_size):
-                                window_positions.add(start_pos + idx_kmer + kmer_pos)
-
-                    if ((idx_kmer + 1) < (sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(group_kmer_list)):
-                        continue
-
-                    if matches_threshold and show_coverage:
-                        position_counts = group_position_counts[curr_seq_idx]
-                        for pos in window_positions:
-                            if 0 <= pos < len(position_counts):
-                                position_counts[pos] += 1
-
-                    for item_primary in primary_map:
-                        value = item_primary.first
-                        if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
-                            secondary_map[value] = 1
-                        elif primary_map[value].first > CONST_THRESHOLD and not single_count:
-                            primary_map[value].first = 0
-                            secondary_map[value] += 1
-                        if primary_map[value].second - idx_kmer > 0 and primary_map[value].first > 0:
-                            primary_map[value].first = <int32_t>(primary_map[value].first) - 1
-                
-                primary_map.clear()
-
-            # Create results for this group
-            kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
-            kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
-
-            for item in secondary_map:
-                kmer_locations[idx] = item.first
-                kmer_count[idx] = item.second
-                idx += 1
-
-            results.append((kmer_locations, kmer_count, group_position_counts))
-
-        # If original input was str or List[str], return single result instead of list
-        return results[0] if len(results) == 1 else results
+        ##### Processing sequence groups separately #####
+        return self._process_groups(sequence_groups, sliding_size, CONST_THRESHOLD, 
+                      current_kmers, single_count)
 
 cdef struct LineData:
     float x

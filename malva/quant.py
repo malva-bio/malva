@@ -22,13 +22,13 @@ def write_mtx_header(file, shape):
     file.write(f"{shape[0]:>20} {shape[1]:>20} {shape[2]:>20}\n".encode())  # We'll update the nnz at the end
 
 
-def process_gene(
+def process_batch(
     kmer_index,
-    seqs_gene,
-    current_gene,
+    seqs_batch,
+    gene_names,
     mtx_file,
     feature_file,
-    current_col,
+    start_col,
     sliding_size: int = 128,
     pct_threshold: float = 0.65,
     count_at_most: int = 10_000,
@@ -36,29 +36,36 @@ def process_gene(
     single_count: bool = False,
     use_background_model: bool = True
 ):
-    locs, counts, _ = kmer_index.where(
-        seqs_gene,
+    results = kmer_index.where(
+        seqs_batch,
         sliding_size=sliding_size,
         pct_threshold=pct_threshold,
         count_at_most=count_at_most,
         count_at_least=count_at_least,
         single_count=single_count,
-        max_mem=None,
+        max_mem="1M",
         use_background_model=use_background_model
     )
+
     # we have to clip otherwise we wouldn't count those that have many
     # entries in the reference (e.g., many alternative 3'UTRs) but only
     # one count was found 
     # TODO: if one of the sequences has a lot of counts but not another,
     # this will lead undercounting because of the large number of "seqs_gene"
     # counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
-
-    for loc, count in zip(locs, counts):
-        mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
-
-    feature_file.write(f"{current_gene}\n".encode())
-
-    return len(locs)
+    
+    total_nnz = 0
+    for i, (locs, counts, _) in enumerate(results):
+        current_col = start_col + i
+        gene_name = gene_names[i]
+        
+        for loc, count in zip(locs, counts):
+            mtx_file.write(f"{loc+1} {current_col} {count}\n".encode())
+        
+        feature_file.write(f"{gene_name}\n".encode())
+        total_nnz += len(locs)
+    
+    return total_nnz
 
 
 def resave_h5ad(folder, kmer_index):
@@ -104,6 +111,7 @@ def process_reference(
     count_at_most: int = 10_000,
     count_at_least: int = 10,
     single_count: bool = False,
+    batch_size: int = 500
 ):
     kmer_index.verbose = False
     kmer_index.open()
@@ -116,30 +124,57 @@ def process_reference(
         current_col = 0
         total_nnz = 0
 
+        # Batch processing containers
+        batch_seqs = []  # List of lists of sequences
+        batch_genes = []  # List of gene names
+
         # we reserve the size of the header
         write_mtx_header(mtx_file, (0, 0, 0))
+
+        def process_current_batch():
+            nonlocal current_col, total_nnz
+            if batch_seqs:
+                nnz = process_batch(
+                    kmer_index, batch_seqs, batch_genes, mtx_file, feature_file, 
+                    current_col + 1, sliding_size, pct_threshold, count_at_most, 
+                    count_at_least, single_count, use_background_model
+                )
+                total_nnz += nnz
+                current_col += len(batch_seqs)
+                if verbose and (current_col % N_EACH_REPORT) < len(batch_seqs):
+                    logging.info(f"Processed {current_col} entries. Last sequence ID: {batch_genes[-1]}")
+
         for seq in iterate_fasta(reference_file):
             it_gene_name = seq[0].split(":")[0]
-
+            
             if it_gene_name != current_gene:
                 if seqs_gene:
-                    nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count, use_background_model)
-                    total_nnz += nnz
-                    current_col += 1
-                    if (current_col % N_EACH_REPORT) == 0 and verbose:
-                        logging.info(f"Processed {current_col} entries. Last sequence ID: {current_gene}")
+                    # Add current gene to batch
+                    batch_seqs.append(seqs_gene)
+                    batch_genes.append(current_gene)
+                    
+                    # Process batch if full
+                    if len(batch_seqs) >= batch_size:
+                        process_current_batch()
+                        batch_seqs = []
+                        batch_genes = []
+                        
                 seqs_gene = []
                 current_gene = it_gene_name
-
+            
             if seq[1] == "" or len(seq[1]) < sliding_size + kmer_index.kmer_size:
                 continue
-
+                
             seqs_gene.append(seq[1])
 
+        # Process last gene
         if seqs_gene:
-            nnz = process_gene(kmer_index, seqs_gene, current_gene, mtx_file, feature_file, current_col + 1, sliding_size, pct_threshold, count_at_most, count_at_least, single_count, use_background_model)
-            total_nnz += nnz
-            current_col += 1
+            batch_seqs.append(seqs_gene)
+            batch_genes.append(current_gene)
+        
+        # Process final batch
+        if batch_seqs:
+            process_current_batch()
 
         # TODO: write the barcodes file, optionally it will contain the spatial coordinates...
 
