@@ -1230,7 +1230,6 @@ cdef class MalvaIndex:
             )
             
             # Convert to numpy arrays
-            # Convert to numpy arrays
             locations = np.empty(group_results.size(), dtype=np.uint32)
             values = np.empty(group_results.size(), dtype=np.uint32)
             

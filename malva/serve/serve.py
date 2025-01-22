@@ -61,14 +61,19 @@ def interactive_query_standard(
     """Process standard sequence query"""
     logger.info(f"Querying sequence '{sequence}'")
     
-    locs, ints, where_abundant = global_state.kmer_index.where(
+    result = global_state.kmer_index.where(
         sequence,
         sliding_size=sliding_size,
         pct_threshold=pct_threshold,
         count_at_most=int(countmaxkmer),
         count_at_least=int(countminkmer),
         use_background_model=False,
+        show_coverage=False,
+        force_reload=False,
+        max_mem="1M"
     )
+
+    locs, ints, where_abundant = result[0]
     
     return locs, ints, where_abundant
 
