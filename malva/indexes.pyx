@@ -1003,7 +1003,10 @@ cdef class MalvaIndex:
             for i in range(exact_indices.size()):
                 idx = exact_indices[i].second
                 start_idx = _indptr[idx]
-                end_idx = _indptr[idx + 1]
+                if idx + 1 == len(_indptr):
+                    end_idx = len(_data) - 1
+                else:
+                    end_idx = _indptr[idx + 1]
                 
                 if ((end_idx - start_idx) < count_at_most and 
                     (end_idx - start_idx) > count_at_least):
@@ -1599,12 +1602,14 @@ def create_singlecell_index(str whitelist_file):
             break
         process_line_whitelist(line, read, &data)
         
-        sindex.add(data.cell_bc, line_count)
+        sindex.add(data.cell_bc, line_count + 1) # avoid zero index
 
         line_count += 1
         if line_count % report_interval == 0:
             PyErr_CheckSignals()
             logging.info(f"Processed {line_count:,} spatial barcodes.")
+
+    logging.info(f"Processed {line_count:,} spatial barcodes.")
 
     free(line)
     fclose(file)
