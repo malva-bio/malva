@@ -65,7 +65,7 @@ def _run_index(args):
             sindex.load_binary_stomics(_sindex_loc)
         else:
             sindex.load_binary(_sindex_loc)
-    elif args.flavor.startswith("sc_"):
+    elif args.flavor.startswith("sc_") or args.flavor == 'bulk':
         logging.info("Will not use a spatial index, but a barcode single-cell index")
         sindex = create_singlecell_index(args.spatial_bc_in)
     else:
