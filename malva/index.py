@@ -87,7 +87,7 @@ def _run_index(args):
     if args.flavor == "stereo_seq":
         kmer_index.set_barcode_index(sindex)
         kmer_index.set_spatial_coords(sindex.get_coords_stomics())
-    elif args.flavor.startswith("sc_"):
+    elif args.flavor.startswith("sc_") or args.flavor == 'bulk':
         kmer_index.set_barcode_index(sindex)
     else:
         kmer_index.set_spatial_index(sindex)
