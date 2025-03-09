@@ -37,8 +37,11 @@ def load_flavor(flavor, flavors_config_path):
 
 def _run_index(args):
     # Validate that input files exist and output files don't
-    for _r in args.reads_in:
-        check_file_exists(_r, except_when=False)
+    if args.flavor != 'bulk':
+        for _r in args.reads_in:
+            check_file_exists(_r, except_when=False)
+    else:
+        check_file_exists(args.reads_in[1], except_when=False)
 
     _out_dir_exists = check_directory_exists(args.index_out)
     if not _out_dir_exists:
