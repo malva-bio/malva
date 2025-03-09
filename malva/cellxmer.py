@@ -19,7 +19,7 @@ def malva_to_cellxmer(
     if verbose:
         logging.info(f"Opening malva index and loading k-mer information")
 
-    kmer_index.open()
+    kmer_index.open(mode='r')
     indices, data, indptr = kmer_index.index['index_0_indices'][:], kmer_index.index['index_0_data'][:], kmer_index.index['index_0_indptr'][:]
     diff_counts = np.diff(indptr)
     _diff_counts_idx = (diff_counts>count_at_least) & (diff_counts < count_at_most)
@@ -31,7 +31,7 @@ def malva_to_cellxmer(
     if verbose:
         logging.info(f"There are {n_kmer_filter[0]:,} {kmer_index.kmer_size}-mers with {count_at_least:,} < counts < {count_at_most:,}")
 
-    kmer_index.open()
+    kmer_index.open(mode='r')
     
     if verbose:
         logging.info(f"Creating sparse matrix")
@@ -51,7 +51,7 @@ def malva_to_cellxmer(
     adata = ad.AnnData(X=adata_X_tr.tocsr())
     adata.var_names = [decode_kmer(v, int(kmer_index.kmer_size)) for v in interesting_kmers]
 
-    kmer_index.open()
+    kmer_index.open(mode='r')
     if 'spatial_coord' in kmer_index.index:
         adata.obsm['spatial'] = kmer_index.spatial_coord[:]
     kmer_index.close()
