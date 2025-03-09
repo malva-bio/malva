@@ -177,7 +177,7 @@ cdef class MalvaIndex:
             os.mkdir(self.index_dir)
         elif self.index_exists(self):
             logging.info("The index exists. Will load now.")
-            self.open()
+            self.open(mode='r')
         else:
             logging.info(f"Will create malva index at `{self.index_file}` with {kmer_size_initialize}-mers")
             self.initialize(kmer_size=kmer_size_initialize)
@@ -405,6 +405,20 @@ cdef class MalvaIndex:
         self._n_kmers_processed += n_kmers
         return 1
 
+    cdef int add_kmers_bulk(self, vector[uint64_t] kmers, uint64_t cell_bc) nogil:
+        cdef:
+            size_t n_kmers, i
+            pair[uint64_t, uint32_t] item
+
+        n_kmers = kmers.size()
+
+        for i in range(n_kmers):
+            item = pair[uint64_t, uint32_t](kmers[i], <uint32_t>cell_bc)
+            self._iter_seqs.push_back(item)
+
+        self._n_kmers_processed += n_kmers
+        return 1
+
     cdef void _add_reads(self, list reads_in, str bam_tags, str read_group, int[] trim_limit, int n_report, int chunksize, int threads):
         cdef int num_reads = len(reads_in)
         cdef int _n_sequences = 0
@@ -418,7 +432,30 @@ cdef class MalvaIndex:
 
         _t0 = time.time()
 
-        if num_reads == 2:
+        if isinstance(reads_in[0], int):
+            logging.info("Processing bulk reads")
+            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.kmer_size)
+            
+            while True:
+                try:
+                    r2 = iter_r2.next()
+                except StopIteration: # reached eof
+                    break
+
+                _n_sequences += 1
+                self.add_kmers_bulk(r2, reads_in[0])
+            
+                if (_n_sequences) % n_report == 0:
+                    _t1 = time.time()
+                    _elapsed = _t1 - _t0
+                    logging.info(f"Processed {_n_sequences:,} sequences in {round(_elapsed, 2)} s ({round(n_report/_elapsed, 2):,} reads/s)")
+                    _t0 = time.time()
+                if (_n_sequences) % chunksize == 0:
+                    self.write()
+            
+            # write last time the remaining reads
+            self.write()
+        elif num_reads == 2:
             iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, trim_start = trim_limit[0], trim_end = trim_limit[1])
             iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.kmer_size)
             
@@ -482,7 +519,7 @@ cdef class MalvaIndex:
 
             np.uint64_t start, end, dest, length
 
-        self.open()
+        self.open(mode="r")
         # this is chosen like this so the memory usage is ~ the same as when building the data
         # assuming that we run on the same cumputer
         chunksize = len(self.index['index_0_indices']) // (n_chunks * 2)
@@ -1334,7 +1371,8 @@ cdef class MalvaIndex:
             sequence (Union[str, List[str], List[List[str]]]): Query sequence(s) to search for.
                                                             If List[List[str]], each sublist represents isoforms
                                                             of the same gene that should be quantified together.
-            sliding_size (int): Size of sliding window for k-mer generation
+            sliding_size (int): Size of sliding window for k-mer generation. 
+                                When < 0, will not use sliding windows but the whole sequence, and should be set to -(read_length)
             pct_threshold (float): Minimum percentage of matching k-mers required
             count_at_most (int): Maximum count threshold for k-mer consideration
             count_at_least (int): Minimum count threshold for k-mer consideration
@@ -1367,6 +1405,7 @@ cdef class MalvaIndex:
             float CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
             int BACKGROUND_THRESHOLD = 1
             uint32_t idx_kmer
+            uint32_t _sliding_size
             int idx = 0
             list seq_matches = [[0, 1]]
 
@@ -1407,7 +1446,8 @@ cdef class MalvaIndex:
             
             split_sliding_sequences = set()
             for seq in group:
-                split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, sliding_size)))
+                _sliding_size = sliding_size if sliding_size > 0 else len(seq) - self.kmer_size
+                split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, _sliding_size)))
 
             if self.verbose:
                 iterator = track(list(split_sliding_sequences), description=f'Counting occurrences at kmers for group')
@@ -1415,6 +1455,13 @@ cdef class MalvaIndex:
                 iterator = list(split_sliding_sequences)
 
             for subseq in iterator:
+                # This makes sure that we quantify according to read length in case we don't use sliding window
+                # This is used for comparison purposes
+                _sliding_size = sliding_size if sliding_size > 0 else len(subseq)
+                
+                if sliding_size <= 0:
+                    CONST_THRESHOLD = (abs(sliding_size)//self.kmer_size) * pct_threshold
+
                 group_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
 
                 for idx_kmer, kmer in enumerate(group_kmer_list):
@@ -1432,9 +1479,9 @@ cdef class MalvaIndex:
                             primary_map[value].first += 1
                         
                         primary_map[value].second = idx_kmer
-                        primary_map[value].first = min(primary_map[value].first, <uint32_t>(sliding_size//self.kmer_size))
+                        primary_map[value].first = min(primary_map[value].first, <uint32_t>(_sliding_size//self.kmer_size))
 
-                    if ((idx_kmer + 1) < (sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(group_kmer_list)):
+                    if ((idx_kmer + 1) < (_sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(group_kmer_list)):
                         continue
 
                     for item_primary in primary_map:

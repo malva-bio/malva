@@ -92,6 +92,14 @@ def _run_index(args):
     else:
         kmer_index.set_spatial_index(sindex)
 
+    if args.flavor == 'bulk':
+        # we ignore the first reads
+        try:
+            args.reads_in[0] = int(args.bulk_id)
+        except:
+            logging.error("Could not set the bulk identifier to a number")
+            exit(1)
+
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
     logging.info(f"Will write to disk every {args.chunksize:,} sequences, and once at the end (remaining sequences)")
     kmer_index.add_reads(args.reads_in, _bam_tags, _cell, chunksize=args.chunksize, threads=args.threads)

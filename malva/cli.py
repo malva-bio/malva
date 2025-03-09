@@ -55,6 +55,12 @@ def get_index_parser():
         help="Length (in nucleotides) of indexed k-mers, non-overlapping.",
     )
     parser.add_argument(
+        "--bulk-id",
+        type=int,
+        default=1,
+        help="When the technology is bulk, will set all reads to have this ID - also for smart-seq or other well-based technologies.",
+    )
+    parser.add_argument(
         "--chunksize",
         type=int,
         default=100_000_000,
