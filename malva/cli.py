@@ -212,8 +212,8 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "human_cdna", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
+        choices=["human_utr", "human_cdna", "human_markers", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--background-model",
@@ -359,6 +359,62 @@ def cmd_run_cellxmer(args):
     from malva.cellxmer import _run_cellxmer
 
     _run_cellxmer(args)
+
+
+AUTOANNOTATE_HELP = "Convert the malva index to a cell-by-mer AnnData file that can be used for clustering and sequence assembly"
+
+def get_autoannotate_parser():
+    parser = argparse.ArgumentParser(
+        description=AUTOANNOTATE_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+
+    parser.add_argument(
+        "--adata-in",
+        type=str,
+        required=True,
+        help="cell-by-gene matrix in AnnData format, to be annotated. It must be raw (pseudo)counts, unfiltered",
+    )
+    parser.add_argument(
+        "--adata-out",
+        type=str,
+        required=True,
+        help="Where to save the annotated, normalized and filtered AnnData object",
+    )
+    parser.add_argument(
+        "--reference",
+        type=str,
+        required=False,
+        default="human_markers",
+        choices=["human_markers", "mouse_markers"],
+        help="Flavor used for annotation. Valid options: 'human_markers', 'mouse_markers'. More will be available soon...",
+    )
+    parser.add_argument(
+        "--savefig",
+        type=str,
+        required=False,
+        default=None,
+        help="Folder where the output plots are saved. When not specified, plots are not generated nor saved.",
+    )
+    return parser
+
+
+def setup_autoannotate_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "autoannotate",
+        help=AUTOANNOTATE_HELP,
+        parents=[get_autoannotate_parser()],
+    )
+    parser.set_defaults(func=cmd_run_autoannotate)
+
+    return parser
+
+
+def cmd_run_autoannotate(args):
+    from malva.autoannotate import _run_autoannotate
+
+    _run_autoannotate(args)
 
 
 COMBINE_HELP = "Combine various sub-indexes from the same sample (e.g., processed in parallel) into a single index"
