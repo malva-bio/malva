@@ -522,7 +522,8 @@ cdef class MalvaIndex:
         self.open(mode="r")
         # this is chosen like this so the memory usage is ~ the same as when building the data
         # assuming that we run on the same cumputer
-        chunksize = len(self.index['index_0_indices']) // (n_chunks * 2)
+        # we have to set a minimum so we can run smartseq data
+        chunksize = max(len(self.index['index_0_indices']) // (n_chunks * 2), 1000)
         logging.debug(f"Will use chunksize={chunksize}")
 
         # Initialize pointers
@@ -575,13 +576,18 @@ cdef class MalvaIndex:
                         continue
 
                     current_i_data_len = len(self.index[f'index_{i}_data'])
-                    end_pointer[i] = np.searchsorted(self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]], min_value, side='right') + srt_pointer[i]
+                    if srt_pointer[i] < end_pointer[i]:
+                        end_pointer[i] = np.searchsorted(self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]], min_value, side='right') + srt_pointer[i]
+                        end_pointer[i] = min(end_pointer[i], len(self.index[f'index_{i}_indices']) - 1)
+
                     srt_pointer_to_data[i] = self.index[f'index_{i}_indptr'][srt_pointer[i]]
 
-                    if (end_pointer[i] + 1) >= len(self.index[f'index_{i}_indptr']):
+                    if end_pointer[i] >= len(self.index[f'index_{i}_indptr']) - 1:
                         end_pointer_to_data[i] = current_i_data_len
                     else:
-                        end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][end_pointer[i]+1]
+                        # no out of bounds
+                        idx = min(end_pointer[i] + 1, len(self.index[f'index_{i}_indptr']) - 1)
+                        end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][idx]
 
                 max_data_size = int(sum(end_pointer_to_data[i] - srt_pointer_to_data[i] for i in range(n_chunks)))
                 k_unique = np.array([], dtype=np.uint64)
@@ -595,14 +601,32 @@ cdef class MalvaIndex:
                     chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
                     chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
                     chunk_data_size = end_pointer_to_data[i] - srt_pointer_to_data[i]
+
+                    # don't process empty chunk
+                    if len(chunk_indices) == 0 or len(chunk_indptr) == 0:
+                        continue
+
                     k_unique = np.append(k_unique, chunk_indices)
 
                     # we need to 'recenter' k_indptr, because it is in local coordinates (for k_data)
                     k_indptr_start = np.append(k_indptr_start, chunk_indptr + total_data - chunk_indptr[0])
-                    k_indptr_end = np.append(k_indptr_end, np.append(chunk_indptr[1:], end_pointer_to_data[i]) + total_data - chunk_indptr[0])
+
+                    if len(chunk_indptr) > 1:
+                        k_indptr_end = np.append(k_indptr_end, np.append(chunk_indptr[1:], end_pointer_to_data[i]) + total_data - chunk_indptr[0])
+                    else:
+                        # Handle the case where chunk_indptr has only one element
+                        k_indptr_end = np.append(k_indptr_end, np.array([end_pointer_to_data[i]]) + total_data - chunk_indptr[0])
+                        
                     k_data[int(total_data):int(total_data + chunk_data_size)] = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
 
                     total_data += chunk_data_size
+
+                # skip if no data was aggregated
+                if len(k_unique) == 0:
+                    for i in range(n_chunks):
+                        srt_pointer[i] = end_pointer[i] + 1
+                        end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
+                    continue
 
                 # TODO: we can do at maximum performance by using scipy csr_matrix (optionally transposing)
                 # sort indices and reorder data accordingly
@@ -615,36 +639,67 @@ cdef class MalvaIndex:
                 
                 _k_change_cumsum = np.append(np.array([0], dtype=np.uint64), np.cumsum(k_indptr_end - k_indptr_start).astype(np.uint64))
                 _idx_change = np.append(np.array([1], dtype=np.uint64), (np.diff(k_unique) != 0).astype(np.uint64)).astype(bool)
-                k_change = _k_change_cumsum[:-1][_idx_change]
                 
-                # reorder k_data based on the sorted indices
-                k_data_sorted = np.zeros_like(k_data)
-                dest_indices = np.cumsum(k_indptr_end - k_indptr_start)
+                if np.any(_idx_change):
+                    k_change = _k_change_cumsum[:-1][_idx_change]
+                    
+                    # reorder k_data based on the sorted indices
+                    k_data_sorted = np.zeros_like(k_data)
+                    dest_indices = np.cumsum(k_indptr_end - k_indptr_start)
 
-                for start, end, dest in zip(k_indptr_start, k_indptr_end, dest_indices):
-                    k_data_sorted[dest - (end - start):dest] = k_data[start:end]
+                    for start, end, dest in zip(k_indptr_start, k_indptr_end, dest_indices):
+                        k_data_sorted[dest - (end - start):dest] = k_data[start:end]
 
-                # move data to h5 object
-                new_size = total_processed_data + len(k_data_sorted)
-                data_out[total_processed_data:new_size] = k_data_sorted
+                    # move data to h5 object
+                    k_data_len = len(k_data_sorted)
+                    new_size = total_processed_data + k_data_len
+                    
+                    # Ensure we don't have shape mismatch
+                    if k_data_len > 0:
+                        # Make sure the slice and data have the same shape
+                        if new_size > max_size_data:
+                            # If we somehow calculated incorrectly, truncate the data
+                            overflow = new_size - max_size_data
+                            k_data_sorted = k_data_sorted[:-overflow]
+                            new_size = max_size_data
+                            
+                        # Double check the actual lengths match
+                        actual_slice_size = new_size - total_processed_data
+                        if actual_slice_size != len(k_data_sorted):
+                            # Truncate to the smaller size to prevent broadcast errors
+                            k_data_sorted = k_data_sorted[:actual_slice_size]
+                        
+                        data_out[total_processed_data:new_size] = k_data_sorted
 
-                # last_indptr_out takes care that we store the pointers
-                # respect to the correct coordinates
-                last_indptr_out = indptr_out[-1]
-                new_size = total_processed + len(k_unique_unique)
-                indices_out.resize(new_size, axis=0)
-                indptr_out.resize(new_size, axis=0)
-                indices_out[total_processed:] = k_unique_unique
-                indptr_out[total_processed:] = k_change + last_indptr_out + last_indptr_out_next
+                    # last_indptr_out takes care that we store the pointers
+                    # respect to the correct coordinates
+                    last_indptr_out = indptr_out[-1]
+                    new_size = total_processed + len(k_unique_unique)
+                    indices_out.resize(new_size, axis=0)
+                    indptr_out.resize(new_size, axis=0)
+                    indices_out[total_processed:] = k_unique_unique
+                    indptr_out[total_processed:] = k_change + last_indptr_out + last_indptr_out_next
 
-                total_processed += len(k_unique_unique)
-                total_processed_data += len(k_data_sorted)
-                last_indptr_out_next = <uint64_t>_k_change_cumsum[-1] - <uint64_t>k_change[-1]
+                    total_processed += len(k_unique_unique)
+                    total_processed_data += len(k_data_sorted)
 
-                # update index pointers
-                for i in range(n_chunks):
-                    srt_pointer[i] = end_pointer[i] + 1
-                    end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
+                    # make sure k_change is not empty before trying to access the last element
+                    if len(k_change) > 0:
+                        last_indptr_out_next = <uint64_t>_k_change_cumsum[-1] - <uint64_t>k_change[-1]
+                    else:
+                        last_indptr_out_next = 0
+
+                    # update index pointers
+                    for i in range(n_chunks):
+                        # Make sure we don't overrun the arrays
+                        indices_len = len(self.index[f'index_{i}_indices'])
+                        if indices_len > 0:
+                            srt_pointer[i] = min(end_pointer[i] + 1, indices_len)
+                            end_pointer[i] = min(srt_pointer[i] + chunksize, indices_len)
+                        else:
+                            # Skip empty indices
+                            srt_pointer[i] = 0
+                            end_pointer[i] = 0
 
         self.close()
         
