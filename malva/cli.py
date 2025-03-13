@@ -212,8 +212,8 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "human_cdna", "human_markers", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
+        choices=["human_utr", "human_cdna", "human_markers", "human_markers_hallmarks", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_markers_hallmarks', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--background-model",
@@ -387,8 +387,8 @@ def get_autoannotate_parser():
         type=str,
         required=False,
         default="human_markers",
-        choices=["human_markers", "mouse_markers"],
-        help="Flavor used for annotation. Valid options: 'human_markers', 'mouse_markers'. More will be available soon...",
+        choices=["human_markers", "human_markers_hallmarks", "mouse_markers"],
+        help="Flavor used for annotation. Valid options: 'human_markers', 'human_markers_hallmarks', 'mouse_markers'. More will be available soon...",
     )
     parser.add_argument(
         "--savefig",
@@ -485,6 +485,12 @@ def get_serve_parser():
         help="""UUID for the server""",
     )
     parser.add_argument(
+        "--annotation",
+        type=str,
+        default=None,
+        help="""Path to a tippecanoe annotation (vector-tile GeoJSON)""",
+    )
+    parser.add_argument(
         "--port",
         type=int,
         default=8888,
@@ -549,6 +555,7 @@ def cmdline_args():
     setup_quant_parser(parent_parser_subparsers)
     setup_cellxmer_parser(parent_parser_subparsers)
     setup_combine_parser(parent_parser_subparsers)
+    setup_autoannotate_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
 

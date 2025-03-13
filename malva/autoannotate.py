@@ -45,7 +45,7 @@ def load_marker_genes(json_path, exclude_technical=True):
     
     return filtered_markers
 
-def filter_cluster_annotate_plot(adata, umi_cutoff=500, savefig=None):
+def run_clustering(adata, savefig=None, resolution=1):
     """
     Automated analysis pipeline for filtering and clustering
     
@@ -53,40 +53,66 @@ def filter_cluster_annotate_plot(adata, umi_cutoff=500, savefig=None):
     ----------
     adata : AnnData
         AnnData object containing raw counts (not filtered nor normalized)
-    umi_cutoff : int, default=500
-        Minimum number of counts per cell to keep a cell
-    plot : str, default=None
+    savefig : str, default=None
         Folder where to save the plots. By default, save in current path
+    resolution : float, default=1
+        Resolution used for leiden clustering (higher values = more clusters)
         
     Returns
     -------
     adata_filtered : AnnData
-        AnnData object containing only the called cells
-    threshold : float
-        UMI count threshold used for cell calling
-    savefig : str
-        Path where the plots will be saved. If None, then no plots are saved
+        AnnData object containing only the called cells    
     """
-    adata.raw = adata.copy()
-    sc.pp.filter_cells(adata, min_counts=umi_cutoff)
-    sc.pp.filter_genes(adata, min_cells=2)
-    sc.pp.normalize_total(adata, inplace=True)
-    sc.pp.log1p(adata)
-
     sc.tl.pca(adata, svd_solver='arpack', mask_var='non_technical')
     sc.pp.neighbors(adata)
-    sc.tl.leiden(adata, resolution = 1, key_added="leiden")
+    sc.tl.leiden(adata, resolution = resolution, key_added="leiden")
     sc.tl.umap(adata)
 
     sc.tl.rank_genes_groups(adata, 'leiden', use_raw=False, pts=True)
     sc.tl.dendrogram(adata, 'leiden', use_raw=False)
 
     if savefig is not None:
-        sc.pl.umap(adata, color=["total_counts", "leiden"], cmap='inferno').savefig(os.path.join(savefig, "umap_counts_clusters.pdf"))
-        sc.pl.rank_genes_groups_dotplot(adata, n_genes=5, standard_scale='var', min_logfoldchange=2).savefig(os.path.join(savefig, "dotplot_markers.pdf"))
+        sc.pl.umap(adata, color=["total_counts", "leiden"], cmap='inferno', show=False)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "umap_counts_clusters.png"))
+        sc.pl.rank_genes_groups_dotplot(adata, n_genes=5, standard_scale='var', min_logfoldchange=2, show=False)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "dotplot_markers.png"))
         
         bestmarkers = [adata.uns["rank_genes_groups"]["names"][0][i] for i in range(len(adata.uns["rank_genes_groups"]["names"][0]))]
-        sc.pl.umap(adata, color=bestmarkers, legend_fontsize=4, legend_fontoutline=0.1, cmap='inferno').savefig(os.path.join(savefig, "umap_markers.pdf"))
+        sc.pl.umap(adata, color=bestmarkers, legend_fontsize=4, legend_fontoutline=0.1, cmap='inferno', show=False)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "umap_markers.png"))
+
+    return adata
+
+def preprocess_adata(adata, umi_cutoff=500, cell_cutoff=2):
+    """
+    Preprocesses by filtering cells (by counts) and genes (by cells),
+    and then applies normalization. Copies raw counts.
+    
+    Parameters
+    ----------
+    adata : AnnData
+        AnnData object containing raw counts (not filtered nor normalized)
+        umi_cutoff : int
+        UMI count threshold used for cell filtering
+    cell_cutoff : int
+        Cell count threshold used for gene filtering
+        
+    Returns
+    -------
+    adata_filtered : AnnData
+        AnnData object containing only the called cells
+    """
+    adata.raw = adata.copy()
+    sc.pp.filter_cells(adata, min_counts=umi_cutoff)
+    sc.pp.filter_genes(adata, min_cells=cell_cutoff)
+    sc.pp.normalize_total(adata, inplace=True)
+    sc.pp.log1p(adata)
+
+    return adata
+
 
 def score_cells_by_cell_type(adata, cell_markers):
     """
@@ -110,7 +136,7 @@ def score_cells_by_cell_type(adata, cell_markers):
     
     # Add a score for each cell type
     for cell_type, markers in cell_markers.items():
-        if "technical_" in cell_type:
+        if "technical_" in cell_type or "HALLMARK_" in cell_type:
             continue
 
         # Only use markers that are in the dataset
@@ -168,66 +194,167 @@ def get_top_cell_types(adata, n_types=3, score_prefix="score_"):
     
     return result
 
-def annotate_clusters(adata, cell_markers, cluster_key='leiden'):
+def annotate_clusters(adata, cell_markers, cluster_key='leiden', threshold=0.4, min_markers=3, savefig=None):
     """
-    Annotate clusters based on marker gene expression
+    Score and annotate cell types based on cluster-level expression signatures
     
     Parameters:
     -----------
     adata : AnnData
-        Annotated data matrix
+        Annotated data matrix with clustering results
     cell_markers : dict
         Dictionary mapping cell types to lists of marker genes
     cluster_key : str
         Key in adata.obs for cluster assignments
+    threshold : float
+        Minimum differential expression score threshold for a marker to be considered
+    min_markers : int
+        Minimum number of markers needed for a cell type to be assigned
+    savefig : str
+        Path where the plots will be saved. If None, then no plots are saved
         
     Returns:
     --------
-    cluster_annotations : pd.DataFrame
-        DataFrame with cluster annotations
+    adata : AnnData
+        Input object with cell type annotations added
+    annotations : pd.DataFrame
+        Detailed annotation information for each cluster
     """
-    # Get clusters
+    # Get unique clusters
     clusters = adata.obs[cluster_key].unique()
     
-    # Prepare results
-    results = []
+    # Create a DataFrame to store cluster-level annotations
+    cluster_annotations = pd.DataFrame(index=clusters)
     
-    # Analyze each cluster
+    # For each cluster, identify the most likely cell type
     for cluster in clusters:
         # Get cells in this cluster
-        cells_in_cluster = adata.obs[cluster_key] == cluster
+        cluster_mask = adata.obs[cluster_key] == cluster
+        cluster_cells = adata[cluster_mask]
         
-        # Get the most common primary cell type
-        primary_types = adata.obs.loc[cells_in_cluster, 'cell_type_1'].value_counts()
-        primary_type = primary_types.index[0]
-        primary_pct = (primary_types.iloc[0] / cells_in_cluster.sum()) * 100
-        
-        # Get top marker genes for this cluster
-        if 'rank_genes_groups' in adata.uns:
-            # Get top markers if available
-            markers = [adata.uns['rank_genes_groups']['names'][str(cluster)][i] for i in range(5)]
-            marker_scores = [adata.uns['rank_genes_groups']['scores'][str(cluster)][i] for i in range(5)]
-            top_markers = ', '.join([f"{m} ({s:.2f})" for m, s in zip(markers, marker_scores)])
+        # Calculate average expression by cluster for all genes
+        if isinstance(cluster_cells.X, np.ndarray):
+            cluster_expr = np.mean(cluster_cells.X, axis=0)
         else:
-            top_markers = "N/A"
+            cluster_expr = np.mean(cluster_cells.X.toarray(), axis=0)
         
-        # Number of cells in cluster
-        n_cells = cells_in_cluster.sum()
+        # Calculate average expression for all other clusters
+        other_mask = adata.obs[cluster_key] != cluster
+        other_cells = adata[other_mask]
+        if isinstance(other_cells.X, np.ndarray):
+            other_expr = np.mean(other_cells.X, axis=0)
+        else:
+            other_expr = np.mean(other_cells.X.toarray(), axis=0)
         
-        # Add to results
-        results.append({
-            'cluster': cluster,
-            'n_cells': n_cells,
-            'primary_cell_type': primary_type,
-            'primary_pct': primary_pct,
-            'top_markers': top_markers
-        })
+        # Calculate fold change and differential score
+        epsilon = 1e-9  # To avoid division by zero
+        fold_change = (cluster_expr + epsilon) / (other_expr + epsilon)
+        diff_score = cluster_expr - other_expr
+        
+        # Score each cell type based on its markers
+        cell_type_scores = {}
+        cell_type_marker_counts = {}
+        cell_type_top_markers = {}
+        
+        for cell_type, markers in cell_markers.items():
+            if "technical_" in cell_type or "HALLMARK_" in cell_type:
+                continue
+                
+            # Only use markers that are in the dataset
+            available_markers = [m for m in markers if m in adata.var_names]
+            if len(available_markers) < min_markers:
+                continue
+                
+            # Calculate marker scores for this cell type
+            marker_scores = []
+            for marker in available_markers:
+                marker_idx = adata.var_names.get_loc(marker)
+                marker_score = diff_score[marker_idx]
+                marker_fc = fold_change[marker_idx]
+                
+                # Only count markers that are differentially expressed in this cluster
+                if marker_score > threshold:
+                    marker_scores.append((marker, marker_score, marker_fc))
+            
+            # Sort markers by score
+            marker_scores.sort(key=lambda x: x[1], reverse=True)
+            
+            # Calculate overall score based on top markers
+            if len(marker_scores) >= min_markers:
+                # Use geometric mean of top marker scores to reduce influence of outliers
+                top_scores = [score for _, score, _ in marker_scores[:10]]
+                if top_scores:
+                    overall_score = np.exp(np.mean(np.log(np.array(top_scores) + epsilon)))
+                    cell_type_scores[cell_type] = overall_score
+                    cell_type_marker_counts[cell_type] = len(marker_scores)
+                    cell_type_top_markers[cell_type] = marker_scores[:5]  # Store top 5 markers
+        
+        # Initialize variables to handle the case where no cell types meet criteria
+        cell_label = "Unknown"
+        confidence = "low"
+        marker_str = "No significant markers"
+        best_score = 0
+        best_cell_type = None  # Initialize to avoid UnboundLocalError
+        
+        # Find the best matching cell type
+        if cell_type_scores:
+            # Sort cell types by score
+            sorted_cell_types = sorted(cell_type_scores.items(), key=lambda x: x[1], reverse=True)
+            best_cell_type = sorted_cell_types[0][0]
+            best_score = sorted_cell_types[0][1]
+            
+            # Check if the best match is significantly better than the second best
+            if len(sorted_cell_types) > 1:
+                second_best = sorted_cell_types[1][0]
+                second_score = sorted_cell_types[1][1]
+                score_ratio = best_score / (second_score + epsilon)
+                
+                # If scores are close, might be a mixed population
+                if score_ratio < 1.5:  # Threshold for considering mixed population
+                    cell_label = f"{best_cell_type}/{second_best}"
+                    confidence = "medium"
+                else:
+                    cell_label = best_cell_type
+                    confidence = "high"
+            else:
+                cell_label = best_cell_type
+                confidence = "high"
+                
+            # Get top markers for the best cell type
+            top_markers = cell_type_top_markers[best_cell_type]
+            marker_str = ", ".join([f"{m} ({s:.2f}x)" for m, s, fc in top_markers])
+        
+        # Store annotation for this cluster
+        cluster_annotations.loc[cluster, "cell_type"] = cell_label
+        cluster_annotations.loc[cluster, "confidence"] = confidence
+        cluster_annotations.loc[cluster, "score"] = best_score
+        cluster_annotations.loc[cluster, "n_markers"] = cell_type_marker_counts.get(best_cell_type, 0) if best_cell_type else 0
+        cluster_annotations.loc[cluster, "top_markers"] = marker_str
     
-    # Convert to DataFrame
-    cluster_annotations = pd.DataFrame(results)
-    cluster_annotations = cluster_annotations.sort_values('cluster')
+    # Add cell type annotations to original data
+    adata.obs["cell_type"] = adata.obs[cluster_key].map(cluster_annotations["cell_type"])
+    adata.obs["annotation_confidence"] = adata.obs[cluster_key].map(cluster_annotations["confidence"])
     
-    return cluster_annotations
+    # Add cluster-level metadata
+    adata.uns["cluster_annotations"] = cluster_annotations
+
+    if savefig is not None:
+        sc.pl.umap(adata, color=['leiden', 'cell_type'], legend_loc='on data', legend_fontsize=8, show=False)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "umap_clustername.png"))
+    
+    if "spatial" in adata.obsm and savefig is not None:
+        ax = sc.pl.embedding(adata, color=['leiden'], show=False, basis='spatial')
+        ax.set_aspect(1)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "spatial_leiden.png"))
+        ax = sc.pl.embedding(adata, color=['cell_type'], show=False, basis='spatial')
+        ax.set_aspect(1)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "spatial_clustername.png"))
+
+    
+    return adata, cluster_annotations
 
 def get_detailed_cluster_annotations(adata, cluster_key='leiden'):
     """Get detailed cluster annotations with cell type distribution"""
@@ -334,7 +461,8 @@ def analyze_technical_genes(adata, housekeeping_genes, savefig=None):
                   cmap='viridis', s=50, alpha=0.8)
         
     if savefig is not None:
-        plt.savefig(os.path.join(savefig, "technical_genes.pdf"))
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "technical_genes.png"))
     
     return adata
 
@@ -826,12 +954,83 @@ def emptydrops_refinement(adata, adata_filtered=None, threshold=None, ambient_mi
     cell_barcodes = adata.obs_names[is_cell].tolist()
     return adata_refined, ambient_profile, cell_barcodes
 
+def load_markers(marker_source):
+    """
+    Load marker genes and prepare technical/non-technical gene lists
+    
+    Parameters:
+    -----------
+    marker_source : str
+        Either 'human_markers', 'human_markers_hallmarks', 'mouse_markers', or a path to a custom JSON file
+        
+    Returns:
+    --------
+    tuple
+        (cell_markers_nontechnical, cell_markers, nontechnical_genes)
+    """
+    import os
+    
+    # Check if source is a reference or file
+    if marker_source in ['human_markers', 'human_markers_hallmarks', 'mouse_markers']:
+        # It's a reference, get it from the reference cache
+        marker_file = get_reference_cache(marker_source + "_json")
+    elif os.path.isfile(marker_source):
+        # It's a custom file
+        marker_file = marker_source
+    else:
+        raise ValueError(f"Marker source '{marker_source}' is not a valid reference or file path")
+    
+    # Load markers without technical genes
+    cell_markers_nontechnical = load_marker_genes(marker_file, exclude_technical=True)
+    nontechnical_genes = np.concatenate(list(cell_markers_nontechnical.values()))
+    
+    # Load all markers including technical
+    cell_markers = load_marker_genes(marker_file, exclude_technical=False)
+    
+    return cell_markers_nontechnical, cell_markers, nontechnical_genes
+
+def score_annotate(adata, cell_markers, savefig=None):
+    """
+    Score cells for each cell type and annotate with top cell types
+    
+    Parameters:
+    -----------
+    adata : AnnData
+        Clustered AnnData object
+    cell_markers : dict
+        Dictionary mapping cell types to marker genes
+    savefig : str
+        Path where the plots will be saved. If None, then no plots are saved
+        
+    Returns:
+    --------
+    AnnData
+        AnnData with cell type scores and annotations
+    """
+    # Score cells for each cell type
+    adata = score_cells_by_cell_type(adata, cell_markers)
+    
+    # Get top cell types for each cell
+    top_cell_types = get_top_cell_types(adata, n_types=3)
+    
+    # Add to AnnData object
+    adata.obs = pd.concat([adata.obs, top_cell_types], axis=1)
+    
+    # Get detailed cluster annotations
+    detailed_annotations = get_detailed_cluster_annotations(adata)
+    
+    # Map cluster names
+    cluster_name_map = detailed_annotations.set_index('cluster')['cluster_name'].to_dict()
+    adata.obs['cluster_name'] = adata.obs['leiden'].map(cluster_name_map)
+
+    
+    return adata, detailed_annotations
 
 def _run_autoannotate(args):
-    if args.flavor not in ['human_markers', 'mouse_markers']:
-        logging.error("The --flavor has to be either 'human_markers' or 'mouse_markers'. Others are not supported yet.")
+    if args.reference not in ['human_markers', 'human_markers_hallmarks', 'mouse_markers']:
+        logging.error("The --reference has to be either 'human_markers', 'human_markers_hallmarks', or 'mouse_markers'. Others are not supported yet.")
 
-    if check_directory_exists(args.savefig, except_when=None):
+    if not check_directory_exists(args.savefig, except_when=None):
         logging.info("The --savefig directory does not exist. Creating...")
         os.mkdir(args.savefig)
     
@@ -846,33 +1045,32 @@ def _run_autoannotate(args):
     logging.info(f"Cells called by the UMI cutoff: {len(cells)}")
     logging.info(f"UMI cutoff: {int(threshold)}")
 
-    # Marker gene
-    marker_file = get_reference_cache(args.flavor + "_json") # we need to append to grab the correct reference...
-    cell_markers_nontechnical = load_marker_genes(marker_file, exclude_technical=True)
-    nontechnical_genes = np.concatenate(list(cell_markers_nontechnical.values()))
-    cell_markers = load_marker_genes(marker_file, exclude_technical=False)
+    # Step 1: Load markers
+    _, cell_markers, nontechnical_genes = load_markers(args.reference)
+
+    # Step 2: Prepare AnnData with non-technical gene marking
     adata.var['non_technical'] = adata.var_names.isin(nontechnical_genes)
+    adata = preprocess_adata(adata, umi_cutoff=int(threshold))
+    
+    # Step 3: Run clustering pipeline
+    adata = run_clustering(adata, savefig=args.savefig)
+    
+    # Step 4: Score cell types
+    adata, _ = annotate_clusters(
+        adata, 
+        cell_markers, 
+        cluster_key='leiden', 
+        threshold=0.4, # TODO: we can make user-adjustable...
+        min_markers=3,
+        savefig=args.savefig
+    )
+    
+    # Step 5: Analyze technical genes
+    adata = analyze_technical_genes(adata, cell_markers, args.savefig)
 
-    # Run clustering pipeline
-    filter_cluster_annotate_plot(adata, umi_cutoff=int(threshold), savefig=args.savefig)
+    logging.info(f"Writing AnnData object with annotation was stored at {args.adata_out}")
+    adata.write_h5ad(args.adata_out)
 
-    # Score cells for each cell type
-    adata = score_cells_by_cell_type(adata, cell_markers)
-
-    # Get detailed annotations
-    top_cell_types = get_top_cell_types(adata, n_types=3)
-    adata.obs = pd.concat([adata.obs, top_cell_types], axis=1)
-    detailed_annotations = get_detailed_cluster_annotations(adata)
-
-    cluster_name_map = detailed_annotations.set_index('cluster')['cluster_name'].to_dict()
-    adata.obs['cluster_name'] = adata.obs['leiden'].map(cluster_name_map)
-
-    if args.savefig is not None:
-        sc.pl.umap(adata, color=['leiden', 'cluster_name'], legend_loc='on data', legend_fontsize=8).savefig(os.path.join(args.savefig, "umap_clustername.pdf"))
-
-    adata = analyze_technical_genes(adata, cell_markers, savefig=args.savefig)
-
-    logging.info(f"Final AnnData object with annotation was stored at {args.adata_out}")
     logging.info("SUCCESS!")
     
 if __name__ == "__main__":
