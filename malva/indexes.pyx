@@ -178,6 +178,8 @@ cdef class MalvaIndex:
         elif self.index_exists(self):
             logging.info("The index exists. Will load now.")
             self.open(mode='r')
+            # we close the file to avoid issues when we need to write something (e.g., create hierarchical index)
+            self.close()
         else:
             logging.info(f"Will create malva index at `{self.index_file}` with {kmer_size_initialize}-mers")
             self.initialize(kmer_size=kmer_size_initialize)
@@ -1037,7 +1039,7 @@ cdef class MalvaIndex:
 
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_adaptive(self, 
         np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, 
-        uint32_t chunk_id=0):
+        uint32_t chunk_id=0, bint use_batched=False):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
             vector[uint64_t] kmer_vec
@@ -1049,7 +1051,6 @@ cdef class MalvaIndex:
             size_t batch_size = 4096*256
             size_t total_kmers = len(kmers)
             size_t index_size
-            bint use_batched
             vector[uint64_t] starts
             vector[uint64_t] ends
             size_t start_idx, end_idx
@@ -1073,9 +1074,11 @@ cdef class MalvaIndex:
         valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
         
         # batch mode based on k-mers relative to index size
-        use_batched = (
-            (total_kmers > index_size * 0.001)
-        )
+        # we only detect if it is False. When true, we force to True
+        if use_batched == False:
+            use_batched = (
+                (total_kmers > index_size * 0.001)
+            )
         
         if self.verbose:
             logging.info(f"Strategy selected: {'batched' if use_batched else 'direct'}")
@@ -1122,12 +1125,12 @@ cdef class MalvaIndex:
             
         return vals
         
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint use_batched=False):
         """Enhanced find_kmer to support both standard and hierarchical approaches."""
         if not self.using_hierarchical:
             return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
         else:
-            return self._find_kmer_adaptive(kmers, count_at_most, count_at_least, chunk_id)
+            return self._find_kmer_adaptive(kmers, count_at_most, count_at_least, chunk_id, use_batched)
 
     cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         cdef:
@@ -1418,7 +1421,7 @@ cdef class MalvaIndex:
 
     def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
             count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
-            max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, *args, **kwargs):
+            max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
         """
         Locate spatial positions where a sequence or set of sequences appear.
 
@@ -1436,6 +1439,7 @@ cdef class MalvaIndex:
             max_mem (str): Maximum memory constraint
             force_reload (bool): Force index reload
             use_background_model (bool): Use background model for filtering
+            use_batched (bool): For lazy loading, whether to use batching. When False, it detects automatically. When True, it forces to batched.
 
         Returns:
             List[Tuple]: List of tuples, one per group (or single tuple if input is str/List[str]), each containing:
@@ -1492,7 +1496,7 @@ cdef class MalvaIndex:
         self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload, 
                                 count_at_most=count_at_most, count_at_least=count_at_least)
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, 
-                                    count_at_least=count_at_least, chunk_id=chunk_id)
+                                    count_at_least=count_at_least, chunk_id=chunk_id, use_batched=use_batched)
 
         ##### Processing sequence groups separately #####
         for group in sequence_groups:

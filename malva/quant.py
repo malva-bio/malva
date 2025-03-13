@@ -44,7 +44,8 @@ def process_batch(
         count_at_least=count_at_least,
         single_count=single_count,
         max_mem="1M",
-        use_background_model=use_background_model
+        use_background_model=use_background_model,
+        use_batched=True
     )
 
     # we have to clip otherwise we wouldn't count those that have many
