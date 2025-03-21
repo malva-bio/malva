@@ -37,8 +37,11 @@ def load_flavor(flavor, flavors_config_path):
 
 def _run_index(args):
     # Validate that input files exist and output files don't
-    for _r in args.reads_in:
-        check_file_exists(_r, except_when=False)
+    if args.flavor != 'bulk':
+        for _r in args.reads_in:
+            check_file_exists(_r, except_when=False)
+    else:
+        check_file_exists(args.reads_in[1], except_when=False)
 
     _out_dir_exists = check_directory_exists(args.index_out)
     if not _out_dir_exists:
@@ -65,7 +68,7 @@ def _run_index(args):
             sindex.load_binary_stomics(_sindex_loc)
         else:
             sindex.load_binary(_sindex_loc)
-    elif args.flavor.startswith("sc_"):
+    elif args.flavor.startswith("sc_") or args.flavor == 'bulk':
         logging.info("Will not use a spatial index, but a barcode single-cell index")
         sindex = create_singlecell_index(args.spatial_bc_in)
     else:
@@ -87,10 +90,18 @@ def _run_index(args):
     if args.flavor == "stereo_seq":
         kmer_index.set_barcode_index(sindex)
         kmer_index.set_spatial_coords(sindex.get_coords_stomics())
-    elif args.flavor.startswith("sc_"):
+    elif args.flavor.startswith("sc_") or args.flavor == 'bulk':
         kmer_index.set_barcode_index(sindex)
     else:
         kmer_index.set_spatial_index(sindex)
+
+    if args.flavor == 'bulk':
+        # we ignore the first reads
+        try:
+            args.reads_in[0] = int(args.bulk_id)
+        except:
+            logging.error("Could not set the bulk identifier to a number")
+            exit(1)
 
     logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
     logging.info(f"Will write to disk every {args.chunksize:,} sequences, and once at the end (remaining sequences)")

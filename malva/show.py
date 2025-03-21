@@ -41,26 +41,34 @@ class MalvaPlot:
         plt.axis("off")
 
 
-    def image(self, locations, intensities,
-              render_scale: int = 1, render_smoothing: float = 1.5):
-        _im_shape = np.array([int((self.xmax - self.xmin) * render_scale), int((self.ymax - self.ymin) * render_scale)])
+    def image(self, locations, intensities, render_scale: int = 1, render_smoothing: float = 1.5, normalize: bool = False):
+        im_shape = np.array([int((self.xmax - self.xmin) * render_scale), 
+                            int((self.ymax - self.ymin) * render_scale)])
         locations = np.repeat(locations, intensities.astype(int)).astype(int)
-
         xy = self.xy[locations]
         im, _, _ = np.histogram2d(xy[:, 0], xy[:, 1],
-                                  range=[[self.xmin, self.xmax], [self.ymin, self.ymax]],
-                                  bins=tuple(_im_shape))
-
-        if render_scale != 1 or render_smoothing != 1:
+                                range=[[self.xmin, self.xmax], 
+                                    [self.ymin, self.ymax]],
+                                bins=tuple(im_shape))
+        
+        if render_smoothing > 0:
             try:
-                from skimage.transform import resize
                 from skimage.filters import gaussian
             except ImportError:
                 raise ImportError("Please install skimage: `pip install scikit-image`")
-
             im = gaussian(im, render_smoothing)
+        
+        # Add check for zero maximum
+        max_val = im.max()
 
-        im = ((im / im.max()) * 255).astype(np.uint8)
+        if not normalize:
+            return im.T
+            
+        if max_val > 0:
+            im = ((im / max_val) * 255).astype(np.uint8)
+        else:
+            im = np.zeros_like(im, dtype=np.uint8)  # Return black image if all values are zero
+            
         return im.T
 
 

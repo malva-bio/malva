@@ -646,3 +646,105 @@ pre {
 .leaflet-control-zoom-out {
 	border-radius: 0px 0px 8px 8px;
 }
+
+.info-tooltip {
+    cursor: help;
+    color: #666;
+}
+
+.info-tooltip:hover {
+    color: #333;
+}
+
+.example-query {
+    cursor: pointer;
+    padding: 0.5rem;
+    margin: 0.25rem 0;
+    background: #f8f9fa;
+    border-radius: 4px;
+    font-size: 0.9em;
+}
+
+.example-query:hover {
+    background: #e9ecef;
+}
+
+#error-container, #warning-container {
+    z-index: 9999;
+    max-width: 400px;
+}
+
+.tooltip {
+    max-width: 300px !important;
+    width: 300px !important;
+}
+
+.tooltip-inner {
+    max-width: 300px !important;
+    width: 300px !important;
+    text-align: left !important;
+    padding: 12px !important;
+    white-space: normal !important;  /* Ensure text wraps */
+    word-wrap: break-word !important;  /* Break long words if needed */
+    overflow-wrap: break-word !important;
+    hyphens: auto !important;
+    background-color: rgba(33, 37, 41, 0.95) !important;
+    font-size: 13px !important;
+    line-height: 1.5 !important;
+}
+
+.tooltip-inner p {
+    margin-bottom: 8px !important;
+}
+
+.tooltip-inner p:last-child {
+    margin-bottom: 0 !important;
+}
+
+.tooltip-inner br {
+    display: block !important;
+    margin: 8px 0 !important;
+    content: "" !important;
+}
+
+.tooltip.show {
+    opacity: 1 !important;
+    z-index: 99999 !important;
+}
+
+.tooltip.bs-tooltip-auto[x-placement^=top] .arrow::before, 
+.tooltip.bs-tooltip-top .arrow::before {
+    border-top-color: rgba(33, 37, 41, 0.95) !important;
+}
+
+.tooltip.bs-tooltip-auto[x-placement^=bottom] .arrow::before, 
+.tooltip.bs-tooltip-bottom .arrow::before {
+    border-bottom-color: rgba(33, 37, 41, 0.95) !important;
+}
+
+.tooltip.bs-tooltip-auto[x-placement^=left] .arrow::before, 
+.tooltip.bs-tooltip-left .arrow::before {
+    border-left-color: rgba(33, 37, 41, 0.95) !important;
+}
+
+.tooltip.bs-tooltip-auto[x-placement^=right] .arrow::before, 
+.tooltip.bs-tooltip-right .arrow::before {
+    border-right-color: rgba(33, 37, 41, 0.95) !important;
+}
+
+.info-tooltip {
+    display: inline-flex !important;
+    align-items: center !important;
+    margin-left: 6px !important;
+    position: relative !important;
+}
+
+.info-tooltip .material-icons {
+    font-size: 16px !important;
+    color: #6c757d !important;
+    cursor: help !important;
+}
+
+.info-tooltip .material-icons {
+    padding: 4px !important;
+}
