@@ -31,8 +31,6 @@ def get_extensions():
     common_compile_args = ["-std=c++17"]
     common_macros = [('CYTHON_TRACE', '1'), ('CYTHON_TRACE_NOGIL', '1')]
 
-    hdf5_config = get_hdf5_config()
-
     extensions = [
         Extension(
             "malva.kmer_processing",
