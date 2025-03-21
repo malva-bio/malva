@@ -445,29 +445,48 @@ def download_url_to_file(url, dst, progress=True):
 
 
 EXISTING_REFERENCES = {"human_utr": "human_utr.fa.gz", 
+                       "human_markers": "human_markers.fa.gz",
+                       "human_markers_json": "markers_human.json",
+                       "human_markers_hallmarks": "human_markers_hallmarks.fa.gz",
+                       "human_markers_hallmarks_json": "markers_human_hallmarks.json",
                        "human_cdna": "human_cdna.fa.gz",
                        "human_utr_ncrna": "human_utr_ncrna.fa.gz",
                        "human_cdna_ncrna": "human_cdna_ncrna.fa.gz",
                        "mouse_utr": "mouse_utr.fa.gz",
                        "mouse_cdna": "mouse_cdna.fa.gz",
+                       "mouse_markers": "mouse_markers.fa.gz",
+                       "mouse_markers_json": "markers_mouse.json",
                        "mouse_utr_ncrna": "mouse_utr_ncrna.fa.gz",
                        "mouse_cdna_ncrna": "mouse_cdna_ncrna.fa.gz"}
 REFERENCES_DIR = pathlib.Path.home().joinpath(".malva", "references")
 _MODEL_URL = "http://bimsbstatic.mdc-berlin.de/rajewsky/malva/references"
-
-
 def get_reference_cache(reference):
+    """
+    Get the path to a cached reference file, downloading it if necessary.
+    
+    Parameters:
+    -----------
+    reference : str
+        Name of the reference to retrieve, must be in EXISTING_REFERENCES
+        
+    Returns:
+    --------
+    str
+        Path to the cached reference file
+    """
     if reference not in EXISTING_REFERENCES:
         logging.error(f"The reference {reference} is not available. It has to be one of {EXISTING_REFERENCES}")
         exit(1)
 
     REFERENCES_DIR.mkdir(parents=True, exist_ok=True)
-    cached_file = os.fspath(REFERENCES_DIR.joinpath(f"{reference}.fa.gz"))
-    if not os.path.exists(cached_file):
-        url = f"{_MODEL_URL}/{reference}.fa.gz"
-        logging.info('Downloading: "{}" to {}'.format(url, cached_file))
-        download_url_to_file(url, f"{cached_file}.fa.gz", progress=True)
 
+    reference_filename = EXISTING_REFERENCES[reference]
+    cached_file = os.fspath(REFERENCES_DIR.joinpath(reference_filename))
+    if not os.path.exists(cached_file):
+        url = f"{_MODEL_URL}/{reference_filename}"
+        logging.info(f'Downloading: "{url}" to {cached_file}')
+        download_url_to_file(url, cached_file, progress=True)
+    
     return cached_file
 
 
