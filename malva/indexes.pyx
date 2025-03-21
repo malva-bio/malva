@@ -840,7 +840,7 @@ cdef class MalvaIndex:
             size_t total_ranges = valid_ranges.size()
             size_t indices_size
             np.ndarray[np.uint64_t, ndim=1] indices_chunk
-            Py_ssize_t chunk_size = 4096 * 256
+            Py_ssize_t chunk_size = 512
             
         # Get total size from PageAlignedArray
         indices_size = indices_obj.shape[0]
