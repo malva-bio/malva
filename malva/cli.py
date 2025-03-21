@@ -341,6 +341,31 @@ def get_cellxmer_parser():
         default=0,
         help="""Aggregates spatial units at the final AnnData file to reduce dimensions of final cell-by-kmer matrix""",
     )
+    parser.add_argument(
+        '--w-size', 
+        type=int, 
+        default=16,
+        help='W-mer size for filtering (default: 16, must be <= k-mer size)'
+    )
+    parser.add_argument(
+        '--num-buckets', 
+        type=int, 
+        default=100_000,
+        help='Number of buckets for clustering k-mers (default: 100,000)'
+    )
+    # Add arguments for chunked processing
+    parser.add_argument(
+        '--chunk-size',
+        type=int,
+        default=1_000_000,
+        help='Number of k-mers to process in each chunk (default: 1,000,000)'
+    )
+    parser.add_argument(
+        '--tmp-dir',
+        type=str,
+        default=None,
+        help='Directory for temporary files (default: system temp directory)'
+    )
     return parser
 
 
@@ -539,6 +564,58 @@ def cmd_run_serve(args):
 
     _run_serve(args)
 
+search_HELP = "Websearchr for interactive spatial querying of malva indexes"
+
+
+def get_search_parser():
+    parser = argparse.ArgumentParser(
+        description=search_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # Default server URL
+    default_server = "http://localhost:8000"
+    
+    # Search command
+    search_parser = subparsers.add_parser("search", help="Search sequences in a Malva dataset")
+    search_parser.add_argument("--file", help="File containing sequences to search (FASTA format)")
+    search_parser.add_argument("--sequence", help="Sequence to search")
+    search_parser.add_argument("--dataset", help="Dataset ID to search (if not specified, uses all)")
+    # search_parser.add_argument("--min-matches", type=int, default=1, help="Minimum number of k-mer matches required")
+    search_parser.add_argument("--output", help="Output file for results")
+    search_parser.add_argument("--server", default=default_server, help=f"Server URL (default: {default_server})")
+    search_parser.add_argument("--wait", action="store_true", help="Wait for job completion")
+    search_parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format (default: text)")
+    
+    # List datasets command
+    list_parser = subparsers.add_parser("list-datasets", help="List available datasets")
+    list_parser.add_argument("--server", default=default_server, help=f"Server URL (default: {default_server})")
+    
+    # Job status command
+    status_parser = subparsers.add_parser("status", help="Check status of a search job")
+    status_parser.add_argument("job_id", help="Job ID to check")
+    status_parser.add_argument("--output", help="Output file for results")
+    status_parser.add_argument("--server", default=default_server, help=f"Server URL (default: {default_server})")
+    status_parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format (default: text)")
+
+    return parser
+
+
+def setup_search_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "search",
+        help=search_HELP,
+        parents=[get_search_parser()],
+    )
+    parser.set_defaults(func=cmd_run_search)
+
+    return parser
+
+
+def cmd_run_search(args):
+    from malva.search import _run_search
 
 def cmdline_args():
     parent_parser = argparse.ArgumentParser(
@@ -556,6 +633,7 @@ def cmdline_args():
     setup_cellxmer_parser(parent_parser_subparsers)
     setup_combine_parser(parent_parser_subparsers)
     setup_autoannotate_parser(parent_parser_subparsers)
+    setup_search_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
 
