@@ -4,12 +4,14 @@
 cimport cython
 cimport numpy as np
 
+from cython.operator cimport preincrement as inc
 from libc.stdint cimport uint16_t, uint32_t, int32_t, uint64_t
 from libc.math cimport floor
 from libc.stdlib cimport malloc, free
 from libc.string cimport memcpy
 from libc.stdio cimport FILE, fopen, fwrite, fread, fclose, getline
 from libcpp.algorithm cimport lower_bound
+from libcpp.string cimport string
 from libcpp.vector cimport vector
 from libcpp.utility cimport pair, move
 from libcpp.unordered_set cimport unordered_set
@@ -28,8 +30,9 @@ import pandas as pd
 from rich.progress import track
 
 from malva.fast_map cimport map
-from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser
+from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser, FastKmerProcessor
 from malva.kmer_processing import encode_kmer, get_kmers_numeric, get_sliding_kmers_numeric
+from malva.kmer_processing cimport FastKmerExtractor
 from malva.utils import check_cell_string, convert_to_bytes
 from malva.xopen import xopen
 
@@ -41,8 +44,31 @@ cdef extern from "<algorithm>" namespace "std" nogil:
 cdef extern from "<cstdio>" nogil:
     double atof(const char* nptr)
 
+cdef extern from "numpy/arrayobject.h":
+    void* PyArray_DATA(np.ndarray arr) nogil
+
 cdef int compare_indexed_value(const pair[uint64_t, uint32_t]& a, const pair[uint64_t, uint32_t]& b) nogil:
     return a.first < b.first
+
+cdef extern from *:
+    """
+    struct SearchGroup {
+        std::vector<std::pair<uint64_t, size_t>> kmers;
+        uint64_t start;
+        uint64_t end;
+        
+        // Default constructor
+        SearchGroup() : start(0), end(0) {}
+        
+        // Constructor with parameters
+        SearchGroup(uint64_t s, uint64_t e) : start(s), end(e) {}
+    };
+    """
+    struct SearchGroup:
+        vector[pair[uint64_t, size_t]] kmers
+        uint64_t start
+        uint64_t end
+
 
 cdef extern from *:
     """
@@ -91,6 +117,18 @@ cdef struct SpatialCoord:
     uint32_t y
 
 cdef class MalvaIndex:
+    """
+    A spatial indexing system for k-mer sequences.
+
+    Manages creation, storage, and querying of k-mer indices with associated spatial coordinates.
+    Supports both memory-efficient and performance-optimized indexing strategies.
+
+    Attributes:
+        index_dir (str): Directory where index files are stored
+        kmer_size (int): Length of k-mers used in the index
+        verbose (bool): Whether to print detailed logging information
+        n_chunks (int): Number of chunks the index is split into
+    """
     cdef:
         public str index_dir
         public str index_file
@@ -105,9 +143,13 @@ cdef class MalvaIndex:
         public int _n_kmers_processed
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
         map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
-        vector[pair[uint64_t, pair[uint32_t, uint32_t]]] _cindex
         SpatialIndex spatial_index
         BackgroundModel background_model
+
+        # for the hierarchical index
+        bint using_hierarchical
+        vector[size_t] hierarchical_sizes
+        int page_size
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
         self.index_dir = index_dir
@@ -122,7 +164,11 @@ cdef class MalvaIndex:
 
         self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
         self._index_backed = map[uint64_t, pair[uint64_t, uint64_t]]()
-        self._cindex = vector[pair[uint64_t, pair[uint32_t, uint32_t]]]()
+
+        # for the hierarchical index
+        self.using_hierarchical = False
+        self.hierarchical_sizes = vector[size_t]()
+        self.page_size = 1024
 
         if rewrite:
             if os.path.exists(self.index_dir):
@@ -131,7 +177,9 @@ cdef class MalvaIndex:
             os.mkdir(self.index_dir)
         elif self.index_exists(self):
             logging.info("The index exists. Will load now.")
-            self.open()
+            self.open(mode='r')
+            # we close the file to avoid issues when we need to write something (e.g., create hierarchical index)
+            self.close()
         else:
             logging.info(f"Will create malva index at `{self.index_file}` with {kmer_size_initialize}-mers")
             self.initialize(kmer_size=kmer_size_initialize)
@@ -157,6 +205,76 @@ cdef class MalvaIndex:
         self.index.attrs['kmer_size'] = self.kmer_size
         self.index.attrs['n_chunks'] = self.n_chunks
         self.close()
+
+    cdef void _create_hierarchical_index(self, int chunk_id):
+        """Creates hierarchical index structure in HDF5 file."""
+        if self.verbose:
+            logging.info(f"Creating hierarchical index for chunk {chunk_id}")
+            
+        cdef:
+            size_t base_size = len(self.index[f'index_{chunk_id}_indices'])
+            size_t current_size = (base_size + self.page_size - 1) // self.page_size
+            vector[size_t] level_sizes
+            np.ndarray source_data
+            str level_name
+            size_t i, level
+
+        # Calculate sizes for each level
+        while current_size > self.page_size:
+            level_sizes.push_back(current_size)
+            if self.verbose:
+                logging.info(f"Level size: {current_size}")
+            current_size = (current_size + self.page_size - 1) // self.page_size
+
+        level_sizes.push_back(current_size)
+        if self.verbose:
+            logging.info(f"Final level size: {current_size}")
+            
+        self.hierarchical_sizes = level_sizes
+
+        # Ensure we're in write mode
+        self.index.flush()
+        if not self.index.mode == 'r+':
+            logging.error(f"HDF5 file not in write mode! Current mode: {self.index.mode}")
+            return
+
+        # Store sizes
+        level_sizes_name = f"hierarchical_{chunk_id}_sizes"
+        if level_sizes_name in self.index:
+            del self.index[level_sizes_name]
+        
+        sizes_array = np.array([level_sizes[i] for i in range(level_sizes.size())])
+        self.index.create_dataset(level_sizes_name, data=sizes_array)
+        
+        # Create datasets for each level
+        for level in range(len(level_sizes)):
+            level_name = f"hierarchical_{chunk_id}_level_{level}"
+            if self.verbose:
+                logging.info(f"Creating level {level} dataset: {level_name}")
+                
+            if level_name in self.index:
+                del self.index[level_name]
+            
+            if level == 0:
+                source_data = self.index[f'index_{chunk_id}_indices'][::self.page_size]
+            else:
+                source_data = self.index[f"hierarchical_{chunk_id}_level_{level-1}"][::self.page_size]
+
+            dset = self.index.create_dataset(
+                level_name, 
+                shape=(level_sizes[level],), 
+                dtype=np.uint64,
+                chunks=(min(self.page_size, level_sizes[level]),)
+            )
+            dset[:len(source_data)] = source_data[:level_sizes[level]]
+            
+            if self.verbose:
+                logging.info(f"Created dataset {level_name} with size {len(source_data)}")
+
+        self.index.flush()
+        if self.verbose:
+            logging.info("Completed hierarchical index creation")
+            logging.info(f"Available datasets: {list(self.index.keys())}")
 
     # TODO: rename to BarcodeIndex
     def set_spatial_index(self, SpatialIndex sindex):
@@ -189,7 +307,7 @@ cdef class MalvaIndex:
         self.index.attrs['n_spatial'] = self.n_spatial
         self.close()
 
-    def open(self, str mode='r'):
+    def open(self, str mode='r+'):
         self.index = h5py.File(self.index_file, mode, driver="split")
         if 'kmer_size' in self.index.attrs:
             self.kmer_size = self.index.attrs['kmer_size']
@@ -289,6 +407,20 @@ cdef class MalvaIndex:
         self._n_kmers_processed += n_kmers
         return 1
 
+    cdef int add_kmers_bulk(self, vector[uint64_t] kmers, uint64_t cell_bc) nogil:
+        cdef:
+            size_t n_kmers, i
+            pair[uint64_t, uint32_t] item
+
+        n_kmers = kmers.size()
+
+        for i in range(n_kmers):
+            item = pair[uint64_t, uint32_t](kmers[i], <uint32_t>cell_bc)
+            self._iter_seqs.push_back(item)
+
+        self._n_kmers_processed += n_kmers
+        return 1
+
     cdef void _add_reads(self, list reads_in, str bam_tags, str read_group, int[] trim_limit, int n_report, int chunksize, int threads):
         cdef int num_reads = len(reads_in)
         cdef int _n_sequences = 0
@@ -302,9 +434,32 @@ cdef class MalvaIndex:
 
         _t0 = time.time()
 
-        if num_reads == 2:
+        if isinstance(reads_in[0], int):
+            logging.info("Processing bulk reads")
+            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.kmer_size)
+            
+            while True:
+                try:
+                    r2 = iter_r2.next()
+                except StopIteration: # reached eof
+                    break
+
+                _n_sequences += 1
+                self.add_kmers_bulk(r2, reads_in[0])
+            
+                if (_n_sequences) % n_report == 0:
+                    _t1 = time.time()
+                    _elapsed = _t1 - _t0
+                    logging.info(f"Processed {_n_sequences:,} sequences in {round(_elapsed, 2)} s ({round(n_report/_elapsed, 2):,} reads/s)")
+                    _t0 = time.time()
+                if (_n_sequences) % chunksize == 0:
+                    self.write()
+            
+            # write last time the remaining reads
+            self.write()
+        elif num_reads == 2:
             iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, trim_start = trim_limit[0], trim_end = trim_limit[1])
-            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size)
+            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.kmer_size)
             
             while True:
                 try:
@@ -366,10 +521,11 @@ cdef class MalvaIndex:
 
             np.uint64_t start, end, dest, length
 
-        self.open()
+        self.open(mode="r")
         # this is chosen like this so the memory usage is ~ the same as when building the data
         # assuming that we run on the same cumputer
-        chunksize = len(self.index['index_0_indices']) // (n_chunks * 2)
+        # we have to set a minimum so we can run smartseq data
+        chunksize = max(len(self.index['index_0_indices']) // (n_chunks * 2), 1000)
         logging.debug(f"Will use chunksize={chunksize}")
 
         # Initialize pointers
@@ -422,13 +578,18 @@ cdef class MalvaIndex:
                         continue
 
                     current_i_data_len = len(self.index[f'index_{i}_data'])
-                    end_pointer[i] = np.searchsorted(self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]], min_value, side='right') + srt_pointer[i]
+                    if srt_pointer[i] < end_pointer[i]:
+                        end_pointer[i] = np.searchsorted(self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]], min_value, side='right') + srt_pointer[i]
+                        end_pointer[i] = min(end_pointer[i], len(self.index[f'index_{i}_indices']) - 1)
+
                     srt_pointer_to_data[i] = self.index[f'index_{i}_indptr'][srt_pointer[i]]
 
-                    if (end_pointer[i] + 1) >= len(self.index[f'index_{i}_indptr']):
+                    if end_pointer[i] >= len(self.index[f'index_{i}_indptr']) - 1:
                         end_pointer_to_data[i] = current_i_data_len
                     else:
-                        end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][end_pointer[i]+1]
+                        # no out of bounds
+                        idx = min(end_pointer[i] + 1, len(self.index[f'index_{i}_indptr']) - 1)
+                        end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][idx]
 
                 max_data_size = int(sum(end_pointer_to_data[i] - srt_pointer_to_data[i] for i in range(n_chunks)))
                 k_unique = np.array([], dtype=np.uint64)
@@ -442,14 +603,32 @@ cdef class MalvaIndex:
                     chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
                     chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
                     chunk_data_size = end_pointer_to_data[i] - srt_pointer_to_data[i]
+
+                    # don't process empty chunk
+                    if len(chunk_indices) == 0 or len(chunk_indptr) == 0:
+                        continue
+
                     k_unique = np.append(k_unique, chunk_indices)
 
                     # we need to 'recenter' k_indptr, because it is in local coordinates (for k_data)
                     k_indptr_start = np.append(k_indptr_start, chunk_indptr + total_data - chunk_indptr[0])
-                    k_indptr_end = np.append(k_indptr_end, np.append(chunk_indptr[1:], end_pointer_to_data[i]) + total_data - chunk_indptr[0])
+
+                    if len(chunk_indptr) > 1:
+                        k_indptr_end = np.append(k_indptr_end, np.append(chunk_indptr[1:], end_pointer_to_data[i]) + total_data - chunk_indptr[0])
+                    else:
+                        # Handle the case where chunk_indptr has only one element
+                        k_indptr_end = np.append(k_indptr_end, np.array([end_pointer_to_data[i]]) + total_data - chunk_indptr[0])
+                        
                     k_data[int(total_data):int(total_data + chunk_data_size)] = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
 
                     total_data += chunk_data_size
+
+                # skip if no data was aggregated
+                if len(k_unique) == 0:
+                    for i in range(n_chunks):
+                        srt_pointer[i] = end_pointer[i] + 1
+                        end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
+                    continue
 
                 # TODO: we can do at maximum performance by using scipy csr_matrix (optionally transposing)
                 # sort indices and reorder data accordingly
@@ -462,36 +641,67 @@ cdef class MalvaIndex:
                 
                 _k_change_cumsum = np.append(np.array([0], dtype=np.uint64), np.cumsum(k_indptr_end - k_indptr_start).astype(np.uint64))
                 _idx_change = np.append(np.array([1], dtype=np.uint64), (np.diff(k_unique) != 0).astype(np.uint64)).astype(bool)
-                k_change = _k_change_cumsum[:-1][_idx_change]
                 
-                # reorder k_data based on the sorted indices
-                k_data_sorted = np.zeros_like(k_data)
-                dest_indices = np.cumsum(k_indptr_end - k_indptr_start)
+                if np.any(_idx_change):
+                    k_change = _k_change_cumsum[:-1][_idx_change]
+                    
+                    # reorder k_data based on the sorted indices
+                    k_data_sorted = np.zeros_like(k_data)
+                    dest_indices = np.cumsum(k_indptr_end - k_indptr_start)
 
-                for start, end, dest in zip(k_indptr_start, k_indptr_end, dest_indices):
-                    k_data_sorted[dest - (end - start):dest] = k_data[start:end]
+                    for start, end, dest in zip(k_indptr_start, k_indptr_end, dest_indices):
+                        k_data_sorted[dest - (end - start):dest] = k_data[start:end]
 
-                # move data to h5 object
-                new_size = total_processed_data + len(k_data_sorted)
-                data_out[total_processed_data:new_size] = k_data_sorted
+                    # move data to h5 object
+                    k_data_len = len(k_data_sorted)
+                    new_size = total_processed_data + k_data_len
+                    
+                    # Ensure we don't have shape mismatch
+                    if k_data_len > 0:
+                        # Make sure the slice and data have the same shape
+                        if new_size > max_size_data:
+                            # If we somehow calculated incorrectly, truncate the data
+                            overflow = new_size - max_size_data
+                            k_data_sorted = k_data_sorted[:-overflow]
+                            new_size = max_size_data
+                            
+                        # Double check the actual lengths match
+                        actual_slice_size = new_size - total_processed_data
+                        if actual_slice_size != len(k_data_sorted):
+                            # Truncate to the smaller size to prevent broadcast errors
+                            k_data_sorted = k_data_sorted[:actual_slice_size]
+                        
+                        data_out[total_processed_data:new_size] = k_data_sorted
 
-                # last_indptr_out takes care that we store the pointers
-                # respect to the correct coordinates
-                last_indptr_out = indptr_out[-1]
-                new_size = total_processed + len(k_unique_unique)
-                indices_out.resize(new_size, axis=0)
-                indptr_out.resize(new_size, axis=0)
-                indices_out[total_processed:] = k_unique_unique
-                indptr_out[total_processed:] = k_change + last_indptr_out + last_indptr_out_next
+                    # last_indptr_out takes care that we store the pointers
+                    # respect to the correct coordinates
+                    last_indptr_out = indptr_out[-1]
+                    new_size = total_processed + len(k_unique_unique)
+                    indices_out.resize(new_size, axis=0)
+                    indptr_out.resize(new_size, axis=0)
+                    indices_out[total_processed:] = k_unique_unique
+                    indptr_out[total_processed:] = k_change + last_indptr_out + last_indptr_out_next
 
-                total_processed += len(k_unique_unique)
-                total_processed_data += len(k_data_sorted)
-                last_indptr_out_next = <uint64_t>_k_change_cumsum[-1] - <uint64_t>k_change[-1]
+                    total_processed += len(k_unique_unique)
+                    total_processed_data += len(k_data_sorted)
 
-                # update index pointers
-                for i in range(n_chunks):
-                    srt_pointer[i] = end_pointer[i] + 1
-                    end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
+                    # make sure k_change is not empty before trying to access the last element
+                    if len(k_change) > 0:
+                        last_indptr_out_next = <uint64_t>_k_change_cumsum[-1] - <uint64_t>k_change[-1]
+                    else:
+                        last_indptr_out_next = 0
+
+                    # update index pointers
+                    for i in range(n_chunks):
+                        # Make sure we don't overrun the arrays
+                        indices_len = len(self.index[f'index_{i}_indices'])
+                        if indices_len > 0:
+                            srt_pointer[i] = min(end_pointer[i] + 1, indices_len)
+                            end_pointer[i] = min(srt_pointer[i] + chunksize, indices_len)
+                        else:
+                            # Skip empty indices
+                            srt_pointer[i] = 0
+                            end_pointer[i] = 0
 
         self.close()
         
@@ -559,64 +769,368 @@ cdef class MalvaIndex:
 
         return vals
     
+    cdef vector[pair[uint64_t, pair[uint64_t, uint64_t]]] _batch_find_in_hierarchy(self, 
+        vector[uint64_t]& kmers, int chunk_id):
+        """Optimized hierarchical search using linear scanning"""
+        cdef:
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] results
+            size_t current_pos = 0
+            size_t i, kmer_idx = 0
+            size_t num_kmers = kmers.size()
+            size_t chunk_size = 4096 * 256 * 10  # L2 cache-friendly
+            uint64_t current_kmer
+            np.ndarray level_data
+            uint64_t[::1] level_view
+            size_t level_size, indices_size
+            size_t range_start, range_end
+            
+        results.reserve(num_kmers)
+        indices_size = len(self.index[f'index_{chunk_id}_indices'])
+        
+        for current_level in range(len(self.hierarchical_sizes) - 1, -1, -1):
+            level_data = self.index[f"hierarchical_{chunk_id}_level_{current_level}"][:]
+            level_view = level_data  # to mem view
+            level_size = level_view.shape[0]
+            current_pos = 0
+            kmer_idx = 0
+            
+            while kmer_idx < num_kmers:
+                chunk_end = min(kmer_idx + chunk_size, num_kmers)
+                
+                while kmer_idx < chunk_end:
+                    current_kmer = kmers[kmer_idx]
+                    
+                    while current_pos < level_size and level_view[current_pos] < current_kmer:
+                        current_pos += 1
+                    
+                    if current_level == 0:
+                        range_start = max(0, current_pos - 1) * self.page_size
+                        range_end = min((current_pos + 1) * self.page_size, indices_size)
+                        
+                        results.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](
+                            current_kmer,
+                            pair[uint64_t, uint64_t](range_start, range_end)
+                        ))
+                        
+                    kmer_idx += 1
+                    
+                    if current_pos >= level_size:
+                        current_pos = level_size - 1
+                
+                if kmer_idx % (chunk_size * 8) == 0:
+                    PyErr_CheckSignals()
+
+            if results.size() == num_kmers:
+                break
+                
+        return results
+
+    cdef vector[pair[uint64_t, size_t]] _find_exact_indices(self,
+        vector[pair[uint64_t, pair[uint64_t, uint64_t]]]& valid_ranges,
+        object indices_obj) except *:  # this also accepts h5py.Dataset and PageAlignedArray
+        """
+        Find exact indices using batched processing and dual-pointer approach.
+        Modified to work with PageAlignedArray.
+        """
+        cdef:
+            vector[pair[uint64_t, size_t]] exact_indices
+            size_t i = 0
+            size_t chunk_start, chunk_end
+            size_t ranges_in_chunk
+            size_t total_ranges = valid_ranges.size()
+            size_t indices_size
+            np.ndarray[np.uint64_t, ndim=1] indices_chunk
+            Py_ssize_t chunk_size = 512
+            
+        # Get total size from PageAlignedArray
+        indices_size = indices_obj.shape[0]
+        exact_indices.reserve(total_ranges)
+        
+        while i < total_ranges:
+            # Calculate chunk boundaries
+            chunk_start = valid_ranges[i].second.first
+            chunk_end = min(chunk_start + chunk_size, indices_size)
+            
+            # Find ranges in this chunk
+            ranges_in_chunk = 1
+            while i + ranges_in_chunk < total_ranges:
+                if valid_ranges[i + ranges_in_chunk].second.first < chunk_end:
+                    next_end = valid_ranges[i + ranges_in_chunk].second.second
+                    if next_end <= indices_size:
+                        chunk_end = max(chunk_end, next_end)
+                        ranges_in_chunk += 1
+                    else:
+                        break
+                else:
+                    break
+            
+            # Get chunk data using PageAlignedArray slice operator
+            indices_chunk = indices_obj[chunk_start:chunk_end]
+            
+            # Process chunk
+            self._optimize_search_ranges_chunk(
+                &valid_ranges,
+                i,
+                ranges_in_chunk,
+                exact_indices,
+                indices_chunk,
+                chunk_start
+            )
+            
+            i += ranges_in_chunk
+                
+        return exact_indices
+
+    cdef void _optimize_search_ranges_chunk(self,
+            const vector[pair[uint64_t, pair[uint64_t, uint64_t]]]* ranges_ptr,
+            size_t range_start,
+            size_t range_count,
+            vector[pair[uint64_t, size_t]]& exact_indices,
+            const uint64_t[::1] indices_view,
+            size_t chunk_start) nogil:
+        """
+        Process a chunk of indices using dual-pointer approach.
+        Modified to work with memoryview for nogil access.
+        """
+        cdef:
+            size_t range_idx = 0
+            size_t arr_idx = 0
+            size_t arr_size = indices_view.shape[0]
+            uint64_t current_kmer, current_value
+            
+        while range_idx < range_count and arr_idx < arr_size:
+            current_kmer = deref(ranges_ptr)[range_start + range_idx].first
+            current_value = indices_view[arr_idx]
+            
+            if current_value == current_kmer:
+                exact_indices.push_back(pair[uint64_t, size_t](
+                    current_kmer, arr_idx + chunk_start))
+                range_idx += 1
+                arr_idx += 1
+            elif current_value < current_kmer:
+                arr_idx += 1
+            else:
+                range_idx += 1
+
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
-        # TODO: does not work! something is off here - what is returned by the binary_search function?
+        """Find kmers using binary search with optimized batch processing."""
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
-            pair[uint64_t, pair[uint32_t, uint32_t]] _cindex_res
-            pair[uint64_t, uint64_t] _indptr
-            uint64_t kmer, _start, _end, _indptr_first, _indptr_second
-            int chunk_len
-            np.ndarray _res
-            uint32_t _res_item
+            vector[uint64_t] kmer_vec
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
+            vector[pair[uint64_t, size_t]] exact_indices  # Store kmer and its exact index
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] data_ranges
+            uint64_t kmer, start_idx, end_idx, data_start, data_end
             unordered_set[uint32_t] _set
-
+            int exact_idx
+            double t0, t1
+            size_t i, batch_size = 4096*256 # fit in L2/L3 cache
+            np.ndarray big_indices_chunk, big_data_chunk
+            
+        # Load full arrays once
+        _indices = self.index[f'index_{chunk_id}_indices']
+        _indptr = self.index[f'index_{chunk_id}_indptr']
         _data = self.index[f'index_{chunk_id}_data']
-        _index_chunk = self.index[f'index_{chunk_id}_indices']
-        chunk_len = len(self.index[f'index_{chunk_id}_indices'])
 
         if self.verbose:
-            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
+            iterator = track(kmers, description=f'Processing kmers at chunk {chunk_id}')
         else:
             iterator = kmers
 
+        # Phase 1: Find all index ranges using batch hierarchy search
+        t0 = time.time()
         for kmer in iterator:
-            # find the approximate location using cindex (on memory)
-            _cindex_res = binary_search(self._cindex, kmer)
-            _start, _end = _cindex_res.second.first, _cindex_res.second.second
+            kmer_vec.push_back(kmer)
+        
+        valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
+        t1 = time.time()
+        if self.verbose:
+            logging.info(f"Time finding hierarchical ranges: {t1-t0:.2f}s")
 
-            # find the exact location in the index file (on disk)
-            # we need _start and _end to define a _high and _low
-            _index_idx = backed_binary_search_int(_index_chunk, _start, _end, kmer)
+        # Phase 2: Process indices with linear scan
+        t1 = time.time()
+        if self.verbose:
+            logging.info(f"Time finding hierarchical ranges: {t1-t0:.2f}s")
 
-            # when binary search does not succeed
-            if _index_idx == -1:
-                continue
+        # Phase 2: Process indices with linear scan
+        t0 = time.time()
+        exact_indices = self._find_exact_indices(
+            valid_ranges,
+            self.index[f'index_{chunk_id}_indices']
+        )
+        
+        t1 = time.time()
+        if self.verbose:
+            logging.info(f"Time processing indices: {t1-t0:.2f}s")
+
+        # Phase 3: Batch process indptr lookups
+        t0 = time.time()
+        data_ranges.reserve(exact_indices.size())
+        
+        # Process indptr in larger chunks
+        for i in range(0, exact_indices.size(), batch_size):
+            batch_end = min(i + batch_size, exact_indices.size())
             
-            # we get the indptrs (on disk) using the location
-            _indptr_first = self.index[f'index_{chunk_id}_indptr'][_index_idx]
-            _indptr_second = self.index[f'index_{chunk_id}_indptr'][_index_idx+1] if _index_idx < chunk_len else chunk_len
+            # Find range for this batch
+            min_pos = exact_indices[i].second
+            max_pos = exact_indices[i].second
+            for j in range(i + 1, batch_end):
+                min_pos = min(min_pos, exact_indices[j].second)
+                max_pos = max(max_pos, exact_indices[j].second)
+                
+            # Load one large indptr chunk
+            indptr_chunk = _indptr[min_pos:max_pos + 2]
             
-            # this is the same as for self._find_kmer(...), output datastructure should be compatible!
-            if ((_indptr_second - _indptr_first) >= count_at_most) or ((_indptr_second - _indptr_first) <= count_at_least):
-                continue
+            # Process each position in the batch
+            for j in range(i, batch_end):
+                kmer = exact_indices[j].first
+                pos = exact_indices[j].second - min_pos
+                
+                data_start = indptr_chunk[pos]
+                data_end = indptr_chunk[pos + 1] if pos + 1 < len(indptr_chunk) else len(_data)
+                
+                if ((data_end - data_start) < count_at_most and 
+                    (data_end - data_start) > count_at_least):
+                    data_ranges.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](
+                        kmer,
+                        pair[uint64_t, uint64_t](data_start, data_end)
+                    ))
+        
+        t1 = time.time()
+        if self.verbose:
+            logging.info(f"Time processing indptr: {t1-t0:.2f}s")
 
-            _res = _data[_indptr_first:_indptr_second]
-            _set = unordered_set[uint32_t]()
-            for _res_item in _res:
-                _set.insert(_res_item)
-
-            vals[kmer] = _set
+        # Phase 4: Batch process data lookups
+        t0 = time.time()
+        
+        # Process data in larger chunks
+        for i in range(0, data_ranges.size(), batch_size):
+            batch_end = min(i + batch_size, data_ranges.size())
+            
+            # Find range for this batch
+            min_start = data_ranges[i].second.first
+            max_end = data_ranges[i].second.second
+            for j in range(i + 1, batch_end):
+                min_start = min(min_start, data_ranges[j].second.first)
+                max_end = max(max_end, data_ranges[j].second.second)
+                
+            # Load one large data chunk
+            big_data_chunk = _data[min_start:max_end]
+            
+            # Process each range in the batch
+            for j in range(i, batch_end):
+                kmer = data_ranges[j].first
+                start = data_ranges[j].second.first - min_start
+                end = data_ranges[j].second.second - min_start
+                
+                _set = unordered_set[uint32_t]()
+                _set.reserve(end - start)
+                
+                for k in range(start, end):
+                    _set.insert(big_data_chunk[k])
+                    
+                vals[kmer] = _set
+        
+        t1 = time.time()
+        if self.verbose:
+            logging.info(f"Time processing data: {t1-t0:.2f}s")
 
         return vals
-    
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
-        if not self._index_backed.empty():
-            return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
-        elif not self._cindex.empty():
-            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
+
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_adaptive(self, 
+        np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, 
+        uint32_t chunk_id=0, bint use_batched=False):
+        cdef:
+            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            vector[uint64_t] kmer_vec
+            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
+            vector[pair[uint64_t, size_t]] exact_indices
+            uint64_t kmer
+            unordered_set[uint32_t] _set
+            double t0, t1
+            size_t batch_size = 4096*256
+            size_t total_kmers = len(kmers)
+            size_t index_size
+            vector[uint64_t] starts
+            vector[uint64_t] ends
+            size_t start_idx, end_idx
+            
+        _indices = self.index[f'index_{chunk_id}_indices']
+        _indptr = self.index[f'index_{chunk_id}_indptr']
+        _data = self.index[f'index_{chunk_id}_data']
+        index_size = len(_indices)
+
+        if self.verbose:
+            iterator = track(kmers, description=f'Processing kmers at chunk {chunk_id}')
         else:
-            raise Exception("ERROR: index not found in memory.")
+            iterator = kmers
+
+        # phase 1 same from _constrained_memory approach
+        # find all index ranges using batch hierarchy search
+        # TODO: do not repeat
+        for kmer in iterator:
+            kmer_vec.push_back(kmer)
+        
+        valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
+        
+        # batch mode based on k-mers relative to index size
+        # we only detect if it is False. When true, we force to True
+        if use_batched == False:
+            use_batched = (
+                (total_kmers > index_size * 0.001)
+            )
+        
+        if self.verbose:
+            logging.info(f"Strategy selected: {'batched' if use_batched else 'direct'}")
+        
+        if not use_batched:
+            starts.reserve(exact_indices.size())
+            ends.reserve(exact_indices.size())
+            
+            t0 = time.time()
+            exact_indices = self._find_exact_indices(valid_ranges, _indices)
+            t1 = time.time()
+            
+            if self.verbose:
+                logging.info(f"Time processing indices: {t1-t0:.2f}s")
+            
+            # get all indptr values at once, then (meta)data
+            for i in range(exact_indices.size()):
+                idx = exact_indices[i].second
+                start_idx = _indptr[idx]
+                if idx + 1 == len(_indptr):
+                    end_idx = len(_data) - 1
+                else:
+                    end_idx = _indptr[idx + 1]
+                
+                if ((end_idx - start_idx) < count_at_most and 
+                    (end_idx - start_idx) > count_at_least):
+                    starts.push_back(start_idx)
+                    ends.push_back(end_idx)
+            
+            for i in range(starts.size()):
+                kmer = exact_indices[i].first
+                start_idx = starts[i]
+                end_idx = ends[i]
+                
+                _set = unordered_set[uint32_t]()
+                _set.reserve(end_idx - start_idx)
+                
+                for val in _data[start_idx:end_idx]:
+                    _set.insert(val)
+                    
+                vals[kmer] = _set
+        else:
+            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
+            
+        return vals
+        
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint use_batched=False):
+        """Enhanced find_kmer to support both standard and hierarchical approaches."""
+        if not self.using_hierarchical:
+            return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
+        else:
+            return self._find_kmer_adaptive(kmers, count_at_most, count_at_least, chunk_id, use_batched)
 
     cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         cdef:
@@ -656,45 +1170,39 @@ cdef class MalvaIndex:
                 total_length
             )
 
-    cdef void _load_index_to_constrained_memory(self, int chunk_id = 0, int max_mem_bytes = 0):
-        # calculate the size of the constrained index (cindex)
-        # each element will at least 3*64bit integers, plus some data-structure overhead
+    cdef void _load_index_to_constrained_memory(self, int chunk_id=0, int max_mem_bytes=0):
+        """Initialize hierarchical index structure if it doesn't exist."""
         cdef:
-            int OVERHEAD = 2
-            int cindex_size = max_mem_bytes//(24*OVERHEAD)
-            int chunk_len, chunk_each
-            size_t i = 0
-            np.ndarray _cindex_indices, _cindex_indptr
-            uint64_t _last_cindex_indices
-
-        chunk_len = len(self.index[f'index_{chunk_id}_indices']) - 1
+            str level_name = f"hierarchical_{chunk_id}_level_0"
+            str sizes_name = f"hierarchical_{chunk_id}_sizes"
+            np.ndarray sizes_array
+            size_t i
         
-        chunk_each = chunk_len//cindex_size
-        if chunk_each == 1:
-            logging.debug("Maximum memory compatible with chunk length - falling back to loading entire index (no cindex)")
-            self._load_index_to_memory(chunk_id)
-            return
-
-        _cindex_indices = self.index[f'index_{chunk_id}_indices'][::chunk_each]
-        _cindex_indptr = np.arange(0, chunk_len, chunk_each)
-
-        for i in range(len(_cindex_indices)-1):
-            self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_cindex_indices[i], pair[uint32_t, uint32_t](_cindex_indptr[i], _cindex_indptr[i+1])))
-
-        # we add the last position
-        _last_cindex_indices = self.index[f'index_{chunk_id}_indices'][chunk_len]
-        self._cindex.push_back(pair[uint64_t, pair[uint32_t, uint32_t]](_last_cindex_indices, pair[uint32_t, uint32_t](_cindex_indptr[i+1], chunk_len)))
+        if level_name not in self.index:
+            if self.verbose:
+                logging.info("Creating hierarchical index")
+            self._create_hierarchical_index(chunk_id)
+        else:
+            # Load existing hierarchical sizes
+            if self.verbose:
+                logging.info("Loading existing hierarchical index")
+            sizes_array = self.index[sizes_name][:]
+            self.hierarchical_sizes.clear()
+            for i in range(len(sizes_array)):
+                self.hierarchical_sizes.push_back(sizes_array[i])
+        
+        self.using_hierarchical = True
 
     def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 50_000_000, max_mem: str = None, force: bool = False, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
         max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
 
-        if (not self._index_backed.empty() or not self._cindex.empty()) and not force:
+        if (not self._index_backed.empty() or self.using_hierarchical) and not force:
             return
         
         # we make sure to clear both backed and constrained index
         # in case we load different modes at different times
         self._index_backed.clear()
-        self._cindex.clear()
+        self.using_hierarchical = False
 
         if max_mem_bytes <= 0:
             self._load_index_to_memory(chunk_id, chunk_size, count_at_most, count_at_least)
@@ -717,128 +1225,347 @@ cdef class MalvaIndex:
 
         return all_sliding
 
-    def where(self, sequence: Union[str, List[str]], sliding_size: int=128, pct_threshold: float=0.65, count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, *args, **kwargs):
-        # TODO: reimplement seq_matches again, supporting various sequences...
-        # TODO: when using cDNA, we get less matches than when using UTR. cDNA sequences contain the UTR, does not make sense!!!!!!
+    cdef inline vector[pair[uint32_t, uint32_t]] _process_sequence_group(
+            self,
+            const vector[uint64_t]& group_kmers,  
+            uint32_t window_size,
+            float const_threshold,
+            const unordered_map[uint64_t, unordered_set[uint32_t]]& current_kmers,
+            bint single_count) nogil:
+        cdef:
+            vector[pair[uint32_t, uint32_t]] results
+            unordered_map[uint32_t, uint32_t] window_hits
+            unordered_map[uint32_t, uint32_t] final_counts
+            size_t i, window_start = 0
+            uint64_t kmer
+            uint32_t value, count
+            unordered_map[uint64_t, unordered_set[uint32_t]].const_iterator it_kmers
+            unordered_set[uint32_t].const_iterator it_values
+            unordered_map[uint32_t, uint32_t].iterator it_map
+            const unordered_set[uint32_t]* values_ptr
+            
+        while window_start < group_kmers.size():
+            window_hits.clear()
+            
+            for i in range(window_start, min(window_start + window_size, group_kmers.size())):
+                kmer = group_kmers[i]
+                
+                it_kmers = current_kmers.find(kmer)
+                if it_kmers == current_kmers.end():
+                    continue
+                    
+                values_ptr = &deref(it_kmers).second
+                it_values = values_ptr.begin()
+                while it_values != values_ptr.end():
+                    value = deref(it_values)
+                    window_hits[value] += 1
+                    inc(it_values)
+
+            it_map = window_hits.begin()
+            while it_map != window_hits.end():
+                value = deref(it_map).first
+                count = deref(it_map).second
+                if count > const_threshold:
+                    if not single_count or final_counts.find(value) == final_counts.end():
+                        final_counts[value] += 1
+                inc(it_map)
+                
+            window_start += 1
+        
+        results.reserve(final_counts.size())
+        it_map = final_counts.begin()
+        while it_map != final_counts.end():
+            results.push_back(pair[uint32_t, uint32_t](
+                deref(it_map).first, 
+                deref(it_map).second
+            ))
+            inc(it_map)
+        
+        return results
+
+    cdef vector[uint64_t] _optimized_process_sequences(self, list group, int sliding_size) except *:
+        """Optimized sequence processing method for the MalvaIndex class."""
+        cdef:
+            FastKmerExtractor extractor = FastKmerExtractor(self.kmer_size, True)
+            vector[uint64_t] current_kmers_vec
+            
+        current_kmers_vec = extractor.process_sequence_group(group, sliding_size)
+            
+        return current_kmers_vec
+
+    # Main processing function
+    cdef _process_groups(self,
+            list sequence_groups,
+            uint32_t sliding_size,
+            float const_threshold,
+            const unordered_map[uint64_t, unordered_set[uint32_t]]& current_kmers,
+            bint single_count) except *:
+        cdef:
+            vector[pair[uint32_t, uint32_t]] group_results
+            vector[uint64_t] current_kmers_vec
+            np.ndarray[np.uint32_t, ndim=1] locations
+            np.ndarray[np.uint32_t, ndim=1] values
+            size_t i
+            list results = []
+            list _seq_matches = [[0, 1]]
+            uint32_t window_size = sliding_size//self.kmer_size
+            
+        for group in sequence_groups:
+            current_kmers_vec = self._optimized_process_sequences(group, sliding_size)
+            
+            # Process k-mers with proper window handling
+            group_results = self._process_sequence_group(
+                current_kmers_vec,
+                window_size,
+                const_threshold,
+                current_kmers,
+                single_count
+            )
+            
+            # Convert to numpy arrays
+            locations = np.empty(group_results.size(), dtype=np.uint32)
+            values = np.empty(group_results.size(), dtype=np.uint32)
+            
+            for i in range(group_results.size()):
+                locations[i] = group_results[i].first
+                values[i] = group_results[i].second
+            
+            results.append((locations, values, _seq_matches))
+
+        return results
+
+    #def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
+    #      count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
+    #      max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, show_coverage: bool = False, *args, **kwargs):
+    #    """
+    #    Locate spatial positions where a sequence or set of sequences appear.
+
+    #    Parameters:
+    #        sequence (Union[str, List[str], List[List[str]]]): Query sequence(s) to search for.
+    #                                                        If List[List[str]], each sublist represents isoforms
+    #                                                        of the same gene that should be quantified together.
+    #        sliding_size (int): Size of sliding window for k-mer generation. If set to zero, the whole sequence is used.
+    #        pct_threshold (float): Minimum percentage of matching k-mers required
+    #        count_at_most (int): Maximum count threshold for k-mer consideration
+    #        count_at_least (int): Minimum count threshold for k-mer consideration
+    #        chunk_id (int): Index chunk to search in
+    #        single_count (bool): Whether to count each match only once
+    #        max_mem (str): Maximum memory constraint
+    #        force_reload (bool): Force index reload
+    #        use_background_model (bool): Use background model for filtering
+    #        show_coverage (bool): The coverage of passing k-mers across the query sequence will be tracked and returned
+
+    #    Returns:
+    #        List[Tuple]: List of tuples, one per group (or single tuple if input is str/List[str]), each containing:
+    #            - np.ndarray: Spatial locations where sequences were found
+    #            - np.ndarray: Count of occurrences at each location
+    #            - List: (only contains valid values when show_coverage = True) Coverage of passing k-mers 
+    #    """
+    #    cdef:
+    #        unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
+    #        list whole_sliding_sequences = []
+    #        list whole_sliding_sequences_idx = []
+    #        int cumulative_seq_len = 0
+    #        list sequence_groups = []
+    #        list results = []
+    #        np.ndarray all_kmer_list = np.array([])
+    #        unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
+    #        np.ndarray kmer_locations = np.array([0])
+    #        np.ndarray kmer_count = np.array([0])
+    #        float CONST_THRESHOLD = float(sliding_size//self.kmer_size) * pct_threshold
+    #        int BACKGROUND_THRESHOLD = 1
+    #        uint32_t idx_kmer
+    #        int idx = 0
+    #        list seq_matches = [[0, 1]]
+    #        FastKmerProcessor processor = FastKmerProcessor(self.kmer_size, True, self.kmer_size)
+    #        size_t num_kmers
+    #        unordered_map[uint32_t, uint32_t] window_hits
+    #        uint32_t window_size = sliding_size//self.kmer_size
+    #        uint64_t kmer
+    #        uint32_t value
+    #        uint32_t count
+    #        uint32_t _sliding_size
+            
+    #    if pct_threshold < 0 or pct_threshold > 1:
+    #        raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
+
+    #    # Normalize input into sequence groups
+    #    if isinstance(sequence, str):
+    #        sequence_groups = [[sequence]]
+    #    elif isinstance(sequence, list) and all(isinstance(s, str) for s in sequence):
+    #        sequence_groups = [sequence]
+    #    elif isinstance(sequence, list) and all(isinstance(s, list) for s in sequence):
+    #        sequence_groups = sequence
+    #    else:
+    #        raise ValueError("sequence must be str, List[str], or List[List[str]]")
+
+    #    # validate and parse k-mers from sequences
+    #    all_kmer_list = processor.process_sequences(sequence_groups)
+
+    #    if self.verbose:
+    #        logging.info(f"Will process {len(all_kmer_list)} {self.kmer_size}-mers across all sequence groups")
+    #        logging.info(f"Quantifying windows of length {sliding_size}; {int(CONST_THRESHOLD)}/{window_size} {self.kmer_size}-mers to pass")
+
+    #    if len(all_kmer_list) == 0:
+    #        return [(np.array([0]), np.array([0]), [[0, 1]])] * len(sequence_groups)
+
+    #    # Load index and find kmers once for all sequences
+    #    self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload, 
+    #                            count_at_most=count_at_most, count_at_least=count_at_least)
+    #    current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, 
+    #                                count_at_least=count_at_least, chunk_id=chunk_id)
+
+    #    ##### Processing sequence groups separately #####
+    #    return self._process_groups(sequence_groups, sliding_size, CONST_THRESHOLD, 
+    #                  current_kmers, single_count)
+
+    def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
+            count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
+            max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
+        """
+        Locate spatial positions where a sequence or set of sequences appear.
+
+        Parameters:
+            sequence (Union[str, List[str], List[List[str]]]): Query sequence(s) to search for.
+                                                            If List[List[str]], each sublist represents isoforms
+                                                            of the same gene that should be quantified together.
+            sliding_size (int): Size of sliding window for k-mer generation. 
+                                When < 0, will not use sliding windows but the whole sequence, and should be set to -(read_length)
+            pct_threshold (float): Minimum percentage of matching k-mers required
+            count_at_most (int): Maximum count threshold for k-mer consideration
+            count_at_least (int): Minimum count threshold for k-mer consideration
+            chunk_id (int): Index chunk to search in
+            single_count (bool): Whether to count each match only once
+            max_mem (str): Maximum memory constraint
+            force_reload (bool): Force index reload
+            use_background_model (bool): Use background model for filtering
+            use_batched (bool): For lazy loading, whether to use batching. When False, it detects automatically. When True, it forces to batched.
+
+        Returns:
+            List[Tuple]: List of tuples, one per group (or single tuple if input is str/List[str]), each containing:
+                - np.ndarray: Spatial locations where sequences were found
+                - np.ndarray: Count of occurrences at each location
+                - List: Matching details for sequence positions
+        """
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
-            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
-            unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
-            np.ndarray kmer_locations = np.array([0]), kmer_count = np.array([0])
-            float CONST_THRESHOLD = 0
-            uint32_t idx_kmer
-            int idx = 0
-            pair[uint32_t, uint32_t] item
-            pair[uint32_t, pair[uint32_t, uint32_t]] item_primary
             list whole_sliding_sequences = []
             list whole_sliding_sequences_idx = []
             int cumulative_seq_len = 0
+            list sequence_groups = []
+            list results = []
+
+            np.ndarray all_kmer_list = np.array([])
+
+            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map = unordered_map[uint32_t, pair[uint32_t, uint32_t]]()
+            unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
+            np.ndarray kmer_locations = np.array([0])
+            np.ndarray kmer_count = np.array([0])
+            float CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
+            int BACKGROUND_THRESHOLD = 1
+            uint32_t idx_kmer
+            uint32_t _sliding_size
+            int idx = 0
             list seq_matches = [[0, 1]]
 
+            FastKmerProcessor processor = FastKmerProcessor(self.kmer_size, True, self.kmer_size)
+            
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
 
+        # Normalize input into sequence groups
         if isinstance(sequence, str):
-            sequence = [sequence]
-        
-        for seq in sequence:
-            if len(seq) < self.kmer_size:
-                raise ValueError(f"Query sequence of length {len(seq)} cannot be smaller than kmer size {self.kmer_size}!")
-            # we slide over the k-mers to generate offsets, later we take into account the sliding_size
-            _sliding_seq = self.get_whole_sliding_sequence(seq, self.kmer_size)
-            whole_sliding_sequences.extend(_sliding_seq)
-            whole_sliding_sequences_idx.extend([[_i + cumulative_seq_len for _i in range(s, len(seq), self.kmer_size)] for s in range(len(_sliding_seq))])
-            cumulative_seq_len += len(seq)
+            sequence_groups = [[sequence]]
+        elif isinstance(sequence, list) and all(isinstance(s, str) for s in sequence):
+            sequence_groups = [sequence]
+        elif isinstance(sequence, list) and all(isinstance(s, list) for s in sequence):
+            sequence_groups = sequence
+        else:
+            raise ValueError("sequence must be str, List[str], or List[List[str]]")
 
-        all_kmer_list = []
-        for subseq in whole_sliding_sequences:
-            all_kmer_list += [get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)]
-
-        # TODO: find which kmers are duplicate, and these are used for weighting correctly the overrepresentation score
-        all_kmer_list = np.unique(np.concatenate(all_kmer_list))
-        all_kmer_list = all_kmer_list[all_kmer_list != 0]
-
-        if len(all_kmer_list) == 0:
-            return (kmer_locations, kmer_count, seq_matches)
-
-        self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload, count_at_most=count_at_most, count_at_least=count_at_least)
-
-        CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
-        BACKGROUND_THRESHOLD = 1 # TODO: this can be customizable
-
-        current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, count_at_least=count_at_least, chunk_id=chunk_id)
-
-        # get unique subsequences
-        split_sliding_sequences = set()
-        for seq in sequence:
-            split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, sliding_size)))
+        # validate and parse k-mers from sequences
+        all_kmer_list = processor.process_sequences(sequence_groups)
 
         if self.verbose:
-            # iterator = track(zip(whole_sliding_sequences, whole_sliding_sequences_idx), description='Counting occurrences at kmers')
-            iterator = track(list(split_sliding_sequences), description='Counting occurrences at kmers')
-        else:
-            # iterator = zip(whole_sliding_sequences, whole_sliding_sequences_idx)
-            iterator = list(split_sliding_sequences)
+            logging.info(f"Will process {len(all_kmer_list)} {self.kmer_size}-mers across all sequence groups")
 
-        # TODO: re-activate seq_matches
-        # for subseq, subseq_idx in iterator:
-        for subseq in iterator:
-            all_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+        if len(all_kmer_list) == 0:
+            return [(np.array([0]), np.array([0]), [[0, 1]])] * len(sequence_groups)
 
-            for idx_kmer, kmer in enumerate(all_kmer_list):
-                # the kmer has not been found in the index
-                if current_kmers.find(kmer) == current_kmers.end():
-                    # seq_matches.extend([[subseq_idx[idx_kmer], 0]])
-                    continue
-                
-                # TODO: we move this outside of the loop, because we can check the k-mers presence when querying them more efficiently
-                # those mers above cutoff are not used for counting (i.e., exclude multimappers)
-                if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
-                    # seq_matches.extend([[subseq_idx[idx_kmer], 0]])
-                    continue
-                
-                # TODO: here we only count once those sliding sequences that appear more than once
-                # we do not add occurrence to low complexity kmers (==0)
-                values = current_kmers[kmer] if kmer != 0 else []
-                for value in values:
-                    if primary_map.find(value) == primary_map.end():
-                        primary_map[value].first = 1
-                    else:
-                        primary_map[value].first += 1
-                    
-                    primary_map[value].second = idx_kmer
-                    # when the value is updated, we check for a max bound, so the comparison to CONST_THRESHOLD makes sense
-                    primary_map[value].first = min(primary_map[value].first, <uint32_t>(sliding_size//self.kmer_size))
+        # Load index and find kmers once for all sequences
+        self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload, 
+                                count_at_most=count_at_most, count_at_least=count_at_least)
+        current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, 
+                                    count_at_least=count_at_least, chunk_id=chunk_id, use_batched=use_batched)
 
-                # seq_matches.extend([[subseq_idx[idx_kmer], len(values)]])
-
-                # accumulate counts during first sliding_size - but process last iter
-                # note to my future self: this makes sense
-                if ((idx_kmer + 1) < (sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(all_kmer_list)):
-                    continue
-
-                for item_primary in primary_map:
-                    value = item_primary.first
-                    if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
-                        secondary_map[value] = 1
-                    elif primary_map[value].first > CONST_THRESHOLD and not single_count:
-                        # heuristic, avoid counting the same UMI more than once (another large enough sliding window has to occur)
-                        primary_map[value].first = 0
-                        secondary_map[value] += 1
-                    if primary_map[value].second - idx_kmer > 0 and primary_map[value].first > 0:
-                        primary_map[value].first = <int32_t>(primary_map[value].first) - 1
+        ##### Processing sequence groups separately #####
+        for group in sequence_groups:
+            secondary_map.clear()
+            idx = 0
             
-            primary_map.clear()
- 
-        kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
-        kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
+            split_sliding_sequences = set()
+            for seq in group:
+                _sliding_size = sliding_size if sliding_size > 0 else len(seq) - self.kmer_size
+                split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, _sliding_size)))
 
-        for item in secondary_map:
-            kmer_locations[idx] = item.first
-            kmer_count[idx] = item.second
-            idx += 1
+            if self.verbose:
+                iterator = track(list(split_sliding_sequences), description=f'Counting occurrences at kmers for group')
+            else:
+                iterator = list(split_sliding_sequences)
 
-        return (kmer_locations, kmer_count, seq_matches)
+            for subseq in iterator:
+                # This makes sure that we quantify according to read length in case we don't use sliding window
+                # This is used for comparison purposes
+                _sliding_size = sliding_size if sliding_size > 0 else len(subseq)
+                
+                if sliding_size <= 0:
+                    CONST_THRESHOLD = (abs(sliding_size)//self.kmer_size) * pct_threshold
+
+                group_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+
+                for idx_kmer, kmer in enumerate(group_kmer_list):
+                    if current_kmers.find(kmer) == current_kmers.end():
+                        continue
+                    
+                    if use_background_model and self.background_model.is_mer_above_cutoff(kmer, BACKGROUND_THRESHOLD):
+                        continue
+                    
+                    values = current_kmers[kmer] if kmer != 0 else []
+                    for value in values:
+                        if primary_map.find(value) == primary_map.end():
+                            primary_map[value].first = 1
+                        else:
+                            primary_map[value].first += 1
+                        
+                        primary_map[value].second = idx_kmer
+                        primary_map[value].first = min(primary_map[value].first, <uint32_t>(_sliding_size//self.kmer_size))
+
+                    if ((idx_kmer + 1) < (_sliding_size//self.kmer_size)) and ((idx_kmer + 1) < len(group_kmer_list)):
+                        continue
+
+                    for item_primary in primary_map:
+                        value = item_primary.first
+                        if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
+                            secondary_map[value] = 1
+                        elif primary_map[value].first > CONST_THRESHOLD and not single_count:
+                            primary_map[value].first = 0
+                            secondary_map[value] += 1
+                        if primary_map[value].second - idx_kmer > 0 and primary_map[value].first > 0:
+                            primary_map[value].first = <int32_t>(primary_map[value].first) - 1
+                
+                primary_map.clear()
+
+            kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
+            kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
+
+            for item in secondary_map:
+                kmer_locations[idx] = item.first
+                kmer_count[idx] = item.second
+                idx += 1
+
+            results.append((kmer_locations, kmer_count, seq_matches))
+
+        return results
 
 cdef struct LineData:
     float x
@@ -849,6 +1576,12 @@ cdef struct LineData:
 # TODO: then there's a SpatialIndex class inherited from BarcodeIndex
 # TODO: this also gets the flavor, and chooses the reader based on that
 cdef class SpatialIndex:
+    """
+    Manages spatial coordinates and their associated cell barcodes.
+
+    Provides efficient lookup and storage of spatial positions indexed by cell barcodes.
+    Supports both standard spatial transcriptomics and STOmics data formats.
+    """
     cdef:
         map[uint64_t, uint32_t] index
         vector[pair[float, float]] coords
@@ -1001,6 +1734,18 @@ cdef void process_line(const char* line, int line_length, LineData* data, bint e
             start = i + 1
 
 def create_spatial_index(str spatial_barcode_file):
+    """
+    Create a spatial index from a barcode coordinate file.
+
+    Parameters:
+        spatial_barcode_file (str): Path to file containing barcode coordinates
+
+    Returns:
+        SpatialIndex: Index mapping barcodes to spatial coordinates
+
+    Processes a CSV/TSV file containing cell barcodes and their x,y coordinates
+    to build an efficient lookup structure.
+    """
     cdef:
         SpatialIndex sindex = SpatialIndex()
         FILE* file
@@ -1059,6 +1804,18 @@ cdef void process_line_whitelist(const char* line, int line_length, LineData* da
                 data.cell_bc = encode_kmer(kmer.decode("ascii")[:i])
 
 def create_singlecell_index(str whitelist_file):
+    """
+    Create an index from a single-cell barcode whitelist.
+
+    Parameters:
+        whitelist_file (str): Path to file containing valid cell barcodes
+
+    Returns:
+        SpatialIndex: Index containing valid cell barcodes
+
+    Processes a whitelist file containing one barcode per line to create
+    a lookup structure for valid cell identifiers.
+    """
     cdef:
         SpatialIndex sindex = SpatialIndex()
         FILE* file
@@ -1083,12 +1840,14 @@ def create_singlecell_index(str whitelist_file):
             break
         process_line_whitelist(line, read, &data)
         
-        sindex.add(data.cell_bc, line_count)
+        sindex.add(data.cell_bc, line_count + 1) # avoid zero index
 
         line_count += 1
         if line_count % report_interval == 0:
             PyErr_CheckSignals()
             logging.info(f"Processed {line_count:,} spatial barcodes.")
+
+    logging.info(f"Processed {line_count:,} spatial barcodes.")
 
     free(line)
     fclose(file)
@@ -1098,6 +1857,17 @@ def create_singlecell_index(str whitelist_file):
     return sindex
 
 cdef class BackgroundModel:
+    """
+    Models background k-mer frequencies for filtering common sequences.
+
+    Maintains counts of k-mer occurrences in reference sequences to identify
+    and filter out highly abundant or common k-mers during searches.
+
+    Attributes:
+        total_mers (int): Total number of k-mers processed
+        kmer_size (int): Length of k-mers being counted
+        verbose (bool): Whether to print detailed logging information
+    """
     cdef:
         map[uint64_t, uint16_t] model
         size_t total_mers
@@ -1111,6 +1881,16 @@ cdef class BackgroundModel:
         self.verbose = verbose
 
     def create_from_reference(self, str filename, bint consecutive_genes = True):
+        """
+        Build background model from a reference sequence file.
+
+        Parameters:
+            filename (str): Path to reference sequence file
+            consecutive_genes (bool): Whether to group consecutive genes
+
+        Processes reference sequences to count k-mer frequencies,
+        optionally combining counts for consecutive genes with same name.
+        """
         from malva.reader import iterate_fasta
         from malva.utils import check_file_exists
 

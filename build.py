@@ -1,3 +1,7 @@
+import os
+import sys
+import platform
+import subprocess
 import numpy
 from distutils.command.build_ext import build_ext
 from setuptools import Extension
@@ -23,51 +27,68 @@ def get_extensions():
         'profile': True,
     }
 
+    common_include_dirs = [unordered_dense_include, numpy.get_include()]
+    common_compile_args = ["-std=c++17"]
+    common_macros = [('CYTHON_TRACE', '1'), ('CYTHON_TRACE_NOGIL', '1')]
+
+    hdf5_config = get_hdf5_config()
+
     extensions = [
         Extension(
             "malva.kmer_processing",
             ["malva/kmer_processing.pyx"],
-            include_dirs=[unordered_dense_include, numpy.get_include()],
+            include_dirs=common_include_dirs,
             language="c++",
-            extra_compile_args=["-std=c++17"],
-            define_macros=[('CYTHON_TRACE', '1'),
-                         ('CYTHON_TRACE_NOGIL', '1')],
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
         ),
         Extension(
             "malva.fastq_processing",
             ["malva/fastq_processing.pyx"],
-            include_dirs=[unordered_dense_include, numpy.get_include()],
+            include_dirs=common_include_dirs,
             language="c++",
-            extra_compile_args=["-std=c++17"],
-            define_macros=[('CYTHON_TRACE', '1'),
-                         ('CYTHON_TRACE_NOGIL', '1')],
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
         ),
         Extension(
             "malva.reader",
             ["malva/reader.pyx"],
-            include_dirs=[unordered_dense_include, numpy.get_include()],
+            include_dirs=common_include_dirs,
             language="c++",
-            extra_compile_args=["-std=c++17"],
-            define_macros=[('CYTHON_TRACE', '1'),
-                         ('CYTHON_TRACE_NOGIL', '1')],
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
         ),
         Extension(
             "malva.indexes",
             ["malva/indexes.pyx"],
-            include_dirs=[unordered_dense_include, numpy.get_include()],
+            include_dirs=common_include_dirs,
             language="c++",
-            extra_compile_args=["-std=c++17"],
-            define_macros=[('CYTHON_TRACE', '1'),
-                         ('CYTHON_TRACE_NOGIL', '1')],
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
         ),
         Extension(
             "malva.fast_map",
             ["malva/fast_map.pyx"],
-            include_dirs=[unordered_dense_include, numpy.get_include()],
+            include_dirs=common_include_dirs,
             language="c++",
-            extra_compile_args=["-std=c++17"],
-            define_macros=[('CYTHON_TRACE', '1'),
-                         ('CYTHON_TRACE_NOGIL', '1')],
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
+        ),
+        Extension(
+            "malva.datastore",
+            ["malva/datastore.pyx"],
+            include_dirs=common_include_dirs,
+            language="c++",
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
+        ),
+        Extension(
+            "malva.filter_minimizers",
+            ["malva/filter_minimizers.pyx"],
+            include_dirs=common_include_dirs,
+            language="c++",
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
         ),
     ]
     

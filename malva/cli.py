@@ -46,13 +46,19 @@ def get_index_parser():
         documentation.
         
         Currently, flavors 'openst', 'stereo_seq', 'slide_seq', 'visium', 
-        'seq_scope_v1', 'sc_10x_v1', 'sc_10x_v3' or a path to a .yaml file, are supported""",
+        'seq_scope_v1', 'sc_10x_v1', 'sc_10x_v3', 'bulk', or a path to a .yaml file, are supported""",
     )
     parser.add_argument(
         "--kmer-length",
         type=int,
         default=24,
         help="Length (in nucleotides) of indexed k-mers, non-overlapping.",
+    )
+    parser.add_argument(
+        "--bulk-id",
+        type=int,
+        default=1,
+        help="When the technology is bulk, will set all reads to have this ID - also for smart-seq or other well-based technologies.",
     )
     parser.add_argument(
         "--chunksize",
@@ -206,8 +212,8 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "human_cdna", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
+        choices=["human_utr", "human_cdna", "human_markers", "human_markers_hallmarks", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_markers_hallmarks', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--background-model",
@@ -335,6 +341,31 @@ def get_cellxmer_parser():
         default=0,
         help="""Aggregates spatial units at the final AnnData file to reduce dimensions of final cell-by-kmer matrix""",
     )
+    parser.add_argument(
+        '--w-size', 
+        type=int, 
+        default=16,
+        help='W-mer size for filtering (default: 16, must be <= k-mer size)'
+    )
+    parser.add_argument(
+        '--num-buckets', 
+        type=int, 
+        default=100_000,
+        help='Number of buckets for clustering k-mers (default: 100,000)'
+    )
+    # Add arguments for chunked processing
+    parser.add_argument(
+        '--chunk-size',
+        type=int,
+        default=1_000_000,
+        help='Number of k-mers to process in each chunk (default: 1,000,000)'
+    )
+    parser.add_argument(
+        '--tmp-dir',
+        type=str,
+        default=None,
+        help='Directory for temporary files (default: system temp directory)'
+    )
     return parser
 
 
@@ -353,6 +384,62 @@ def cmd_run_cellxmer(args):
     from malva.cellxmer import _run_cellxmer
 
     _run_cellxmer(args)
+
+
+AUTOANNOTATE_HELP = "Convert the malva index to a cell-by-mer AnnData file that can be used for clustering and sequence assembly"
+
+def get_autoannotate_parser():
+    parser = argparse.ArgumentParser(
+        description=AUTOANNOTATE_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+
+    parser.add_argument(
+        "--adata-in",
+        type=str,
+        required=True,
+        help="cell-by-gene matrix in AnnData format, to be annotated. It must be raw (pseudo)counts, unfiltered",
+    )
+    parser.add_argument(
+        "--adata-out",
+        type=str,
+        required=True,
+        help="Where to save the annotated, normalized and filtered AnnData object",
+    )
+    parser.add_argument(
+        "--reference",
+        type=str,
+        required=False,
+        default="human_markers",
+        choices=["human_markers", "human_markers_hallmarks", "mouse_markers"],
+        help="Flavor used for annotation. Valid options: 'human_markers', 'human_markers_hallmarks', 'mouse_markers'. More will be available soon...",
+    )
+    parser.add_argument(
+        "--savefig",
+        type=str,
+        required=False,
+        default=None,
+        help="Folder where the output plots are saved. When not specified, plots are not generated nor saved.",
+    )
+    return parser
+
+
+def setup_autoannotate_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "autoannotate",
+        help=AUTOANNOTATE_HELP,
+        parents=[get_autoannotate_parser()],
+    )
+    parser.set_defaults(func=cmd_run_autoannotate)
+
+    return parser
+
+
+def cmd_run_autoannotate(args):
+    from malva.autoannotate import _run_autoannotate
+
+    _run_autoannotate(args)
 
 
 COMBINE_HELP = "Combine various sub-indexes from the same sample (e.g., processed in parallel) into a single index"
@@ -423,6 +510,12 @@ def get_serve_parser():
         help="""UUID for the server""",
     )
     parser.add_argument(
+        "--annotation",
+        type=str,
+        default=None,
+        help="""Path to a tippecanoe annotation (vector-tile GeoJSON)""",
+    )
+    parser.add_argument(
         "--port",
         type=int,
         default=8888,
@@ -471,6 +564,58 @@ def cmd_run_serve(args):
 
     _run_serve(args)
 
+search_HELP = "Websearchr for interactive spatial querying of malva indexes"
+
+
+def get_search_parser():
+    parser = argparse.ArgumentParser(
+        description=search_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # Default server URL
+    default_server = "http://localhost:8000"
+    
+    # Search command
+    search_parser = subparsers.add_parser("search", help="Search sequences in a Malva dataset")
+    search_parser.add_argument("--file", help="File containing sequences to search (FASTA format)")
+    search_parser.add_argument("--sequence", help="Sequence to search")
+    search_parser.add_argument("--dataset", help="Dataset ID to search (if not specified, uses all)")
+    # search_parser.add_argument("--min-matches", type=int, default=1, help="Minimum number of k-mer matches required")
+    search_parser.add_argument("--output", help="Output file for results")
+    search_parser.add_argument("--server", default=default_server, help=f"Server URL (default: {default_server})")
+    search_parser.add_argument("--wait", action="store_true", help="Wait for job completion")
+    search_parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format (default: text)")
+    
+    # List datasets command
+    list_parser = subparsers.add_parser("list-datasets", help="List available datasets")
+    list_parser.add_argument("--server", default=default_server, help=f"Server URL (default: {default_server})")
+    
+    # Job status command
+    status_parser = subparsers.add_parser("status", help="Check status of a search job")
+    status_parser.add_argument("job_id", help="Job ID to check")
+    status_parser.add_argument("--output", help="Output file for results")
+    status_parser.add_argument("--server", default=default_server, help=f"Server URL (default: {default_server})")
+    status_parser.add_argument("--format", choices=["text", "json"], default="text", help="Output format (default: text)")
+
+    return parser
+
+
+def setup_search_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "search",
+        help=search_HELP,
+        parents=[get_search_parser()],
+    )
+    parser.set_defaults(func=cmd_run_search)
+
+    return parser
+
+
+def cmd_run_search(args):
+    from malva.search import _run_search
 
 def cmdline_args():
     parent_parser = argparse.ArgumentParser(
@@ -487,6 +632,8 @@ def cmdline_args():
     setup_quant_parser(parent_parser_subparsers)
     setup_cellxmer_parser(parent_parser_subparsers)
     setup_combine_parser(parent_parser_subparsers)
+    setup_autoannotate_parser(parent_parser_subparsers)
+    setup_search_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
 

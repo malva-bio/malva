@@ -4,9 +4,19 @@
 # This is adapted from the dnaio package for improved throughput
 from cpython.bytes cimport PyBytes_AS_STRING, PyBytes_GET_SIZE, PyBytes_CheckExact
 from cpython.mem cimport PyMem_Free, PyMem_Malloc, PyMem_Realloc
+from cython.operator cimport dereference as deref
+from cython.operator cimport preincrement as inc
 from libc.string cimport memcmp, memcpy, memchr, memmove
 from libc.stdint cimport uint64_t, uint32_t
 from libcpp.vector cimport vector
+from libcpp.string cimport string
+from libcpp.vector cimport vector
+from libcpp.algorithm cimport sort as stdsort
+
+from libcpp.unordered_set cimport unordered_set
+import numpy as np
+cimport numpy as np
+np.import_array()
 
 # Use a larger lookup table for faster 16-bit chunk encoding
 cdef uint32_t[65536] KMER_ENCODE_TABLE
@@ -33,6 +43,83 @@ cdef inline uint64_t encode_kmer(const unsigned char* sequence, int length) nogi
     
     return result
 
+cdef class FastKmerProcessor:
+    def __cinit__(self, int kmer_size=32, bint overlapping=False, int min_valid_sequence_size=0):
+        if kmer_size < 8 or kmer_size > 32:
+            raise ValueError("kmer_size must be between 8 and 32")
+        self.kmer_size = kmer_size
+        self.overlapping = overlapping
+        self.min_valid_sequence_size = max(min_valid_sequence_size, kmer_size)
+        
+    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) nogil except -1:
+        cdef:
+            uint64_t kmer
+            int remaining = length
+            int num_kmers
+            int step = 1 if self.overlapping else self.kmer_size
+
+        if seq_ptr == NULL or length < self.kmer_size:
+            return 0
+
+        num_kmers = (length - self.kmer_size + step) // step
+
+        if seq_ptr[0] != b'N' and seq_ptr[0] != b'n':
+            kmer = encode_kmer(seq_ptr, self.kmer_size)
+            if kmer != 0:
+                self.unique_kmers.insert(kmer)
+
+        seq_ptr += step
+        for i in range(1, num_kmers):
+            if seq_ptr[self.kmer_size-1] != b'N' and seq_ptr[self.kmer_size-1] != b'n':
+                kmer = encode_kmer(seq_ptr, self.kmer_size)
+                if kmer != 0:
+                    self.unique_kmers.insert(kmer)
+            seq_ptr += step
+
+        return 0
+
+    cdef np.ndarray process_sequences(self, sequences):
+        cdef:
+            const unsigned char* seq_ptr
+            Py_ssize_t seq_len
+            bytes seq_bytes
+            vector[uint64_t] sorted_kmers
+            unordered_set[uint64_t].iterator it
+            unordered_set[uint64_t].iterator end
+            np.ndarray[np.uint64_t, ndim=1] result
+
+        self.unique_kmers.clear()
+        
+        for group in sequences:
+            for seq in group:
+                if not isinstance(seq, str):
+                    raise TypeError("Sequences must be strings")
+                
+                seq_bytes = seq.encode('ascii')
+                seq_len = len(seq_bytes)
+                
+                if seq_len >= self.min_valid_sequence_size:
+                    seq_ptr = <const unsigned char*>PyBytes_AS_STRING(seq_bytes)
+                    with nogil:
+                        self.process_sequence_chunk(seq_ptr, seq_len)
+
+        sorted_kmers.reserve(self.unique_kmers.size())
+        it = self.unique_kmers.begin()
+        end = self.unique_kmers.end()
+        
+        while it != end:
+            sorted_kmers.push_back(deref(it))
+            inc(it)
+            
+        with nogil:
+            stdsort(sorted_kmers.begin(), sorted_kmers.end())
+            
+        # Create numpy array from sorted vector
+        result = np.empty(sorted_kmers.size(), dtype=np.uint64)
+        memcpy(result.data, &sorted_kmers[0], sorted_kmers.size() * sizeof(uint64_t))
+        
+        return result
+
 cdef class KmerFastqParser:
     """
     Parse a FASTQ file and yield k-mer arrays
@@ -47,11 +134,19 @@ cdef class KmerFastqParser:
         kmer_size: when sequence is converted to numeric, the k size of the k-mers.
             This can be 32 as maximum!
 
+        jump_amount: what's the offset that's used to jump to the next k-mer. Setting this to 1
+            with overlapping = False is equivalent to overlapping = True. Setting this to a value
+            equal to kmer_size will lead to non-overlapping k-mers
+
+        overlapping: whether k-mers will be fully overlapping (jump_amount = 1) or not. This
+            overrides any jump_amount parameter value.
+
+
     Yields:
         An array of uint64 values, numerically encoding the (non) overlapping k-mers of the
         input sequence 
     """
-    def __cinit__(self, file, Py_ssize_t buffer_size, int kmer_size = 32, bint overlapping = False):
+    def __cinit__(self, file, Py_ssize_t buffer_size, int kmer_size = 32, int jump_amount = 16, bint overlapping = False):
         self.buffer_size = buffer_size
         self.buffer = <char *>PyMem_Malloc(self.buffer_size)
         if self.buffer == NULL:
@@ -64,6 +159,7 @@ cdef class KmerFastqParser:
         self.file = file
         self.kmer_size = kmer_size
         self.overlapping = overlapping
+        self.jump_amount = jump_amount
         if buffer_size < 1:
             raise ValueError("Starting buffer size too small")
 
@@ -195,7 +291,7 @@ cdef class KmerFastqParser:
             # Calculate the number of kmers
             if not self.overlapping:
                 num_kmers = (sequence_length + self.kmer_size - 1) // self.kmer_size
-                jump_amount = self.kmer_size
+                jump_amount = self.jump_amount
             else:
                 num_kmers = sequence_length - self.kmer_size
                 jump_amount = 1
