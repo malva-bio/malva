@@ -1,3 +1,4 @@
+import dnaio
 import sys
 import time
 import json
@@ -5,27 +6,22 @@ import requests
 import logging
 from typing import List, Dict, Any, Optional
 
-# TODO: replace with dnaio
 def read_sequences_file(file_path: str) -> List[str]:
-    """Read sequences from a file (supports FASTA format)"""
+    """Read sequences from a file (supports FASTA format)
+    
+    Uses dnaio for efficient and robust parsing of FASTA/FASTQ files.
+    
+    Args:
+        file_path: Path to the sequence file (FASTA or FASTQ)
+        
+    Returns:
+        List of sequences without headers
+    """
     sequences = []
-    current_seq = ""
-    
-    with open(file_path, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-                
-            if line.startswith('>'):
-                if current_seq:
-                    sequences.append(current_seq)
-                    current_seq = ""
-            else:
-                current_seq += line
-    
-    if current_seq:
-        sequences.append(current_seq)
+
+    with dnaio.open(file_path) as reader:
+        for record in reader:
+            sequences.append(record.sequence)
     
     return sequences
 
@@ -43,7 +39,7 @@ def submit_search_job(
     server_url: str,
     sequences: List[str],
     dataset_id: str,
-    min_kmer_matches: int = 1,
+    min_kmer_matches: int = 0,
     k_size: Optional[int] = None
 ) -> Dict[str, Any]:
     """Submit a search job to the server"""
@@ -72,7 +68,6 @@ def get_job_status(server_url: str, job_id: str) -> Dict[str, Any]:
     response.raise_for_status()
     return response.json()
 
-
 def format_results(results: Dict[str, Any], format_type: str = 'text') -> str:
     """Format search results for output"""
     if format_type == 'json':
@@ -91,18 +86,23 @@ def format_results(results: Dict[str, Any], format_type: str = 'text') -> str:
         
         output.append("\nResults by sequence:")
         
-        for seq, cells in results['results'].items():
+        for seq, result_data in results['results'].items():
             # Truncate long sequences for display
             display_seq = seq[:50] + '...' if len(seq) > 50 else seq
+            
+            cells = result_data.get('cells', [])
+            counts = result_data.get('counts', [])
+            
             output.append(f"\nSequence: {display_seq}")
             output.append(f"Found in {len(cells)} cells:")
             
-            # List the first 10 cells and summarize the rest
-            for i, cell in enumerate(cells[:10]):
-                output.append(f"  - Cell {cell}")
+            # List the first 2 cells and summarize the rest
+            for i, cell in enumerate(cells[:2]):
+                count_info = f" with {counts[i]} counts" if i < len(counts) else ""
+                output.append(f"  - Cell {cell}{count_info}")
             
-            if len(cells) > 10:
-                output.append(f"  - ... and {len(cells) - 10} more cells")
+            if len(cells) > 2:
+                output.append(f"  - ... and {len(cells) - 2} more cells")
     
     elif results['status'] == 'error':
         output.append(f"Error: {results.get('error', 'Unknown error')}")
@@ -110,7 +110,7 @@ def format_results(results: Dict[str, Any], format_type: str = 'text') -> str:
     return '\n'.join(output)
 
 
-def wait_for_completion(server_url: str, job_id: str, poll_interval: int = 5) -> Dict[str, Any]:
+def wait_for_completion(server_url: str, job_id: str, poll_interval: int = 1) -> Dict[str, Any]:
     """Wait for a job to complete, showing progress"""
     spinner = ['|', '/', '-', '\\']
     spinner_idx = 0
@@ -246,8 +246,7 @@ def _run_search_data(args):
         job_info = submit_search_job(
             server_url=server_url,
             sequences=sequences,
-            dataset_id=dataset_id,
-            min_kmer_matches=args.min_matches
+            dataset_id=dataset_id
         )
         
         logging.info(f"Job submitted with ID: {job_info['job_id']}")
@@ -286,7 +285,7 @@ def _run_search_data(args):
         return 1
     
 def _run_search(args):
-    if args.command == "search":
+    if args.command == "query":
         return _run_search_data(args)
     elif args.command == "list-datasets":
         return _run_list_datasets(args)
