@@ -44,7 +44,8 @@ def process_batch(
         count_at_least=count_at_least,
         single_count=single_count,
         max_mem="1M",
-        use_background_model=use_background_model
+        use_background_model=use_background_model,
+        use_batched=True
     )
 
     # we have to clip otherwise we wouldn't count those that have many
@@ -90,7 +91,7 @@ def resave_h5ad(folder, kmer_index):
     adata.var_names = pd.read_csv(features_file, header=None, sep="\t")[0]
 
     # TODO: load more efficiently when too large to reduce memory usage
-    kmer_index.open()
+    kmer_index.open(mode='r')
     if 'spatial_coord' in kmer_index.index:
         adata.obsm["spatial"] = kmer_index.spatial_coord[:]
     kmer_index.close()
@@ -114,7 +115,7 @@ def process_reference(
     batch_size: int = 500
 ):
     kmer_index.verbose = False
-    kmer_index.open()
+    kmer_index.open(mode='r')
     with open(os.path.join(folder_out, "matrix.mtx"), "wb") as mtx_file, gzip.open(
         os.path.join(folder_out, "features.tsv.gz"), "wb"
     ) as feature_file:
@@ -185,7 +186,7 @@ def process_reference(
         n_spatial = kmer_index.n_spatial
     # we need to add +1 because indices from mtx file start at 1, not 0 (for the scRNA data)
     else:
-        n_spatial = kmer_index.n_spatial + 1
+        n_spatial = kmer_index.n_spatial
 
     with open(os.path.join(folder_out, "matrix.mtx"), "r+b") as mtx_file:
         mtx_file.seek(0)

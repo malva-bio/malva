@@ -23,3 +23,6 @@ barcode_flavors:
   sc_10x_v1:
     bam_tags: CB:{cell}
     cell: r1[0:14]
+  bulk:
+    bam_tags: CB:{cell}
+    cell: r1[0:12]
