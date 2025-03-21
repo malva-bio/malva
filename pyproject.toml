@@ -1,5 +1,5 @@
 [build-system]
-requires = ["poetry", "Cython>=0.29.21", "setuptools", "wheel", "numpy"]
+requires = ["poetry", "Cython>=0.29.21", "setuptools", "wheel", "numpy", "pkgconfig"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
@@ -65,6 +65,7 @@ Cython = "^0.29.21"
 pytest = ">=7.0.0"
 pytest-cov = ">=4.0.0"
 coverage = ">=7.0.0"
+pkgconfig = "*"
 
 [tool.poetry.urls]
 "Documentation" = "https://rajewsky-lab.github.io/malva"
