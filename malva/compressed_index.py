@@ -3,7 +3,7 @@ import blosc
 import os
 import pickle
 import math
-from typing import List, Tuple, Optional, Dict, Union
+from typing import List, Union
 from tqdm import tqdm
 
 class CompressedArrayStorage:
@@ -38,6 +38,7 @@ class CompressedArrayStorage:
         # Storage for compressed chunks
         self.chunks = {}
         self.chunk_offsets = {}
+        self.chunk_table = None
         self.num_elements = 0
         self.is_file_backed = False
         self.filename = None
@@ -62,24 +63,23 @@ class CompressedArrayStorage:
         will be faster since the data is already in memory.
         """
         if not self.is_file_backed:
-            # Already in memory, nothing to do
-            return
+            raise ValueError("You must load chunk information with load() before loading chunks to memory!")
             
         if hasattr(self, 'in_memory_compressed') and self.in_memory_compressed:
             # Already loaded in memory compressed format
             return
             
         with open(self.filename, 'rb') as f:
-            for chunk_id in range((num_elements // self.chunk_size) + 1):
+            for chunk_id in tqdm(range(len(self.chunk_table))):
                 # Skip if we already have this chunk
                 if chunk_id in self.chunks:
                     continue
+
+                chunk_offs = self.chunk_table[chunk_id][1]
+                chunk_size = self.chunk_table[chunk_id][2]
                     
-                # Seek to the chunk offset
-                f.seek(self.chunk_offsets[chunk_id])
-                
-                # Read chunk size
-                chunk_size = int.from_bytes(f.read(8), byteorder='little')
+                # Seek to the chunk offset without the size
+                f.seek(chunk_offs + 8)
                 
                 # Read compressed chunk
                 compressed_chunk = f.read(chunk_size)
@@ -214,12 +214,60 @@ class CompressedArrayStorage:
         self.file_handle = open(filename, 'wb')
         self.filename = filename
         
-        # Leave space for metadata length (8 bytes)
+        # Reserve space for metadata position (8 bytes)
+        self.file_handle.write(b'\0' * 8)
+        
+        # Reserve space for chunk table size (8 bytes)
         self.file_handle.write(b'\0' * 8)
         
         # Initialize chunk tracking
         self.chunk_offsets = {}
+        self.chunk_sizes = {}
         self.is_file_backed = True
+        
+    def _finalize_incremental_save(self) -> None:
+        """
+        Finalize the incremental save by writing the chunk table and metadata.
+        """
+        if self.file_handle is None:
+            raise ValueError("No file open for incremental saving")
+        
+        # Record end of data / beginning of chunk table
+        chunk_table_pos = self.file_handle.tell()
+        
+        # Write chunk table (chunk_id, offset, size for each chunk)
+        for chunk_id, offset in sorted(self.chunk_offsets.items()):
+            self.file_handle.write(chunk_id.to_bytes(8, byteorder='little'))
+            self.file_handle.write(offset.to_bytes(8, byteorder='little'))
+            if chunk_id in self.chunk_sizes:
+                self.file_handle.write(self.chunk_sizes[chunk_id].to_bytes(8, byteorder='little'))
+            else:
+                self.file_handle.write(b'\0' * 8)  # If size unknown for some reason
+        
+        # Record position for metadata
+        metadata_pos = self.file_handle.tell()
+        
+        # Create and write metadata
+        metadata = {
+            'num_elements': self.num_elements,
+            'chunk_size': self.chunk_size,
+            'dtype': np.dtype(self.dtype).str,
+            'compression_lib': self.compression_lib,
+            'compression_level': self.compression_level,
+            'num_chunks': len(self.chunk_offsets)
+        }
+        
+        metadata_bytes = pickle.dumps(metadata)
+        self.file_handle.write(metadata_bytes)
+        
+        # Go back to beginning and write positions
+        self.file_handle.seek(0)
+        self.file_handle.write(metadata_pos.to_bytes(8, byteorder='little'))
+        self.file_handle.write(chunk_table_pos.to_bytes(8, byteorder='little'))
+        
+        # Close the file
+        self.file_handle.close()
+        self.file_handle = None
                 
     def _save_chunk_incrementally(self, chunk_id: int, compressed_chunk: bytes) -> None:
         """
@@ -238,43 +286,13 @@ class CompressedArrayStorage:
         
         # Write chunk size and data
         chunk_size = len(compressed_chunk)
+        self.chunk_sizes[chunk_id] = chunk_size
         self.file_handle.write(chunk_size.to_bytes(8, byteorder='little'))
         self.file_handle.write(compressed_chunk)
         
         # Remove from memory after saving (unless we want to keep it)
         if chunk_id in self.chunks:
             del self.chunks[chunk_id]
-            
-    def _finalize_incremental_save(self) -> None:
-        """
-        Finalize the incremental save by writing the metadata.
-        """
-        if self.file_handle is None:
-            raise ValueError("No file open for incremental saving")
-            
-        # Create metadata
-        metadata = {
-            'num_elements': self.num_elements,
-            'chunk_size': self.chunk_size,
-            'dtype': np.dtype(self.dtype).str,
-            'compression_lib': self.compression_lib,
-            'compression_level': self.compression_level
-        }
-        
-        # Record current position (end of data)
-        metadata_pos = self.file_handle.tell()
-        
-        # Serialize and write metadata
-        metadata_bytes = pickle.dumps(metadata)
-        self.file_handle.write(metadata_bytes)
-        
-        # Go back to beginning and write the metadata position
-        self.file_handle.seek(0)
-        self.file_handle.write(metadata_pos.to_bytes(8, byteorder='little'))
-        
-        # Close the file
-        self.file_handle.close()
-        self.file_handle = None
                 
     def from_array(self, array: np.ndarray, filename: str = None) -> None:
         """
@@ -411,38 +429,11 @@ class CompressedArrayStorage:
     
     def load(self, filename: str, load_in_memory: bool = False) -> None:
         with open(filename, 'rb') as f:
-            # Read metadata position from first 8 bytes
+            # Read metadata and chunk table positions
             metadata_pos = int.from_bytes(f.read(8), byteorder='little')
+            chunk_table_pos = int.from_bytes(f.read(8), byteorder='little')
             
-            # Read chunks until we reach metadata position
-            self.chunk_offsets = {}
-            self.chunks = {}  # Clear any in-memory chunks
-            chunk_id = 0
-            curr_pos = f.tell()
-            
-            while curr_pos < metadata_pos:
-                self.chunk_offsets[chunk_id] = curr_pos
-                
-                # Read chunk size
-                chunk_size_bytes = f.read(8)
-                if not chunk_size_bytes or len(chunk_size_bytes) < 8:
-                    break
-                    
-                chunk_size = int.from_bytes(chunk_size_bytes, byteorder='little')
-                
-                if load_in_memory:
-                    # Read compressed chunk into memory
-                    compressed_chunk = f.read(chunk_size)
-                    if len(compressed_chunk) == chunk_size:
-                        self.chunks[chunk_id] = compressed_chunk
-                else:
-                    # Skip chunk data
-                    f.seek(chunk_size, os.SEEK_CUR)
-                
-                chunk_id += 1
-                curr_pos = f.tell()
-            
-            # Now read metadata (should be at metadata_pos)
+            # Jump to metadata first to get number of chunks
             f.seek(metadata_pos)
             metadata = pickle.load(f)
             
@@ -453,11 +444,27 @@ class CompressedArrayStorage:
             self.compression_lib = metadata['compression_lib']
             self.compression_level = metadata['compression_level']
             self.element_size = self.dtype.itemsize
+            num_chunks = metadata['num_chunks']
+            
+            # Now read the chunk table all at once
+            f.seek(chunk_table_pos)
+            # Each entry is 24 bytes (8 for chunk_id, 8 for offset, 8 for size)
+            chunk_table_bytes = f.read(num_chunks * 24)
+            
+            chunk_table_dtype = np.dtype([
+                ('chunk_id', '<u8'),
+                ('offset', '<u8'),
+                ('size', '<u8')
+            ])
+
+            self.chunk_table = np.frombuffer(chunk_table_bytes, dtype=chunk_table_dtype)
         
         # Update state
         self.is_file_backed = True
         self.filename = filename
-        self.in_memory_compressed = load_in_memory
+
+        if load_in_memory:
+            self.load_all_chunks_to_memory()
     
     def _load_chunk_from_file(self, chunk_id: int) -> np.ndarray:
         """
@@ -472,15 +479,15 @@ class CompressedArrayStorage:
         if not self.is_file_backed or self.filename is None:
             raise ValueError("No backing file available")
             
-        if chunk_id not in self.chunk_offsets:
+        if chunk_id > len(self.chunk_table):
             raise IndexError(f"Chunk ID {chunk_id} not found")
             
         with open(self.filename, 'rb') as f:
             # Seek to the chunk offset
-            f.seek(self.chunk_offsets[chunk_id])
-            
-            # Read chunk size
-            chunk_size = int.from_bytes(f.read(8), byteorder='little')
+            chunk_offs = self.chunk_table[chunk_id][1]
+            chunk_size = self.chunk_table[chunk_id][2]
+
+            f.seek(chunk_offs + 8)
             
             # Read compressed chunk
             compressed_chunk = f.read(chunk_size)
@@ -534,7 +541,7 @@ class CompressedArrayStorage:
         # If file-backed, load raw bytes from file
         if self.is_file_backed:
             with open(self.filename, 'rb') as f:
-                f.seek(self.chunk_offsets[chunk_id])
+                f.seek(self.chunk_table[chunk_id][1])
                 chunk_size = int.from_bytes(f.read(8), byteorder='little')
                 return f.read(chunk_size)
                 

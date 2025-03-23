@@ -311,7 +311,7 @@ cdef class MalvaIndex:
         self.index.attrs['n_spatial'] = self.n_spatial
         self.close()
 
-    def open(self, str mode='r+'):
+    def open(self, str mode='r+', bint blosc_load_to_memory = False):
         self.index = h5py.File(self.index_file, mode, driver="split")
         if 'kmer_size' in self.index.attrs:
             self.kmer_size = self.index.attrs['kmer_size']
@@ -335,7 +335,7 @@ cdef class MalvaIndex:
                 _layer_name = f"index_{_chunk}_indices"
                 _f_blosc = self.index_file + f"_{_layer_name}.blosc"
                 self.__index[_layer_name] = CompressedArrayStorage()
-                self.__index[_layer_name].load(_f_blosc, load_in_memory=False)
+                self.__index[_layer_name].load(_f_blosc, load_in_memory=blosc_load_to_memory)
         else:
             for _chunk in range(self.n_chunks):
                 _layer_name = f"index_{_chunk}_indices"
@@ -347,7 +347,7 @@ cdef class MalvaIndex:
                 _layer_name = f"index_{_chunk}_indptr"
                 _f_blosc = self.index_file + f"_{_layer_name}.blosc"
                 self.__index[_layer_name] = CompressedArrayStorage()
-                self.__index[_layer_name].load(_f_blosc, load_in_memory=False)
+                self.__index[_layer_name].load(_f_blosc, load_in_memory=blosc_load_to_memory)
         else:
             for _chunk in range(self.n_chunks):
                 _layer_name = f"index_{_chunk}_indptr"
