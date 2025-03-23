@@ -26,6 +26,7 @@ import io
 import time
 import numpy as np
 import pandas as pd
+import glob
 
 from rich.progress import track
 
@@ -35,6 +36,7 @@ from malva.kmer_processing import encode_kmer, get_kmers_numeric, get_sliding_km
 from malva.kmer_processing cimport FastKmerExtractor
 from malva.utils import check_cell_string, convert_to_bytes
 from malva.xopen import xopen
+from malva.compressed_index import CompressedArrayStorage
 
 cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 4096 * 1024)
 
@@ -135,6 +137,7 @@ cdef class MalvaIndex:
         public int kmer_size
         public bint verbose
         public object index
+        public dict __index
         public tuple coord_lims
         public int n_chunks
         public list data_lengths
@@ -154,6 +157,7 @@ cdef class MalvaIndex:
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
         self.index_dir = index_dir
         self.index = None
+        self.__index = {}
         self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
@@ -324,6 +328,30 @@ cdef class MalvaIndex:
 
         if 'spatial_coord' in self.index:
             self.spatial_coord = self.index['spatial_coord']
+
+        _blosc_exists_indices = all([os.path.exists(self.index_file + f"_index_{_c}_indices.blosc") for _c in range(self.n_chunks)])
+        if _blosc_exists_indices:
+            for _chunk in range(self.n_chunks):
+                _layer_name = f"index_{_chunk}_indices"
+                _f_blosc = self.index_file + f"_{_layer_name}.blosc"
+                self.__index[_layer_name] = CompressedArrayStorage()
+                self.__index[_layer_name].load(_f_blosc, load_in_memory=False)
+        else:
+            for _chunk in range(self.n_chunks):
+                _layer_name = f"index_{_chunk}_indices"
+                self.__index[_layer_name] = self.index[_layer_name]
+
+        _blosc_exists_indptr = all([os.path.exists(self.index_file + f"_index_{_c}_indptr.blosc") for _c in range(self.n_chunks)])
+        if _blosc_exists_indptr:
+            for _chunk in range(self.n_chunks):
+                _layer_name = f"index_{_chunk}_indptr"
+                _f_blosc = self.index_file + f"_{_layer_name}.blosc"
+                self.__index[_layer_name] = CompressedArrayStorage()
+                self.__index[_layer_name].load(_f_blosc, load_in_memory=False)
+        else:
+            for _chunk in range(self.n_chunks):
+                _layer_name = f"index_{_chunk}_indptr"
+                self.__index[_layer_name] = self.index[_layer_name]
 
     def close(self):
         self.index.flush()
@@ -785,7 +813,7 @@ cdef class MalvaIndex:
             size_t range_start, range_end
             
         results.reserve(num_kmers)
-        indices_size = len(self.index[f'index_{chunk_id}_indices'])
+        indices_size = len(self.__index[f'index_{chunk_id}_indices'])
         
         for current_level in range(len(self.hierarchical_sizes) - 1, -1, -1):
             level_data = self.index[f"hierarchical_{chunk_id}_level_{current_level}"][:]
@@ -928,8 +956,8 @@ cdef class MalvaIndex:
             np.ndarray big_indices_chunk, big_data_chunk
             
         # Load full arrays once
-        _indices = self.index[f'index_{chunk_id}_indices']
-        _indptr = self.index[f'index_{chunk_id}_indptr']
+        _indices = self.__index[f'index_{chunk_id}_indices']
+        _indptr = self.__index[f'index_{chunk_id}_indptr']
         _data = self.index[f'index_{chunk_id}_data']
 
         if self.verbose:
@@ -956,7 +984,7 @@ cdef class MalvaIndex:
         t0 = time.time()
         exact_indices = self._find_exact_indices(
             valid_ranges,
-            self.index[f'index_{chunk_id}_indices']
+            self.__index[f'index_{chunk_id}_indices']
         )
         
         t1 = time.time()
@@ -1055,8 +1083,8 @@ cdef class MalvaIndex:
             vector[uint64_t] ends
             size_t start_idx, end_idx
             
-        _indices = self.index[f'index_{chunk_id}_indices']
-        _indptr = self.index[f'index_{chunk_id}_indptr']
+        _indices = self.__index[f'index_{chunk_id}_indices']
+        _indptr = self.__index[f'index_{chunk_id}_indptr']
         _data = self.index[f'index_{chunk_id}_data']
         index_size = len(_indices)
 
@@ -1142,7 +1170,7 @@ cdef class MalvaIndex:
         if self.n_chunks > 1:
             logging.warning(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
 
-        total_length = len(self.index[f'index_{chunk_id}_indices'])
+        total_length = len(self.__index[f'index_{chunk_id}_indices'])
 
         while start < total_length - 1:
             end = min(start + chunk_size, total_length)
@@ -1151,8 +1179,8 @@ cdef class MalvaIndex:
             if chunk_end == end:
                 end = end - 1
 
-            _indices_chunk = self.index[f'index_{chunk_id}_indices'][start:end]
-            _indptr_chunk = self.index[f'index_{chunk_id}_indptr'][start:chunk_end]
+            _indices_chunk = self.__index[f'index_{chunk_id}_indices'][start:end]
+            _indptr_chunk = self.__index[f'index_{chunk_id}_indptr'][start:chunk_end]
 
             for i in range(len(_indices_chunk)):
                 counts = _indptr_chunk[i+1] - _indptr_chunk[i]
@@ -1165,8 +1193,8 @@ cdef class MalvaIndex:
 
         if end == total_length:
             last_index = total_length - 1
-            self._index_backed[self.index[f'index_{chunk_id}_indices'][last_index]] = pair[uint64_t, uint64_t](
-                self.index[f'index_{chunk_id}_indptr'][last_index],
+            self._index_backed[self.__index[f'index_{chunk_id}_indices'][last_index]] = pair[uint64_t, uint64_t](
+                self.__index[f'index_{chunk_id}_indptr'][last_index],
                 total_length
             )
 
