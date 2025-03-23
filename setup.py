@@ -13,6 +13,7 @@ install_requires = \
  'numpy>=1.17.0',
  'pandas>=1.0',
  'sortedcontainers>1.0.0',
+ 'blosc',
  'tqdm']
 
 entry_points = \
