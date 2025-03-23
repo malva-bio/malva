@@ -48,6 +48,12 @@ def run_clustering(adata, savefig=None, resolution=1):
         plt.tight_layout()
         plt.savefig(os.path.join(savefig, "umap_markers.png"))
 
+    if "spatial" in adata.obsm and savefig is not None:
+        ax = sc.pl.embedding(adata, color=['leiden'], show=False, basis='spatial')
+        ax.set_aspect(1)
+        plt.tight_layout()
+        plt.savefig(os.path.join(savefig, "spatial_leiden.png"))
+
     return adata
 
 
