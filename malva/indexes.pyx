@@ -27,6 +27,7 @@ import time
 import numpy as np
 import pandas as pd
 import glob
+import json
 
 from rich.progress import track
 
@@ -144,6 +145,9 @@ cdef class MalvaIndex:
         public object spatial_coord
         public int n_spatial
         public int _n_kmers_processed
+        public dict project_mapping
+        uint32_t PROJECT_ID_SHIFT
+        uint32_t CELL_ID_MASK
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
         map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
         SpatialIndex spatial_index
@@ -158,6 +162,9 @@ cdef class MalvaIndex:
         self.index_dir = index_dir
         self.index = None
         self.__index = {}
+        self.PROJECT_ID_SHIFT = 24
+        self.CELL_ID_MASK = 0xFFFFFF
+        self.project_mapping = None
         self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
         self.n_chunks = 0
@@ -353,6 +360,10 @@ cdef class MalvaIndex:
                 _layer_name = f"index_{_chunk}_indptr"
                 self.__index[_layer_name] = self.index[_layer_name]
 
+        if 'project_mapping' in self.index.attrs:
+            project_mapping_str = self.index.attrs['project_mapping']
+            self.project_mapping = json.loads(project_mapping_str)
+
     def close(self):
         self.index.flush()
         self.index.close()
@@ -517,11 +528,11 @@ cdef class MalvaIndex:
         read_group, start, end = check_cell_string(cell)
         self._add_reads(reads_in, bam_tags, read_group, [start, end], n_report, chunksize, threads)
 
-    def merge_chunks(self, file_out):
-        self._merge_chunks(file_out)
+    def merge_chunks(self, file_out, merge_projects: bool = False):
+        self._merge_chunks(file_out, merge_projects)
     
     @cython.wraparound(True)
-    cdef void _merge_chunks(self, str file_out):
+    cdef void _merge_chunks(self, str file_out, bint _merge_projects=False):
         cdef:
             uint32_t chunksize
             int n_chunks = self.n_chunks
@@ -562,6 +573,9 @@ cdef class MalvaIndex:
             end_pointer[i] = min(chunksize, len(self.index[f'index_{i}_indices']))
             srt_pointer_to_data[i] = 0
             end_pointer_to_data[i] = 0
+
+        if _merge_projects and self.project_mapping is None:
+            raise ValueError("You must set a project_mapping when running with _merge_projects = True")
 
         file_out_tmp = file_out + ".tmp"
 
@@ -646,8 +660,14 @@ cdef class MalvaIndex:
                     else:
                         # Handle the case where chunk_indptr has only one element
                         k_indptr_end = np.append(k_indptr_end, np.array([end_pointer_to_data[i]]) + total_data - chunk_indptr[0])
-                        
-                    k_data[int(total_data):int(total_data + chunk_data_size)] = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
+                    
+                    if not _merge_projects:
+                        k_data[int(total_data):int(total_data + chunk_data_size)] = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
+                    else:
+                        cell_ids = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
+                        project_id_shifted = np.uint32(self.project_mapping[i][0]) << self.PROJECT_ID_SHIFT
+                        masked_cell_ids = cell_ids & self.CELL_ID_MASK
+                        k_data[int(total_data):int(total_data + chunk_data_size)] = masked_cell_ids | project_id_shifted
 
                     total_data += chunk_data_size
 
@@ -731,6 +751,11 @@ cdef class MalvaIndex:
                             srt_pointer[i] = 0
                             end_pointer[i] = 0
 
+            if _merge_projects:
+                f_out.attrs['has_merged_projects'] = True
+                f_out.attrs['project_id_shift'] = self.PROJECT_ID_SHIFT
+                f_out.attrs['cell_id_mask'] = self.CELL_ID_MASK
+
         self.close()
         
         if self.verbose:
@@ -753,6 +778,14 @@ cdef class MalvaIndex:
         # TODO: another strategy? we need to have plenty of storage for this! (anyway we have it)
         os.remove(f'{file_out_tmp}-r.h5')
         os.remove(f'{file_out_tmp}-m.h5')
+
+    def get_project_id(self, cell_id):
+        """Extract project ID from a cell ID."""
+        return cell_id >> self.PROJECT_ID_SHIFT
+        
+    def get_cell_id(self, cell_id):
+        """Extract cell ID without project ID."""
+        return cell_id & self.CELL_ID_MASK
 
     def write(self):
         cdef vector[pair[uint64_t, uint32_t]].iterator first = self._iter_seqs.begin()

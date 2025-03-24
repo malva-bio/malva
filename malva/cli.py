@@ -466,6 +466,17 @@ def get_combine_parser():
         chunks are merged into a single one, which will reduce index size and improve query speed.
         This adds a bit of time to the overall processing.""",
     )
+    parser.add_argument(
+        '--merge-projects', 
+        action='store_true', 
+        help='Merge data from different projects, preserving project identities'
+    )
+    parser.add_argument(
+        "--uuid",
+        type=str,
+        default=None,
+        help="""When merging projects, this is a file with one UUID per line (in order, will assign the integer project ID)""",
+    )
     return parser
 
 
