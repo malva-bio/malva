@@ -102,7 +102,7 @@ def _run_combine(args):
             if args.merge_projects:
                 logging.info("Merging projects with distinct project IDs")
                 
-            kmer_index.merge_chunks(merged_file, _merge_projects=args.merge_projects)
+            kmer_index.merge_chunks(merged_file, merge_projects=args.merge_projects)
             
             kmer_index.verbose = True
             os.remove(f'{kmer_index.index_file}-r.h5')
