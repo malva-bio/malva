@@ -84,8 +84,8 @@ class CompressedArrayStorage:
                 if chunk_id in self.chunks:
                     continue
 
-                chunk_offs = self.chunk_table[chunk_id][1]
-                chunk_size = self.chunk_table[chunk_id][2]
+                chunk_offs = int(self.chunk_table[chunk_id][1])
+                chunk_size = int(self.chunk_table[chunk_id][2])
                     
                 # Seek to the chunk offset without the size
                 f.seek(chunk_offs + 8)
@@ -121,7 +121,7 @@ class CompressedArrayStorage:
         """
         # Ensure chunk is contiguous in memory
         if not chunk.flags.c_contiguous:
-            chunk = np.ascontiguousarray(chunk)
+            chunk = np.ascontiguousarray(chunk.astype(self.dtype))
             
         # CRITICAL: Always ensure the chunk is exactly chunk_size elements
         # This is essential for compatibility with Cython code that expects fixed-size chunks
@@ -661,8 +661,8 @@ class CompressedArrayStorage:
             
         with open(self.filename, 'rb') as f:
             # Seek to the chunk offset
-            chunk_offs = self.chunk_table[chunk_id][1]
-            chunk_size = self.chunk_table[chunk_id][2]
+            chunk_offs = int(self.chunk_table[chunk_id][1])
+            chunk_size = int(self.chunk_table[chunk_id][2])
 
             f.seek(chunk_offs + 8)
             
