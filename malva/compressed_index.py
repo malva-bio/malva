@@ -5,6 +5,7 @@ import pickle
 import math
 from typing import List, Union
 from tqdm import tqdm
+from pyfastpfor import getCodec, delta1, prefixSum1
 
 class CompressedArrayStorage:
     """
@@ -18,7 +19,10 @@ class CompressedArrayStorage:
         chunk_size: int = 512,
         compression_level: int = 9,
         compression_lib: str = 'zstd',
-        dtype: np.dtype = np.uint64
+        dtype: np.dtype = np.uint64,
+        fastpfor_codec: str = None,
+        sort_chunks: bool = False,
+        use_delta: bool = False
     ):
         """
         Initialize the compressed array storage.
@@ -44,6 +48,11 @@ class CompressedArrayStorage:
         self.filename = None
         self.file_handle = None
         self.metadata_size = 0
+        self.fastpfor_codec = fastpfor_codec
+
+        self.sort_chunks = sort_chunks
+        self.use_delta = use_delta
+        self.sorting_enabled = {}
         
         # Initialize blosc
         blosc.set_nthreads(4)  # Adjust based on your system
@@ -130,34 +139,130 @@ class CompressedArrayStorage:
         # Verify the chunk size before compression
         assert len(chunk) == self.chunk_size, f"Chunk size mismatch: {len(chunk)} != {self.chunk_size}"
         
-        try:
-            # Try using pack_array first (handles numpy arrays directly)
-            compressed = blosc.pack_array(chunk, 
-                                        clevel=self.compression_level,
-                                        cname=self.compression_lib,
-                                        shuffle=blosc.SHUFFLE)
-            return compressed
-        except Exception as e:
-            try:
-                # Fall back to basic compress method which works on bytes
-                # Convert numpy array to bytes
-                chunk_bytes = chunk.tobytes()
+        original_positions = None
+    
+        if self.fastpfor_codec:
+            chunk_u32 = chunk.astype(np.uint32) if chunk.dtype != np.uint32 else chunk
+            chunk_to_compress = chunk_u32
+            
+            if self.sort_chunks:
+                original_positions = np.arange(len(chunk_to_compress), dtype=np.uint16)
+                sorted_indices = np.argsort(chunk_to_compress)
+                chunk_to_compress = chunk_to_compress[sorted_indices]
+                original_positions = original_positions[sorted_indices]
+                self.sorting_enabled[id(chunk_to_compress)] = True
+            
+            applied_delta = False
+            if self.use_delta and (self.sort_chunks or self.fastpfor_codec in ['simdfastpfor128', 'simdoptpfor']):
+                delta_chunk = np.array(chunk_to_compress, copy=True)
+                delta1(delta_chunk, len(delta_chunk))
+                chunk_to_compress = delta_chunk
+                applied_delta = True
+
+            compressed = np.zeros(len(chunk_to_compress) + 1024, dtype=np.uint32)
+
+            codec = getCodec(self.fastpfor_codec)
+            comp_size = codec.encodeArray(
+                chunk_to_compress, len(chunk_to_compress),
+                compressed, len(compressed)
+            )
+
+            compressed = compressed[:comp_size]
+
+            header = {
+                'codec': self.fastpfor_codec,
+                'delta': applied_delta,
+                'sorted': self.sort_chunks,
+                'comp_size': comp_size,
+                'orig_size': len(chunk),
+                'dtype': str(chunk.dtype)
+            }
+            
+            header_bytes = pickle.dumps(header)
+            header_size = len(header_bytes).to_bytes(8, byteorder='little')
+
+            result = header_size + header_bytes + compressed.tobytes()
+
+            if self.sort_chunks and original_positions is not None:
+                pos_compressed = blosc.pack_array(original_positions, 
+                                                  clevel=self.compression_level,
+                                                  shuffle=blosc.SHUFFLE)
+                result += pos_compressed
                 
-                # Compress using basic blosc.compress
-                compressed = blosc.compress(
-                    chunk_bytes,
-                    typesize=chunk.dtype.itemsize,
-                    clevel=self.compression_level,
-                    cname=self.compression_lib,
-                    shuffle=blosc.SHUFFLE
-                )
+            return result
+        else:
+            original_positions = None
+            chunk_to_compress = chunk
+            applied_delta = False
+            
+            if self.sort_chunks:
+                original_positions = np.arange(len(chunk), dtype=np.uint16)
+                sorted_indices = np.argsort(chunk)
+                chunk_to_compress = chunk[sorted_indices]
+                original_positions = original_positions[sorted_indices]
+            
+            # Apply delta encoding if enabled and sorting was applied
+            if self.use_delta and self.sort_chunks:
+                delta_chunk = np.array(chunk_to_compress, copy=True)
+                delta_chunk[1:] = delta_chunk[1:] - delta_chunk[:-1]
+                chunk_to_compress = delta_chunk
+                applied_delta = True
+
+            if self.sort_chunks or applied_delta:
+                header = {
+                    'sorted': self.sort_chunks,
+                    'delta': applied_delta,
+                    'dtype': str(chunk.dtype)
+                }
+                header_bytes = pickle.dumps(header)
+                header_size = len(header_bytes).to_bytes(8, byteorder='little')
+
+                try:
+                    compressed_data = blosc.pack_array(chunk_to_compress, 
+                                            clevel=self.compression_level,
+                                            cname=self.compression_lib,
+                                            shuffle=blosc.SHUFFLE)
+
+                    if self.sort_chunks:
+                        pos_compressed = blosc.pack_array(original_positions,
+                                                clevel=self.compression_level,
+                                                cname=self.compression_lib,
+                                                shuffle=blosc.SHUFFLE)
+                        # Combine everything: header_size + header + compressed_data + pos_compressed
+                        return header_size + header_bytes + compressed_data + pos_compressed
+                    else:
+                        return header_size + header_bytes + compressed_data
+                except Exception as e:
+                    # Fallback to original method
+                    print(f"Warning: Advanced compression failed: {str(e)}. Falling back to basic compression.")
+            
+            try:
+                compressed = blosc.pack_array(chunk, 
+                                            clevel=self.compression_level,
+                                            cname=self.compression_lib,
+                                            shuffle=blosc.SHUFFLE)
                 return compressed
             except Exception as e:
-                # If all compression methods fail, store uncompressed
-                # This is a last resort and will not be space-efficient
-                print(f"Warning: Compression failed, storing uncompressed. Error: {str(e)}")
-                # We'll use a simple prefix to indicate uncompressed data
-                return b'UNCOMP:' + chunk.tobytes()
+                try:
+                    # Fall back to basic compress method which works on bytes
+                    # Convert numpy array to bytes
+                    chunk_bytes = chunk.tobytes()
+                    
+                    # Compress using basic blosc.compress
+                    compressed = blosc.compress(
+                        chunk_bytes,
+                        typesize=chunk.dtype.itemsize,
+                        clevel=self.compression_level,
+                        cname=self.compression_lib,
+                        shuffle=blosc.SHUFFLE
+                    )
+                    return compressed
+                except Exception as e:
+                    # If all compression methods fail, store uncompressed
+                    # This is a last resort and will not be space-efficient
+                    print(f"Warning: Compression failed, storing uncompressed. Error: {str(e)}")
+                    # We'll use a simple prefix to indicate uncompressed data
+                    return b'UNCOMP:' + chunk.tobytes()
     
     def _decompress_chunk(self, compressed_data: bytes) -> np.ndarray:
         """
@@ -170,33 +275,99 @@ class CompressedArrayStorage:
             Numpy array with decompressed data
         """
         try:
-            # First approach: Try using unpack_array which handles numpy arrays directly
+            header_size = int.from_bytes(compressed_data[:8], byteorder='little')
+            header = pickle.loads(compressed_data[8:8+header_size])
+            
+            if 'codec' in header:
+                offset = 8 + header_size
+                comp_size = header['comp_size']
+                
+                compressed = np.frombuffer(
+                    compressed_data[offset:offset+comp_size*4],  # uint32 = 4 bytes
+                    dtype=np.uint32
+                )
+                
+                decompressed = np.zeros(header['orig_size'], dtype=np.uint32)
+                
+                codec = getCodec(header['codec'])
+                codec.decodeArray(compressed, comp_size, decompressed, len(decompressed))
+
+                if header.get('delta', False):
+                    prefixSum1(decompressed, len(decompressed))
+                
+                if header['dtype'] != str(np.dtype(np.uint32)):
+                    decompressed = decompressed.astype(np.dtype(header['dtype']))
+
+                if header.get('sorted', False):
+                    pos_offset = offset + comp_size*4
+                    pos_compressed = compressed_data[pos_offset:]
+                    original_positions = blosc.unpack_array(pos_compressed)
+                    
+                    result = np.zeros_like(decompressed)
+
+                    for i, pos in enumerate(original_positions):
+                        if pos < len(result):
+                            result[pos] = decompressed[i]
+                    
+                    return result
+                
+                return decompressed
+            else:
+                offset = 8 + header_size
+                was_sorted = header.get('sorted', False)
+                was_delta_encoded = header.get('delta', False)
+                
+                if was_sorted:
+                    try:
+                        data_compressed = compressed_data[offset:]
+                        blosc_header = blosc.decode_blosc_header(data_compressed)
+                        data_size = blosc_header['nbytes'] + 16
+                        
+                        decompressed = blosc.unpack_array(data_compressed[:data_size])
+                        positions_compressed = data_compressed[data_size:]
+                        original_positions = blosc.unpack_array(positions_compressed)
+                        
+                        if was_delta_encoded:
+                            np.cumsum(decompressed, out=decompressed)
+                        
+                        result = np.zeros_like(decompressed)
+                        for i, pos in enumerate(original_positions):
+                            if pos < len(result):
+                                result[pos] = decompressed[i]
+                        
+                        return result
+                    except Exception as e:
+                        print(f"Warning: Advanced decompression failed: {str(e)}. Falling back.")
+                        pass
+                else:
+                    if was_delta_encoded:
+                        decompressed = blosc.unpack_array(compressed_data[offset:])
+                        np.cumsum(decompressed, out=decompressed)
+                        return decompressed
+                        
+        except Exception as e:
+            pass
+
+        try:
             result = blosc.unpack_array(compressed_data)
             return result
         except Exception as e:
             try:
-                # Second approach: Decompress to bytes first, then convert to numpy array
-                # blosc.decompress returns the decompressed data as bytes
                 decompressed_bytes = blosc.decompress(compressed_data)
                 
-                # Convert decompressed bytes to numpy array
                 result = np.frombuffer(decompressed_bytes, dtype=self.dtype)
                 
-                # Make sure it's the right size (chunk_size elements)
-                # If it's too small, we'll pad it
+                # too small, pad it
                 if len(result) < self.chunk_size:
                     pad_value = result[-1] if len(result) > 0 else 0
                     padding = np.full(self.chunk_size - len(result), pad_value, dtype=self.dtype)
                     result = np.concatenate([result, padding])
-                # If it's too large, we'll truncate it
+                # too large, truncate
                 elif len(result) > self.chunk_size:
                     result = result[:self.chunk_size]
                 
                 return result
             except Exception as e:
-                # Last resort fallback
-                # Create an empty array and fill it with zeros
-                # This is a fallback and should only happen in rare cases
                 print(f"Warning: Decompression failed, returning zeros. Error: {str(e)}")
                 return np.zeros(self.chunk_size, dtype=self.dtype)
     
@@ -254,7 +425,10 @@ class CompressedArrayStorage:
             'dtype': np.dtype(self.dtype).str,
             'compression_lib': self.compression_lib,
             'compression_level': self.compression_level,
-            'num_chunks': len(self.chunk_offsets)
+            'num_chunks': len(self.chunk_offsets),
+            'fastpfor_codec': self.fastpfor_codec,
+            'sort_chunks': self.sort_chunks,
+            'use_delta': self.use_delta
         }
         
         metadata_bytes = pickle.dumps(metadata)
@@ -444,6 +618,9 @@ class CompressedArrayStorage:
             self.compression_lib = metadata['compression_lib']
             self.compression_level = metadata['compression_level']
             self.element_size = self.dtype.itemsize
+            self.fastpfor_codec = metadata.get('fastpfor_codec', None)
+            self.sort_chunks = metadata.get('sort_chunks', False)
+            self.use_delta = metadata.get('use_delta', False)
             num_chunks = metadata['num_chunks']
             
             # Now read the chunk table all at once

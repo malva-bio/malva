@@ -14,7 +14,8 @@ install_requires = \
  'pandas>=1.0',
  'sortedcontainers>1.0.0',
  'blosc',
- 'tqdm']
+ 'tqdm',
+ 'pyfastpfor']
 
 entry_points = \
 {'console_scripts': ['malva = malva.__main__:run_malva']}
