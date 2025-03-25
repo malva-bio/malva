@@ -360,9 +360,22 @@ cdef class MalvaIndex:
                 _layer_name = f"index_{_chunk}_indptr"
                 self.__index[_layer_name] = self.index[_layer_name]
 
+        _blosc_exists_data = all([os.path.exists(self.index_file + f"_index_{_c}_data.blosc") for _c in range(self.n_chunks)])
+        if _blosc_exists_data:
+            for _chunk in range(self.n_chunks):
+                _layer_name = f"index_{_chunk}_data"
+                _f_blosc = self.index_file + f"_{_layer_name}.blosc"
+                self.__index[_layer_name] = CompressedArrayStorage()
+                self.__index[_layer_name].load(_f_blosc, load_in_memory=blosc_load_to_memory)
+        else:
+            for _chunk in range(self.n_chunks):
+                _layer_name = f"index_{_chunk}_data"
+                self.__index[_layer_name] = self.index[_layer_name]
+
         if 'project_mapping' in self.index.attrs:
             project_mapping_str = self.index.attrs['project_mapping']
-            self.project_mapping = json.loads(project_mapping_str)
+            # we load the indices as integers because they are chunk IDs as per MalvaIndex convention
+            self.project_mapping = {int(k): v for k, v in json.loads(project_mapping_str).items()}
 
     def close(self):
         self.index.flush()
@@ -568,6 +581,7 @@ cdef class MalvaIndex:
         logging.debug(f"Will use chunksize={chunksize}")
 
         # Initialize pointers
+        # TODO: this is problematic when there are very small chunks!
         for i in range(n_chunks):
             srt_pointer[i] = 0
             end_pointer[i] = min(chunksize, len(self.index[f'index_{i}_indices']))
@@ -807,7 +821,8 @@ cdef class MalvaIndex:
             unordered_set[uint32_t] _set
 
         # TODO: move _data outside of here? (for maybe some performance gain when calling _find_kmer repeatedly?)
-        _data = self.index[f'index_{chunk_id}_data']
+        # _data = self.index[f'index_{chunk_id}_data']
+        _data = self.__index[f'index_{chunk_id}_data']
 
         # TODO: move iterator out of here (at find_kmer)
         if self.verbose:
@@ -991,7 +1006,7 @@ cdef class MalvaIndex:
         # Load full arrays once
         _indices = self.__index[f'index_{chunk_id}_indices']
         _indptr = self.__index[f'index_{chunk_id}_indptr']
-        _data = self.index[f'index_{chunk_id}_data']
+        _data = self.__index[f'index_{chunk_id}_data']
 
         if self.verbose:
             iterator = track(kmers, description=f'Processing kmers at chunk {chunk_id}')
@@ -1118,7 +1133,7 @@ cdef class MalvaIndex:
             
         _indices = self.__index[f'index_{chunk_id}_indices']
         _indptr = self.__index[f'index_{chunk_id}_indptr']
-        _data = self.index[f'index_{chunk_id}_data']
+        _data = self.__index[f'index_{chunk_id}_data']
         index_size = len(_indices)
 
         if self.verbose:
