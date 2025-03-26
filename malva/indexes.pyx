@@ -541,11 +541,11 @@ cdef class MalvaIndex:
         read_group, start, end = check_cell_string(cell)
         self._add_reads(reads_in, bam_tags, read_group, [start, end], n_report, chunksize, threads)
 
-    def merge_chunks(self, file_out, merge_projects: bool = False):
-        self._merge_chunks(file_out, merge_projects)
+    def merge_chunks(self, file_out, merge_projects: bool = False, sample_percentage: float = 0.05):
+        self._merge_chunks(file_out, merge_projects, sample_percentage)
     
     @cython.wraparound(True)
-    cdef void _merge_chunks(self, str file_out, bint _merge_projects=False):
+    cdef void _merge_chunks(self, str file_out, bint _merge_projects=False, float sample_percentage=0.05):
         cdef:
             uint32_t chunksize
             int n_chunks = self.n_chunks
@@ -574,19 +574,39 @@ cdef class MalvaIndex:
             np.uint64_t start, end, dest, length
 
         self.open(mode="r")
-        # this is chosen like this so the memory usage is ~ the same as when building the data
-        # assuming that we run on the same cumputer
-        # we have to set a minimum so we can run smartseq data
-        chunksize = max(len(self.index['index_0_indices']) // (n_chunks * 2), 1000)
-        logging.debug(f"Will use chunksize={chunksize}")
+        last_time = time.time()
 
-        # Initialize pointers
-        # TODO: this is problematic when there are very small chunks!
+        # sampling from each chunk to ensure we proces a reasonable amount from each chunk
+        # sample_percentage for ~5% of each chunk at a time, adjust as needed
+        # we assume the indices are similarly distributed, i.e., all have lexicographically-sorted k-mers
+        # and the distribution of uniques is broadly similar when looking at a coarse scale
+        initial_proportions = {}
         for i in range(n_chunks):
-            srt_pointer[i] = 0
-            end_pointer[i] = min(chunksize, len(self.index[f'index_{i}_indices']))
+            indices_length = len(self.index[f'index_{i}_indices'])
+            
+            if indices_length <= 1:
+                srt_pointer[i] = 0
+                end_pointer[i] = 0
+                initial_proportions[i] = 0
+            else:
+                proportional_size = int(indices_length * sample_percentage)
+                proportional_size = max(proportional_size, 1000)
+                proportional_size = min(proportional_size, indices_length)
+                initial_proportions[i] = proportional_size
+                
+                srt_pointer[i] = 0
+                end_pointer[i] = proportional_size - 1
+            
             srt_pointer_to_data[i] = 0
             end_pointer_to_data[i] = 0
+            
+            if self.verbose:
+                logging.info(f"Chunk {i}: size={indices_length}, initial chunk size={end_pointer[i] - srt_pointer[i] + 1}")
+
+        # we cache the lengths because multiway merge can get super slow...
+        indices_lengths = [len(self.index[f'index_{i}_indices']) for i in range(n_chunks)]
+        indptr_lengths = [len(self.index[f'index_{i}_indptr']) for i in range(n_chunks)]
+        data_lengths = [len(self.index[f'index_{i}_data']) for i in range(n_chunks)]
 
         if _merge_projects and self.project_mapping is None:
             raise ValueError("You must set a project_mapping when running with _merge_projects = True")
@@ -599,8 +619,8 @@ cdef class MalvaIndex:
                 
             f_out.attrs['n_chunks'] = 1
             
-            max_size = sum(len(self.index[f'index_{i}_indices']) for i in range(n_chunks))
-            max_size_data = sum(len(self.index[f'index_{i}_data']) for i in range(n_chunks))
+            max_size = sum(indices_lengths[i] for i in range(n_chunks))
+            max_size_data = sum(data_lengths[i] for i in range(n_chunks))
             indices_out = f_out.create_dataset('index_0_indices', shape=(0,), maxshape=(max_size,), dtype='uint64')
             indptr_out = f_out.create_dataset('index_0_indptr', shape=(0,), maxshape=(max_size,), dtype='uint64')
             data_out = f_out.create_dataset('index_0_data', shape=(max_size_data,), dtype='uint32')
@@ -610,45 +630,65 @@ cdef class MalvaIndex:
 
             total_processed = 0
             total_processed_data = 0
+            last_processed_data = 0
             indptr_out.resize(1, axis=0)
             indptr_out[0] = 0
 
             while True:
-                if all(srt_pointer[i] >= len(self.index[f'index_{i}_indices']) for i in range(n_chunks)):
+                if all(srt_pointer[i] >= indices_lengths[i] for i in range(n_chunks)):
                     break
 
                 if self.verbose:
-                    logging.info(f"Processed {total_processed_data:,}/{max_size_data:,} indexed locations")
+                    percentage = round(100 * total_processed_data/max_size_data, 3)
+                    units_per_second = round((total_processed_data - last_processed_data) / (time.time() - last_time), 2)
+                    logging.info(f"Processed {total_processed_data:,}/{max_size_data:,} ({percentage:.2f}%) indexed locations at {units_per_second:,.2f} items/s")
+
+                last_processed_data = total_processed_data
+                last_time = time.time()
 
                 # find the smallest value across all chunks
                 # because we avoid overflowing to much more than assigned chunksize
                 min_value = 0xFFFFFFFFFFFFFFFF
                 for i in range(n_chunks):
-                    if end_pointer[i] < len(self.index[f'index_{i}_indices']):
-                        curr_i_value = self.index[f'index_{i}_indices'][end_pointer[i]]
-                        if curr_i_value < min_value:
-                            min_value = curr_i_value
+                    indices_len = indices_lengths[i]
+                    if end_pointer[i] >= indices_len or indices_len == 0:
+                        continue
+                        
+                    curr_i_value = self.index[f'index_{i}_indices'][end_pointer[i]]
+                    if curr_i_value < min_value:
+                        min_value = curr_i_value
+
+                chunk_cache = {}
 
                 for i in range(n_chunks):
                     if srt_pointer[i] == end_pointer[i]:
                         continue
 
-                    current_i_data_len = len(self.index[f'index_{i}_data'])
+                    current_i_data_len = data_lengths[i]
+
+                    if i not in chunk_cache or chunk_cache[i]['start'] != srt_pointer[i] or chunk_cache[i]['end'] != end_pointer[i]:
+                        chunk_cache[i] = {
+                            'data': self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64),
+                            'start': srt_pointer[i],
+                            'end': end_pointer[i]
+                        }
+
                     if srt_pointer[i] < end_pointer[i]:
-                        end_pointer[i] = np.searchsorted(self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]], min_value, side='right') + srt_pointer[i]
-                        end_pointer[i] = min(end_pointer[i], len(self.index[f'index_{i}_indices']) - 1)
+                        search_result = np.searchsorted(chunk_cache[i]['data'], min_value, side='right')
+                        end_pointer[i] = srt_pointer[i] + search_result
+                        end_pointer[i] = min(end_pointer[i], indices_lengths[i] - 1)
 
                     srt_pointer_to_data[i] = self.index[f'index_{i}_indptr'][srt_pointer[i]]
 
-                    if end_pointer[i] >= len(self.index[f'index_{i}_indptr']) - 1:
+                    if end_pointer[i] >= indptr_lengths[i] - 1:
                         end_pointer_to_data[i] = current_i_data_len
                     else:
                         # no out of bounds
-                        idx = min(end_pointer[i] + 1, len(self.index[f'index_{i}_indptr']) - 1)
+                        idx = min(end_pointer[i] + 1, indptr_lengths[i] - 1)
                         end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][idx]
 
                 max_data_size = int(sum(end_pointer_to_data[i] - srt_pointer_to_data[i] for i in range(n_chunks)))
-                k_unique = np.array([], dtype=np.uint64)
+                k_unique_list = []
                 k_indptr_start = np.array([], dtype=np.uint64)
                 k_indptr_end = np.array([], dtype=np.uint64)
                 k_data = np.zeros(max_data_size, dtype=np.uint32)
@@ -656,7 +696,18 @@ cdef class MalvaIndex:
                 total_data = 0
 
                 for i in range(n_chunks):
-                    chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
+                    if i in chunk_cache and chunk_cache[i]['start'] == srt_pointer[i] and chunk_cache[i]['end'] >= end_pointer[i]:
+                        start_offset = srt_pointer[i] - chunk_cache[i]['start']
+                        end_offset = end_pointer[i] - chunk_cache[i]['start']
+                        chunk_indices = chunk_cache[i]['data'][start_offset:end_offset]
+                    else:
+                        chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
+                        chunk_cache[i] = {
+                            'data': chunk_indices,
+                            'start': srt_pointer[i],
+                            'end': end_pointer[i]
+                        }
+
                     chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
                     chunk_data_size = end_pointer_to_data[i] - srt_pointer_to_data[i]
 
@@ -664,7 +715,7 @@ cdef class MalvaIndex:
                     if len(chunk_indices) == 0 or len(chunk_indptr) == 0:
                         continue
 
-                    k_unique = np.append(k_unique, chunk_indices)
+                    k_unique_list.append(chunk_indices)
 
                     # we need to 'recenter' k_indptr, because it is in local coordinates (for k_data)
                     k_indptr_start = np.append(k_indptr_start, chunk_indptr + total_data - chunk_indptr[0])
@@ -685,11 +736,19 @@ cdef class MalvaIndex:
 
                     total_data += chunk_data_size
 
+                k_unique = np.concatenate(k_unique_list)
+
                 # skip if no data was aggregated
                 if len(k_unique) == 0:
                     for i in range(n_chunks):
-                        srt_pointer[i] = end_pointer[i] + 1
-                        end_pointer[i] = min(srt_pointer[i] + chunksize, len(self.index[f'index_{i}_indices']))
+                        indices_len = indices_lengths[i]
+                        srt_pointer[i] = min(end_pointer[i] + 1, indices_len)
+                        
+                        if srt_pointer[i] < indices_len and i in initial_proportions:
+                            chunk_size = initial_proportions[i]
+                            end_pointer[i] = min(srt_pointer[i] + chunk_size - 1, indices_len - 1)
+                        else:
+                            end_pointer[i] = srt_pointer[i]
                     continue
 
                 # TODO: we can do at maximum performance by using scipy csr_matrix (optionally transposing)
@@ -712,7 +771,7 @@ cdef class MalvaIndex:
                     dest_indices = np.cumsum(k_indptr_end - k_indptr_start)
 
                     for start, end, dest in zip(k_indptr_start, k_indptr_end, dest_indices):
-                        k_data_sorted[dest - (end - start):dest] = k_data[start:end]
+                        k_data_sorted[dest - (end - start):dest] = np.sort(k_data[start:end])
 
                     # move data to h5 object
                     k_data_len = len(k_data_sorted)
@@ -753,15 +812,17 @@ cdef class MalvaIndex:
                     else:
                         last_indptr_out_next = 0
 
-                    # update index pointers
                     for i in range(n_chunks):
-                        # Make sure we don't overrun the arrays
-                        indices_len = len(self.index[f'index_{i}_indices'])
+                        indices_len = indices_lengths[i]
                         if indices_len > 0:
                             srt_pointer[i] = min(end_pointer[i] + 1, indices_len)
-                            end_pointer[i] = min(srt_pointer[i] + chunksize, indices_len)
+                            
+                            if srt_pointer[i] < indices_len and i in initial_proportions:
+                                chunk_size = initial_proportions[i]
+                                end_pointer[i] = min(srt_pointer[i] + chunk_size - 1, indices_len - 1)
+                            else:
+                                end_pointer[i] = srt_pointer[i]
                         else:
-                            # Skip empty indices
                             srt_pointer[i] = 0
                             end_pointer[i] = 0
 
@@ -811,7 +872,7 @@ cdef class MalvaIndex:
         self._n_kmers_processed = 0
         self._iter_seqs.clear()
 
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
             pair[uint64_t, uint64_t] _indptr
@@ -988,7 +1049,7 @@ cdef class MalvaIndex:
             else:
                 range_idx += 1
 
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         """Find kmers using binary search with optimized batch processing."""
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
@@ -1114,7 +1175,7 @@ cdef class MalvaIndex:
         return vals
 
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_adaptive(self, 
-        np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, 
+        np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, 
         uint32_t chunk_id=0, bint use_batched=False):
         cdef:
             unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
@@ -1201,14 +1262,14 @@ cdef class MalvaIndex:
             
         return vals
         
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint32_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint use_batched=False):
+    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint use_batched=False):
         """Enhanced find_kmer to support both standard and hierarchical approaches."""
         if not self.using_hierarchical:
             return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
         else:
             return self._find_kmer_adaptive(kmers, count_at_most, count_at_least, chunk_id, use_batched)
 
-    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
+    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint64_t count_at_most=10_000, uint32_t count_at_least=10):
         cdef:
             np.ndarray _indices_chunk, _indptr_chunk
             size_t counts
@@ -1269,7 +1330,7 @@ cdef class MalvaIndex:
         
         self.using_hierarchical = True
 
-    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 50_000_000, max_mem: str = None, force: bool = False, uint32_t count_at_most=10_000, uint32_t count_at_least=10):
+    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 50_000_000, max_mem: str = None, force: bool = False, uint64_t count_at_most=10_000, uint32_t count_at_least=10):
         max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
 
         if (not self._index_backed.empty() or self.using_hierarchical) and not force:
@@ -1300,200 +1361,6 @@ cdef class MalvaIndex:
             all_sliding.append(sliding_string)
 
         return all_sliding
-
-    cdef inline vector[pair[uint32_t, uint32_t]] _process_sequence_group(
-            self,
-            const vector[uint64_t]& group_kmers,  
-            uint32_t window_size,
-            float const_threshold,
-            const unordered_map[uint64_t, unordered_set[uint32_t]]& current_kmers,
-            bint single_count) nogil:
-        cdef:
-            vector[pair[uint32_t, uint32_t]] results
-            unordered_map[uint32_t, uint32_t] window_hits
-            unordered_map[uint32_t, uint32_t] final_counts
-            size_t i, window_start = 0
-            uint64_t kmer
-            uint32_t value, count
-            unordered_map[uint64_t, unordered_set[uint32_t]].const_iterator it_kmers
-            unordered_set[uint32_t].const_iterator it_values
-            unordered_map[uint32_t, uint32_t].iterator it_map
-            const unordered_set[uint32_t]* values_ptr
-            
-        while window_start < group_kmers.size():
-            window_hits.clear()
-            
-            for i in range(window_start, min(window_start + window_size, group_kmers.size())):
-                kmer = group_kmers[i]
-                
-                it_kmers = current_kmers.find(kmer)
-                if it_kmers == current_kmers.end():
-                    continue
-                    
-                values_ptr = &deref(it_kmers).second
-                it_values = values_ptr.begin()
-                while it_values != values_ptr.end():
-                    value = deref(it_values)
-                    window_hits[value] += 1
-                    inc(it_values)
-
-            it_map = window_hits.begin()
-            while it_map != window_hits.end():
-                value = deref(it_map).first
-                count = deref(it_map).second
-                if count > const_threshold:
-                    if not single_count or final_counts.find(value) == final_counts.end():
-                        final_counts[value] += 1
-                inc(it_map)
-                
-            window_start += 1
-        
-        results.reserve(final_counts.size())
-        it_map = final_counts.begin()
-        while it_map != final_counts.end():
-            results.push_back(pair[uint32_t, uint32_t](
-                deref(it_map).first, 
-                deref(it_map).second
-            ))
-            inc(it_map)
-        
-        return results
-
-    cdef vector[uint64_t] _optimized_process_sequences(self, list group, int sliding_size) except *:
-        """Optimized sequence processing method for the MalvaIndex class."""
-        cdef:
-            FastKmerExtractor extractor = FastKmerExtractor(self.kmer_size, True)
-            vector[uint64_t] current_kmers_vec
-            
-        current_kmers_vec = extractor.process_sequence_group(group, sliding_size)
-            
-        return current_kmers_vec
-
-    # Main processing function
-    cdef _process_groups(self,
-            list sequence_groups,
-            uint32_t sliding_size,
-            float const_threshold,
-            const unordered_map[uint64_t, unordered_set[uint32_t]]& current_kmers,
-            bint single_count) except *:
-        cdef:
-            vector[pair[uint32_t, uint32_t]] group_results
-            vector[uint64_t] current_kmers_vec
-            np.ndarray[np.uint32_t, ndim=1] locations
-            np.ndarray[np.uint32_t, ndim=1] values
-            size_t i
-            list results = []
-            list _seq_matches = [[0, 1]]
-            uint32_t window_size = sliding_size//self.kmer_size
-            
-        for group in sequence_groups:
-            current_kmers_vec = self._optimized_process_sequences(group, sliding_size)
-            
-            # Process k-mers with proper window handling
-            group_results = self._process_sequence_group(
-                current_kmers_vec,
-                window_size,
-                const_threshold,
-                current_kmers,
-                single_count
-            )
-            
-            # Convert to numpy arrays
-            locations = np.empty(group_results.size(), dtype=np.uint32)
-            values = np.empty(group_results.size(), dtype=np.uint32)
-            
-            for i in range(group_results.size()):
-                locations[i] = group_results[i].first
-                values[i] = group_results[i].second
-            
-            results.append((locations, values, _seq_matches))
-
-        return results
-
-    #def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
-    #      count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
-    #      max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, show_coverage: bool = False, *args, **kwargs):
-    #    """
-    #    Locate spatial positions where a sequence or set of sequences appear.
-
-    #    Parameters:
-    #        sequence (Union[str, List[str], List[List[str]]]): Query sequence(s) to search for.
-    #                                                        If List[List[str]], each sublist represents isoforms
-    #                                                        of the same gene that should be quantified together.
-    #        sliding_size (int): Size of sliding window for k-mer generation. If set to zero, the whole sequence is used.
-    #        pct_threshold (float): Minimum percentage of matching k-mers required
-    #        count_at_most (int): Maximum count threshold for k-mer consideration
-    #        count_at_least (int): Minimum count threshold for k-mer consideration
-    #        chunk_id (int): Index chunk to search in
-    #        single_count (bool): Whether to count each match only once
-    #        max_mem (str): Maximum memory constraint
-    #        force_reload (bool): Force index reload
-    #        use_background_model (bool): Use background model for filtering
-    #        show_coverage (bool): The coverage of passing k-mers across the query sequence will be tracked and returned
-
-    #    Returns:
-    #        List[Tuple]: List of tuples, one per group (or single tuple if input is str/List[str]), each containing:
-    #            - np.ndarray: Spatial locations where sequences were found
-    #            - np.ndarray: Count of occurrences at each location
-    #            - List: (only contains valid values when show_coverage = True) Coverage of passing k-mers 
-    #    """
-    #    cdef:
-    #        unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
-    #        list whole_sliding_sequences = []
-    #        list whole_sliding_sequences_idx = []
-    #        int cumulative_seq_len = 0
-    #        list sequence_groups = []
-    #        list results = []
-    #        np.ndarray all_kmer_list = np.array([])
-    #        unordered_map[uint32_t, uint32_t] secondary_map = unordered_map[uint32_t, uint32_t]()
-    #        np.ndarray kmer_locations = np.array([0])
-    #        np.ndarray kmer_count = np.array([0])
-    #        float CONST_THRESHOLD = float(sliding_size//self.kmer_size) * pct_threshold
-    #        int BACKGROUND_THRESHOLD = 1
-    #        uint32_t idx_kmer
-    #        int idx = 0
-    #        list seq_matches = [[0, 1]]
-    #        FastKmerProcessor processor = FastKmerProcessor(self.kmer_size, True, self.kmer_size)
-    #        size_t num_kmers
-    #        unordered_map[uint32_t, uint32_t] window_hits
-    #        uint32_t window_size = sliding_size//self.kmer_size
-    #        uint64_t kmer
-    #        uint32_t value
-    #        uint32_t count
-    #        uint32_t _sliding_size
-            
-    #    if pct_threshold < 0 or pct_threshold > 1:
-    #        raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
-
-    #    # Normalize input into sequence groups
-    #    if isinstance(sequence, str):
-    #        sequence_groups = [[sequence]]
-    #    elif isinstance(sequence, list) and all(isinstance(s, str) for s in sequence):
-    #        sequence_groups = [sequence]
-    #    elif isinstance(sequence, list) and all(isinstance(s, list) for s in sequence):
-    #        sequence_groups = sequence
-    #    else:
-    #        raise ValueError("sequence must be str, List[str], or List[List[str]]")
-
-    #    # validate and parse k-mers from sequences
-    #    all_kmer_list = processor.process_sequences(sequence_groups)
-
-    #    if self.verbose:
-    #        logging.info(f"Will process {len(all_kmer_list)} {self.kmer_size}-mers across all sequence groups")
-    #        logging.info(f"Quantifying windows of length {sliding_size}; {int(CONST_THRESHOLD)}/{window_size} {self.kmer_size}-mers to pass")
-
-    #    if len(all_kmer_list) == 0:
-    #        return [(np.array([0]), np.array([0]), [[0, 1]])] * len(sequence_groups)
-
-    #    # Load index and find kmers once for all sequences
-    #    self.load_index_to_memory(chunk_id=chunk_id, max_mem=max_mem, force=force_reload, 
-    #                            count_at_most=count_at_most, count_at_least=count_at_least)
-    #    current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, 
-    #                                count_at_least=count_at_least, chunk_id=chunk_id)
-
-    #    ##### Processing sequence groups separately #####
-    #    return self._process_groups(sequence_groups, sliding_size, CONST_THRESHOLD, 
-    #                  current_kmers, single_count)
 
     def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
             count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
@@ -1573,6 +1440,9 @@ cdef class MalvaIndex:
                                 count_at_most=count_at_most, count_at_least=count_at_least)
         current_kmers = self.find_kmer(all_kmer_list, count_at_most=count_at_most, 
                                     count_at_least=count_at_least, chunk_id=chunk_id, use_batched=use_batched)
+
+        if self.verbose:
+            logging.info(f"Found {len(current_kmers)} {self.kmer_size}-mers across all sequence groups that pass filters")
 
         ##### Processing sequence groups separately #####
         for group in sequence_groups:
