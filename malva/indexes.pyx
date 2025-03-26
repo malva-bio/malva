@@ -964,58 +964,38 @@ cdef class MalvaIndex:
 
     cdef vector[pair[uint64_t, size_t]] _find_exact_indices(self,
         vector[pair[uint64_t, pair[uint64_t, uint64_t]]]& valid_ranges,
-        object indices_obj) except *:  # this also accepts h5py.Dataset and PageAlignedArray
+        object indices_obj) except *:
         """
-        Find exact indices using batched processing and dual-pointer approach.
-        Modified to work with PageAlignedArray.
+        Find exact indices using batched processing.
         """
         cdef:
             vector[pair[uint64_t, size_t]] exact_indices
             size_t i = 0
-            size_t chunk_start, chunk_end
-            size_t ranges_in_chunk
             size_t total_ranges = valid_ranges.size()
-            size_t indices_size
-            np.ndarray[np.uint64_t, ndim=1] indices_chunk
-            Py_ssize_t chunk_size = 512
+            size_t indices_size = indices_obj.shape[0]
             
-        # Get total size from PageAlignedArray
-        indices_size = indices_obj.shape[0]
         exact_indices.reserve(total_ranges)
         
-        while i < total_ranges:
-            # Calculate chunk boundaries
-            chunk_start = valid_ranges[i].second.first
-            chunk_end = min(chunk_start + chunk_size, indices_size)
+        for i in range(total_ranges):
+            start_pos = valid_ranges[i].second.first
+            end_pos = valid_ranges[i].second.second
             
-            # Find ranges in this chunk
-            ranges_in_chunk = 1
-            while i + ranges_in_chunk < total_ranges:
-                if valid_ranges[i + ranges_in_chunk].second.first < chunk_end:
-                    next_end = valid_ranges[i + ranges_in_chunk].second.second
-                    if next_end <= indices_size:
-                        chunk_end = max(chunk_end, next_end)
-                        ranges_in_chunk += 1
-                    else:
-                        break
-                else:
-                    break
+            if start_pos >= end_pos or start_pos >= indices_size:
+                continue
+
+            end_pos = min(end_pos, indices_size)
             
-            # Get chunk data using PageAlignedArray slice operator
-            indices_chunk = indices_obj[chunk_start:chunk_end]
+            indices_chunk = indices_obj[start_pos:end_pos]
             
-            # Process chunk
             self._optimize_search_ranges_chunk(
                 &valid_ranges,
                 i,
-                ranges_in_chunk,
+                1,
                 exact_indices,
                 indices_chunk,
-                chunk_start
+                start_pos
             )
-            
-            i += ranges_in_chunk
-                
+        
         return exact_indices
 
     cdef void _optimize_search_ranges_chunk(self,
@@ -1027,27 +1007,25 @@ cdef class MalvaIndex:
             size_t chunk_start) nogil:
         """
         Process a chunk of indices using dual-pointer approach.
-        Modified to work with memoryview for nogil access.
         """
         cdef:
             size_t range_idx = 0
             size_t arr_idx = 0
             size_t arr_size = indices_view.shape[0]
             uint64_t current_kmer, current_value
-            
-        while range_idx < range_count and arr_idx < arr_size:
+            size_t i
+
+        while range_idx < range_count:
             current_kmer = deref(ranges_ptr)[range_start + range_idx].first
-            current_value = indices_view[arr_idx]
             
-            if current_value == current_kmer:
-                exact_indices.push_back(pair[uint64_t, size_t](
-                    current_kmer, arr_idx + chunk_start))
-                range_idx += 1
-                arr_idx += 1
-            elif current_value < current_kmer:
-                arr_idx += 1
-            else:
-                range_idx += 1
+            arr_idx = 0
+            for i in range(arr_size):
+                if indices_view[i] == current_kmer:
+                    exact_indices.push_back(pair[uint64_t, size_t](
+                        current_kmer, i + chunk_start))
+                    break
+
+            range_idx += 1
 
     cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         """Find kmers using binary search with optimized batch processing."""
