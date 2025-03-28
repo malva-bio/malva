@@ -212,8 +212,8 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "human_cdna", "human_markers", "human_markers_hallmarks", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_markers_hallmarks', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
+        choices=["human_utr", "human_cdna", "human_markers", "human_markers_hallmarks", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna", "drosophila_markers", "arabidopsis_markers"],
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_markers_hallmarks', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna', 'drosophila_markers', 'arabidopsis_markers'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--background-model",
