@@ -1040,6 +1040,8 @@ cdef class MalvaIndex:
             int exact_idx
             double t0, t1
             size_t i, batch_size = 4096*256 # fit in L2/L3 cache
+            size_t max_chunk_size = 10 * 1024 * 1024  # 10MB max chunk size, adjust as needed
+            size_t REASONABLE_DISTANCE = 100_000
             np.ndarray big_indices_chunk, big_data_chunk
             
         # Load full arrays once
@@ -1118,22 +1120,31 @@ cdef class MalvaIndex:
         # Phase 4: Batch process data lookups
         t0 = time.time()
         
-        # Process data in larger chunks
-        for i in range(0, data_ranges.size(), batch_size):
-            batch_end = min(i + batch_size, data_ranges.size())
-            
-            # Find range for this batch
+        i = 0
+        while i < data_ranges.size():
             min_start = data_ranges[i].second.first
             max_end = data_ranges[i].second.second
-            for j in range(i + 1, batch_end):
-                min_start = min(min_start, data_ranges[j].second.first)
-                max_end = max(max_end, data_ranges[j].second.second)
+            current_chunk_size = max_end - min_start
+            chunk_end = i + 1
+
+            # group ranges for efficiency
+            while (chunk_end < data_ranges.size()):
+                next_range_size = data_ranges[chunk_end].second.second - data_ranges[chunk_end].second.first
                 
-            # Load one large data chunk
+                # we don't add more to the chunk if exceed size
+                if current_chunk_size + next_range_size > max_chunk_size:
+                    break
+                
+                # Update max_end and total size
+                max_end = max(max_end, data_ranges[chunk_end].second.second)
+                current_chunk_size += next_range_size
+                chunk_end += 1
+                
+            # load (possibly grouped) data chunk
             big_data_chunk = _data[min_start:max_end]
             
-            # Process each range in the batch
-            for j in range(i, batch_end):
+            # process ranges in chunk
+            for j in range(i, chunk_end):
                 kmer = data_ranges[j].first
                 start = data_ranges[j].second.first - min_start
                 end = data_ranges[j].second.second - min_start
@@ -1145,6 +1156,8 @@ cdef class MalvaIndex:
                     _set.insert(big_data_chunk[k])
                     
                 vals[kmer] = _set
+
+            i = chunk_end
         
         t1 = time.time()
         if self.verbose:
@@ -1188,11 +1201,12 @@ cdef class MalvaIndex:
         
         valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
         
-        # batch mode based on k-mers relative to index size
-        # we only detect if it is False. When true, we force to True
+        # batch mode based on k-mers relative to index size or to the number of k-mers
+        # in the case of very large indices
+        # we only detect if it is False. When True, we force to True
         if use_batched == False:
             use_batched = (
-                (total_kmers > index_size * 0.001)
+                (total_kmers > min(index_size * 0.001, 500_000))
             )
         
         if self.verbose:
