@@ -212,7 +212,6 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "human_cdna", "human_markers", "human_markers_hallmarks", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna", "drosophila_markers", "arabidopsis_markers"],
         help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_markers_hallmarks', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna', 'drosophila_markers', 'arabidopsis_markers'. Default: 'human_utr'""",
     )
     parser.add_argument(
@@ -412,7 +411,7 @@ def get_autoannotate_parser():
         type=str,
         required=False,
         default="human_markers",
-        choices=["human_markers", "human_markers_hallmarks", "mouse_markers"],
+        choices=["human_markers", "human_markers_hallmarks", "mouse_markers", "drosophila_markers", "arabidopsis_markers"],
         help="Flavor used for annotation. Valid options: 'human_markers', 'human_markers_hallmarks', 'mouse_markers'. More will be available soon...",
     )
     parser.add_argument(

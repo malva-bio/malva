@@ -478,6 +478,9 @@ def get_reference_cache(reference):
     str
         Path to the cached reference file
     """
+    if os.path.isfile(reference):
+        return reference
+
     if reference not in EXISTING_REFERENCES:
         logging.error(f"The reference {reference} is not available. It has to be one of {EXISTING_REFERENCES}")
         exit(1)
