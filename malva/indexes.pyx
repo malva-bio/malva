@@ -1040,7 +1040,8 @@ cdef class MalvaIndex:
             int exact_idx
             double t0, t1
             size_t i, batch_size = 4096*256 # fit in L2/L3 cache
-            size_t max_chunk_size = 10 * 1024 * 1024  # 10MB max chunk size, adjust as needed
+            size_t max_chunk_size = 4096*256
+            size_t max_indptr_chunk_size = 1024
             size_t REASONABLE_DISTANCE = 100_000
             np.ndarray big_indices_chunk, big_data_chunk
             
@@ -1084,22 +1085,32 @@ cdef class MalvaIndex:
         t0 = time.time()
         data_ranges.reserve(exact_indices.size())
         
-        # Process indptr in larger chunks
-        for i in range(0, exact_indices.size(), batch_size):
-            batch_end = min(i + batch_size, exact_indices.size())
-            
-            # Find range for this batch
+        # process indptr in larger chunks
+        i = 0
+        while i < exact_indices.size():
             min_pos = exact_indices[i].second
             max_pos = exact_indices[i].second
-            for j in range(i + 1, batch_end):
-                min_pos = min(min_pos, exact_indices[j].second)
-                max_pos = max(max_pos, exact_indices[j].second)
+            current_chunk_size = 2
+            chunk_end = i + 1
+
+            while (chunk_end < exact_indices.size()):
+                next_pos = exact_indices[chunk_end].second
+                potential_max = max(max_pos, next_pos)
+                potential_min = min(min_pos, next_pos)
+
+                potential_chunk_size = (potential_max - potential_min + 2)
+
+                if potential_chunk_size > max_indptr_chunk_size:
+                    break
                 
-            # Load one large indptr chunk
+                min_pos = potential_min
+                max_pos = potential_max
+                current_chunk_size = potential_chunk_size
+                chunk_end += 1
+            
             indptr_chunk = _indptr[min_pos:max_pos + 2]
             
-            # Process each position in the batch
-            for j in range(i, batch_end):
+            for j in range(i, chunk_end):
                 kmer = exact_indices[j].first
                 pos = exact_indices[j].second - min_pos
                 
@@ -1112,6 +1123,8 @@ cdef class MalvaIndex:
                         kmer,
                         pair[uint64_t, uint64_t](data_start, data_end)
                     ))
+
+            i = chunk_end
         
         t1 = time.time()
         if self.verbose:
