@@ -1369,7 +1369,7 @@ cdef class MalvaIndex:
 
     def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
             count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
-            max_mem: str = None, force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
+            max_mem: str = '1M', force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
         """
         Locate spatial positions where a sequence or set of sequences appear.
 
@@ -1451,6 +1451,7 @@ cdef class MalvaIndex:
 
         ##### Processing sequence groups separately #####
         for group in sequence_groups:
+            primary_map.clear()
             secondary_map.clear()
             idx = 0
             
@@ -1516,6 +1517,266 @@ cdef class MalvaIndex:
 
             results.append((kmer_locations, kmer_count, seq_matches))
 
+        return results
+
+    def where_faster(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
+            count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
+            max_mem: str = '1M', force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
+
+        return self._where_faster(sequence, sliding_size, pct_threshold, count_at_most, count_at_least, chunk_id, single_count,
+                                  max_mem, force_reload, use_background_model, use_batched)    
+
+    cdef object _where_faster(self, object sequence, int sliding_size=128, float pct_threshold=0.65, 
+        uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint single_count=False, 
+        object max_mem='1M', bint force_reload=False, bint use_background_model=True, bint use_batched=False):
+        """
+        Locate spatial positions where a sequence or set of sequences appear.
+        
+        Parameters:
+            sequence (Union[str, List[str], List[List[str]]]): Query sequence(s) to search for.
+                                                            If List[List[str]], each sublist represents isoforms
+                                                            of the same gene that should be quantified together.
+            sliding_size (int): Size of sliding window for k-mer generation. 
+                                When < 0, will not use sliding windows but the whole sequence, and should be set to -(read_length)
+            pct_threshold (float): Minimum percentage of matching k-mers required
+            count_at_most (int): Maximum count threshold for k-mer consideration
+            count_at_least (int): Minimum count threshold for k-mer consideration
+            chunk_id (int): Index chunk to search in
+            single_count (bool): Whether to count each match only once
+            max_mem (str): Maximum memory constraint
+            force_reload (bool): Force index reload
+            use_background_model (bool): Use background model for filtering
+            use_batched (bool): For lazy loading, whether to use batching. When False, it detects automatically. When True, it forces to batched.
+
+        Returns:
+            List[Tuple]: List of tuples, one per group (or single tuple if input is str/List[str]), each containing:
+                - np.ndarray: Spatial locations where sequences were found
+                - np.ndarray: Count of occurrences at each location
+                - List: Matching details for sequence positions
+        """
+        cdef:
+            list sequence_groups = []
+            FastKmerProcessor processor
+            np.ndarray all_kmer_list
+            unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
+            list results = []
+            float CONST_THRESHOLD
+            int BACKGROUND_THRESHOLD = 1
+            uint32_t max_cell_id = self.n_spatial
+            list seq_matches = [[0, 1]]
+            uint32_t kmers_per_read
+            uint32_t _sliding_size
+            uint64_t kmer_val
+            bint is_above_cutoff
+            uint32_t i, j, idx_kmer, value, idx
+            bint use_vector
+            Py_ssize_t num_groups
+            Py_ssize_t gkl_len
+            vector[pair[uint32_t, uint32_t]] cell_counts
+            vector[uint32_t] cell_counts_updated
+            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map
+            unordered_map[uint32_t, uint32_t] secondary_map
+            unordered_set[uint32_t] values
+            unordered_set[uint32_t].iterator it
+            unordered_map[uint32_t, pair[uint32_t, uint32_t]].iterator map_it 
+            unordered_map[uint32_t, uint32_t].iterator sec_it
+            np.ndarray[np.uint32_t, ndim=1] kmer_locations
+            np.ndarray[np.uint32_t, ndim=1] kmer_count
+            object iterator, subseq, group, seq, split_sliding_sequences
+            unordered_set[uint32_t]* values_ptr
+            unordered_set[uint32_t].iterator end_it
+
+        # Input validation
+        if pct_threshold < 0 or pct_threshold > 1:
+            raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
+
+        # Normalize input into sequence groups
+        sequence_groups = []
+        if isinstance(sequence, str):
+            sequence_groups = [[sequence]]
+        elif isinstance(sequence, list) and all(isinstance(s, str) for s in sequence):
+            sequence_groups = [sequence]
+        elif isinstance(sequence, list) and all(isinstance(s, list) for s in sequence):
+            sequence_groups = sequence
+        else:
+            raise ValueError("sequence must be str, List[str], or List[List[str]]")
+
+        # Process k-mers from sequences
+        processor = FastKmerProcessor(self.kmer_size, True, self.kmer_size)
+        all_kmer_list = processor.process_sequences(sequence_groups)
+
+        if self.verbose:
+            logging.info(f"Will process {len(all_kmer_list)} {self.kmer_size}-mers across all sequence groups")
+
+        if len(all_kmer_list) == 0:
+            return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * len(sequence_groups)
+
+        # Load index and find kmers
+        self.load_index_to_memory(
+            chunk_id=chunk_id, 
+            max_mem=max_mem, 
+            force=force_reload, 
+            count_at_most=count_at_most, 
+            count_at_least=count_at_least
+        )
+        
+        # Find all k-mers
+        current_kmers = self.find_kmer(
+            all_kmer_list, 
+            count_at_most=count_at_most, 
+            count_at_least=count_at_least, 
+            chunk_id=chunk_id, 
+            use_batched=use_batched
+        )
+
+        if self.verbose:
+            logging.info(f"Found {len(current_kmers)} {self.kmer_size}-mers across all sequence groups that pass filters")
+            
+        CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
+
+        num_groups = len(sequence_groups)
+
+        # Process each sequence group
+        for i in range(num_groups):
+            group = sequence_groups[i]
+            
+            # Prepare the sliding sequences for this group
+            split_sliding_sequences = set()
+            for seq in group:
+                _sliding_size = sliding_size if sliding_size > 0 else len(seq) - self.kmer_size
+                split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, _sliding_size)))
+            
+            if self.verbose:
+                iterator = track(list(split_sliding_sequences), description=f'Counting occurrences at kmers for group')
+            else:
+                iterator = list(split_sliding_sequences)
+            
+            # Setup for vector or map approach
+            use_vector = max_cell_id < 100000000
+            primary_map.clear()
+            secondary_map.clear()
+            
+            if use_vector:
+                cell_counts.clear()
+                cell_counts.resize(max_cell_id + 1, pair[uint32_t, uint32_t](0, 0))
+                cell_counts_updated.clear()
+                cell_counts_updated.reserve(max_cell_id // 10)
+
+            # Process each subsequence
+            for subseq in iterator:
+                if PyErr_CheckSignals() != 0:  # Check for interrupts
+                    raise KeyboardInterrupt("Operation interrupted")
+                    
+                # Calculate sliding size and constants
+                _sliding_size = sliding_size if sliding_size > 0 else len(subseq)
+                
+                if sliding_size <= 0:
+                    CONST_THRESHOLD = (abs(sliding_size)//self.kmer_size) * pct_threshold
+                
+                kmers_per_read = _sliding_size // self.kmer_size
+                group_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
+                gkl_len = len(group_kmer_list)
+                
+                # Clear data structures
+                if use_vector:
+                    for j in range(cell_counts_updated.size()):
+                        value = cell_counts_updated[j]
+                        cell_counts[value] = pair[uint32_t, uint32_t](0, 0)
+                    cell_counts_updated.clear()
+                else:
+                    primary_map.clear()
+                
+                # Process k-mers within this subsequence
+                for idx_kmer in range(gkl_len):
+                    kmer_val = group_kmer_list[idx_kmer]
+
+                    if use_background_model:
+                        try:
+                            is_above_cutoff = self.background_model.is_mer_above_cutoff(kmer_val, BACKGROUND_THRESHOLD)
+                            if is_above_cutoff:
+                                continue
+                        except:
+                            continue
+                    
+                    if current_kmers.find(kmer_val) != current_kmers.end():
+                        values_ptr = &current_kmers[kmer_val]
+                        
+                        it = values_ptr.begin()
+                        end_it = values_ptr.end()
+                        
+                        with nogil:
+                            while it != end_it:
+                                value = deref(it)
+                                
+                                if use_vector and value < max_cell_id:
+                                    if cell_counts[value].first == 0:
+                                        cell_counts_updated.push_back(value)
+                                    
+                                    cell_counts[value].first += 1
+                                    cell_counts[value].second = idx_kmer
+
+                                    if cell_counts[value].first > kmers_per_read:
+                                        cell_counts[value].first = kmers_per_read
+                                elif not use_vector:
+                                    if primary_map.find(value) == primary_map.end():
+                                        primary_map[value].first = 1
+                                    else:
+                                        primary_map[value].first += 1
+                                    
+                                    primary_map[value].second = idx_kmer
+
+                                    if primary_map[value].first > kmers_per_read:
+                                        primary_map[value].first = kmers_per_read
+                                        
+                                inc(it)
+                    
+                    # Only update secondary_map at end of read or batch
+                    if ((idx_kmer + 1) < kmers_per_read) and ((idx_kmer + 1) < gkl_len):
+                        continue
+                    
+                    # Update secondary_map
+                    with nogil:
+                        if use_vector:
+                            for j in range(cell_counts_updated.size()):
+                                value = cell_counts_updated[j]
+                                if cell_counts[value].first > CONST_THRESHOLD:
+                                    if secondary_map.find(value) == secondary_map.end():
+                                        secondary_map[value] = 1
+                                    elif not single_count:
+                                        cell_counts[value].first = 0
+                                        secondary_map[value] += 1
+                                    
+                                    if cell_counts[value].second - idx_kmer > 0 and cell_counts[value].first > 0:
+                                        cell_counts[value].first = <int32_t>(cell_counts[value].first) - 1
+                        else:
+                            map_it = primary_map.begin()
+                            while map_it != primary_map.end():
+                                value = deref(map_it).first
+                                if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
+                                    secondary_map[value] = 1
+                                elif primary_map[value].first > CONST_THRESHOLD and not single_count:
+                                    primary_map[value].first = 0
+                                    secondary_map[value] += 1
+                                
+                                if primary_map[value].second - idx_kmer > 0 and primary_map[value].first > 0:
+                                    primary_map[value].first = <int32_t>(primary_map[value].first) - 1
+                                    
+                                inc(map_it)
+            
+            # Convert results to numpy arrays
+            kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
+            kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
+            
+            idx = 0
+            sec_it = secondary_map.begin()
+            while sec_it != secondary_map.end():
+                kmer_locations[idx] = deref(sec_it).first
+                kmer_count[idx] = deref(sec_it).second
+                idx += 1
+                inc(sec_it)
+            
+            results.append((kmer_locations, kmer_count, seq_matches))
+        
         return results
 
 cdef struct LineData:
