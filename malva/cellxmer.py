@@ -47,7 +47,7 @@ def malva_to_filtered_cellxmer_chunked(
     kmer_filter = KmerFilter(k_size, w_size, num_buckets)
 
     len_indices = kmer_index.index['index_0_indices'].shape[0]
-    num_cells = kmer_index.n_spatial
+    num_cells = kmer_index.n_spatial + 1 # so we don't have out of bounds issues...
     total_chunks =  (len_indices + chunk_size - 1) // chunk_size
     chunk_files = []
     
