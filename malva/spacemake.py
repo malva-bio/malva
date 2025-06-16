@@ -223,6 +223,29 @@ def aggregate_adata_by_indices(adata, idx_to_aggregate, idx_aggregated, coordina
     aggregated_adata.var_names = adata.var_names
     aggregated_adata.obs["n_joined"] = binning_matrix[has_spots].sum(axis=1)
 
+    from scipy.sparse import dok_matrix
+
+    # Create mapping of which original indices were aggregated into each new index
+    change_ix = np.where(idx_aggregated[:-1] != idx_aggregated[1:])[0] + 1
+    ix_array = np.asarray(
+        np.split(np.arange(idx_aggregated.shape[0]), change_ix, axis=0), dtype="object"
+    )
+
+    # Create the mapping dictionary
+    joined_dict = {i: idx_to_aggregate[x.astype(int)] for i, x in enumerate(ix_array)}
+
+    # Store the mapping as a sparse matrix
+    indices_joined_spatial_units = dok_matrix(
+        (len(joined_dict), len(adata.obs_names)), dtype=np.int8
+    )
+
+    for obs_name_aggregate, obs_name_to_aggregate in joined_dict.items():
+        indices_joined_spatial_units[obs_name_aggregate, obs_name_to_aggregate] = 1
+
+    indices_joined_spatial_units = indices_joined_spatial_units.tocsr()
+    aggregated_adata.uns["spatial_units_obs_names"] = np.array(adata.obs_names)
+    aggregated_adata.uns["indices_joined_spatial_units"] = indices_joined_spatial_units
+
     return aggregated_adata
 
 
