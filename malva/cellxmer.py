@@ -9,6 +9,7 @@ from malva.index import MalvaIndex
 from malva.spacemake import create_meshed_adata
 from malva.utils import check_directory_exists
 from malva.filter_minimizers import KmerFilter
+from malva.kmer_processing import decode_kmer
 
 def malva_to_cellxmer(
     kmer_index,
@@ -22,7 +23,13 @@ def malva_to_cellxmer(
     kmer_index.open(mode='r')
     indices, data, indptr = kmer_index.index['index_0_indices'][:], kmer_index.index['index_0_data'][:], kmer_index.index['index_0_indptr'][:]
     diff_counts = np.diff(indptr)
-    _diff_counts_idx = (diff_counts>count_at_least) & (diff_counts < count_at_most)
+    _diff_counts_idx = diff_counts > -1 #(diff_counts>count_at_least) & (diff_counts < count_at_most)
+
+    if 'spatial_coord' not in kmer_index.index:
+        num_cells = kmer_index.n_spatial + 1 # so we don't have out of bounds issues...
+    else:
+        # otherwise, we use the number of spatial coordinates
+        num_cells = kmer_index.n_spatial # so we don't have out of bounds issues...
 
     n_kmer_filter = diff_counts[_diff_counts_idx].shape
     interesting_kmers = indices[np.append(_diff_counts_idx, np.array([False]))]
@@ -36,11 +43,11 @@ def malva_to_cellxmer(
     if verbose:
         logging.info(f"Creating sparse matrix")
 
-    adata_X_or = csr_matrix((np.ones_like(data), data, indptr))
+    adata_X_or = csr_matrix((np.ones_like(data), data, indptr), shape=(n_kmer_filter[0], num_cells))
     data_Ts = adata_X_or[_diff_counts_idx].indices
     indptr_Ts = adata_X_or[_diff_counts_idx].indptr
 
-    adata_X_tr = csr_matrix((np.ones_like(data_Ts), data_Ts, indptr_Ts)).T
+    adata_X_tr = csr_matrix((np.ones_like(data_Ts), data_Ts, indptr_Ts), shape=(n_kmer_filter[0], num_cells)).T
     # we need to apply this to keep the common items between matrices, then rescale to unit
     adata_X_tr = adata_X_tr + adata_X_tr
     adata_X_tr = (adata_X_tr * 0.5).astype(np.uint32)
@@ -78,7 +85,7 @@ def malva_to_filtered_cellxmer_chunked(
         temp_dir = tempfile.mkdtemp(prefix="cellxmer_")
         delete_temp = True
     else:
-        os.makedirs(temp_dir, exist_ok=True)
+        temp_dir = tempfile.mkdtemp(prefix="cellxmer_", dir=temp_dir)
         delete_temp = False
     
     if verbose:
@@ -94,7 +101,12 @@ def malva_to_filtered_cellxmer_chunked(
     kmer_filter = KmerFilter(k_size, w_size, num_buckets)
 
     len_indices = kmer_index.index['index_0_indices'].shape[0]
-    num_cells = kmer_index.n_spatial + 1 # so we don't have out of bounds issues...
+    if 'spatial_coord' not in kmer_index.index:
+        num_cells = kmer_index.n_spatial + 1 # so we don't have out of bounds issues...
+    else:
+        # otherwise, we use the number of spatial coordinates
+        num_cells = kmer_index.n_spatial # so we don't have out of bounds issues...
+    
     total_chunks =  (len_indices + chunk_size - 1) // chunk_size
     chunk_files = []
     
@@ -205,7 +217,7 @@ def _run_cellxmer(args):
         w_size=args.w_size,
         num_buckets=args.num_buckets,
         chunk_size=args.chunk_size,
-        temp_dir=None,
+        temp_dir=args.tmp_dir,
         verbose=True
     )
     
@@ -230,7 +242,7 @@ def _run_cellxmer(args):
         )
         mesh_adata_cellxmer.write_h5ad(mesh_output_path)
 
-    if args.save_kmers:
+    if args.save_kmer:
         _run_cellxmer_non_chunked(args)
     
     logging.info(f"Final filtered AnnData object was stored at {args.h5ad_out}")
@@ -252,7 +264,7 @@ def _run_cellxmer_non_chunked(args):
         logging.info(f"Meshing AnnData into {args.bin_size} spatial unit-side hexagons")
         mesh_adata_cellxmer = create_meshed_adata(
             adata_cellxmer,
-            1, # assume the user provides bin_size in the correct units (no rescaling!)
+            1,
             spot_diameter_um=args.bin_size,
             spot_distance_um=args.bin_size,
             bead_diameter_um=args.bin_size,
