@@ -27,6 +27,7 @@ import time
 import numpy as np
 import pandas as pd
 import glob
+import math
 import json
 
 from rich.progress import track
@@ -143,11 +144,12 @@ cdef class MalvaIndex:
         public int n_chunks
         public list data_lengths
         public object spatial_coord
-        public int n_spatial
+        public uint32_t n_spatial
         public int _n_kmers_processed
         public dict project_mapping
         uint32_t PROJECT_ID_SHIFT
         uint32_t CELL_ID_MASK
+        bint HAS_MERGED_PROJECTS
         public vector[pair[uint64_t, uint32_t]] _iter_seqs
         map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
         SpatialIndex spatial_index
@@ -158,12 +160,20 @@ cdef class MalvaIndex:
         vector[size_t] hierarchical_sizes
         int page_size
 
-    def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24, bint verbose=False):
+    def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24,
+                  bint verbose=False, int max_project_capacity=512):
         self.index_dir = index_dir
         self.index = None
         self.__index = {}
-        self.PROJECT_ID_SHIFT = 24
-        self.CELL_ID_MASK = 0xFFFFFF
+
+        project_bits = int(math.ceil(math.log2(max_project_capacity)))
+        self.PROJECT_ID_SHIFT = 32 - project_bits
+
+        cell_bits = 32 - project_bits
+        self.CELL_ID_MASK = (1 << cell_bits) - 1
+
+        self.HAS_MERGED_PROJECTS = False
+
         self.project_mapping = None
         self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
@@ -332,6 +342,15 @@ cdef class MalvaIndex:
         if 'n_chunks' in self.index.attrs:
             self.n_chunks = self.index.attrs['n_chunks']
             self.data_lengths = [len(self.index[f'index_{chunk}_data']) for chunk in range(self.n_chunks)]
+
+        if 'project_id_shift' in self.index.attrs:
+            self.PROJECT_ID_SHIFT = self.index.attrs['project_id_shift']
+        
+        if 'cell_id_mask' in self.index.attrs:
+            self.CELL_ID_MASK = self.index.attrs['cell_id_mask']
+        
+        if 'has_merged_projects' in self.index.attrs:
+            self.HAS_MERGED_PROJECTS = self.index.attrs['has_merged_projects']
 
         if 'spatial_coord' in self.index:
             self.spatial_coord = self.index['spatial_coord']
@@ -559,6 +578,7 @@ cdef class MalvaIndex:
             uint64_t total_len_per_k_data_chunk
             uint64_t total_data
             int i
+            size_t i_chunks
             uint64_t current_i_data_len
             np.ndarray[uint64_t, ndim=1] k_unique
             np.ndarray[uint64_t, ndim=1] k_change
@@ -591,7 +611,8 @@ cdef class MalvaIndex:
             else:
                 proportional_size = int(indices_length * sample_percentage)
                 proportional_size = max(proportional_size, 1000)
-                proportional_size = min(proportional_size, indices_length)
+                # we set the proportional size to at most 100M indices. Above that, performance is bad.
+                proportional_size = min(min(proportional_size, indices_length), 10_000_000)
                 initial_proportions[i] = proportional_size
                 
                 srt_pointer[i] = 0
@@ -736,10 +757,9 @@ cdef class MalvaIndex:
 
                     total_data += chunk_data_size
 
-                k_unique = np.concatenate(k_unique_list)
-
-                # skip if no data was aggregated
-                if len(k_unique) == 0:
+                # skip if no data was aggregated... we move here because otherwise it will crash
+                # i.e., cannot concat k_unique_list if empty
+                if not k_unique_list:
                     for i in range(n_chunks):
                         indices_len = indices_lengths[i]
                         srt_pointer[i] = min(end_pointer[i] + 1, indices_len)
@@ -751,7 +771,9 @@ cdef class MalvaIndex:
                             end_pointer[i] = srt_pointer[i]
                     continue
 
-                # TODO: we can do at maximum performance by using scipy csr_matrix (optionally transposing)
+                k_unique = np.concatenate(k_unique_list)
+
+                # TODO: we can do at maximum performance by using scipy csr_matrix (optionally transposing)?
                 # sort indices and reorder data accordingly
                 sort_idx = np.argsort(k_unique)
                 k_unique = k_unique[sort_idx]
@@ -837,17 +859,42 @@ cdef class MalvaIndex:
             logging.info("Reorganizing the h5 file for performance (might take a while...)")
 
         with h5py.File(file_out_tmp, "r", driver="split") as f_in, h5py.File(file_out, "w", driver="split") as f_out:
-                for key, value in f_in.attrs.items():
-                    f_out.attrs[key] = value
-                
-                f_out.attrs['n_chunks'] = 1
+            for key, value in f_in.attrs.items():
+                f_out.attrs[key] = value
+            
+            f_out.attrs['n_chunks'] = 1
 
-                f_out.create_dataset('index_0_indices', data=f_in['index_0_indices'], dtype='uint64')
-                f_out.create_dataset('index_0_indptr', data=f_in['index_0_indptr'], dtype='uint64')
-                f_out.create_dataset('index_0_data', data=f_in['index_0_data'], dtype='uint32')
+            chunk_size = 100_000_000
+            
+            # copy indices
+            indices_shape = f_in['index_0_indices'].shape
+            indices_dtype = f_in['index_0_indices'].dtype
+            indices_out = f_out.create_dataset('index_0_indices', shape=indices_shape, dtype=indices_dtype)
+            
+            for i_chunks in range(0, indices_shape[0], chunk_size):
+                end = min(i_chunks + chunk_size, indices_shape[0])
+                indices_out[i_chunks:end] = f_in['index_0_indices'][i_chunks:end]
 
-                if 'spatial_coord' in f_in:
-                    f_out.create_dataset('spatial_coord', data=f_in['spatial_coord'], dtype='float32')
+            # copy indptr
+            indptr_shape = f_in['index_0_indptr'].shape
+            indptr_dtype = f_in['index_0_indptr'].dtype
+            indptr_out = f_out.create_dataset('index_0_indptr', shape=indptr_shape, dtype=indptr_dtype)
+            
+            for i_chunks in range(0, indptr_shape[0], chunk_size):
+                end = min(i_chunks + chunk_size, indptr_shape[0])
+                indptr_out[i_chunks:end] = f_in['index_0_indptr'][i_chunks:end]
+
+            # copy data
+            data_shape = f_in['index_0_data'].shape
+            data_dtype = f_in['index_0_data'].dtype
+            data_out = f_out.create_dataset('index_0_data', shape=data_shape, dtype=data_dtype)
+            
+            for i_chunks in range(0, data_shape[0], chunk_size):
+                end = min(i_chunks + chunk_size, data_shape[0])
+                data_out[i_chunks:end] = f_in['index_0_data'][i_chunks:end]
+
+            if 'spatial_coord' in f_in:
+                f_out.create_dataset('spatial_coord', data=f_in['spatial_coord'], dtype='float32')
 
         # remove the temporary file (which has the wrong file structure). 
         # TODO: another strategy? we need to have plenty of storage for this! (anyway we have it)
@@ -856,11 +903,17 @@ cdef class MalvaIndex:
 
     def get_project_id(self, cell_id):
         """Extract project ID from a cell ID."""
-        return cell_id >> self.PROJECT_ID_SHIFT
+        if self.HAS_MERGED_PROJECTS:
+            return cell_id >> self.PROJECT_ID_SHIFT
+        
+        return cell_id
         
     def get_cell_id(self, cell_id):
         """Extract cell ID without project ID."""
-        return cell_id & self.CELL_ID_MASK
+        if self.HAS_MERGED_PROJECTS:
+            return cell_id & self.CELL_ID_MASK
+
+        return cell_id
 
     def write(self):
         cdef vector[pair[uint64_t, uint32_t]].iterator first = self._iter_seqs.begin()
@@ -872,14 +925,14 @@ cdef class MalvaIndex:
         self._n_kmers_processed = 0
         self._iter_seqs.clear()
 
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+    cdef unordered_map[uint64_t, vector[uint32_t]] _find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         cdef:
-            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            unordered_map[uint64_t, vector[uint32_t]] vals = unordered_map[uint64_t, vector[uint32_t]]()
             pair[uint64_t, uint64_t] _indptr
             uint64_t kmer
             np.ndarray _res
             uint32_t _res_item
-            unordered_set[uint32_t] _set
+            vector[uint32_t] _set
 
         # TODO: move _data outside of here? (for maybe some performance gain when calling _find_kmer repeatedly?)
         # _data = self.index[f'index_{chunk_id}_data']
@@ -893,16 +946,10 @@ cdef class MalvaIndex:
 
         for kmer in iterator:
             _indptr = self._index_backed[kmer]
-            
             if ((_indptr.second - _indptr.first) >= count_at_most) or ((_indptr.second - _indptr.first) <= count_at_least):
                 continue
-
-            _res = _data[_indptr.first:_indptr.second]
-            _set = unordered_set[uint32_t]()
-            for _res_item in _res:
-                _set.insert(_res_item)
-
-            vals[kmer] = _set
+            
+            vals[kmer] = np.unique(np.asarray(_data[_indptr.first:_indptr.second], dtype=np.uint32))
 
         return vals
     
@@ -1027,16 +1074,16 @@ cdef class MalvaIndex:
 
             range_idx += 1
 
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
+    cdef unordered_map[uint64_t, vector[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
         """Find kmers using binary search with optimized batch processing."""
         cdef:
-            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            unordered_map[uint64_t, vector[uint32_t]] vals = unordered_map[uint64_t, vector[uint32_t]]()
             vector[uint64_t] kmer_vec
             vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
             vector[pair[uint64_t, size_t]] exact_indices  # Store kmer and its exact index
             vector[pair[uint64_t, pair[uint64_t, uint64_t]]] data_ranges
             uint64_t kmer, start_idx, end_idx, data_start, data_end
-            unordered_set[uint32_t] _set
+            vector[uint32_t] _set
             int exact_idx
             double t0, t1
             size_t i, batch_size = 4096*256 # fit in L2/L3 cache
@@ -1162,13 +1209,7 @@ cdef class MalvaIndex:
                 start = data_ranges[j].second.first - min_start
                 end = data_ranges[j].second.second - min_start
                 
-                _set = unordered_set[uint32_t]()
-                _set.reserve(end - start)
-                
-                for k in range(start, end):
-                    _set.insert(big_data_chunk[k])
-                    
-                vals[kmer] = _set
+                vals[kmer] = np.unique(np.asarray(big_data_chunk[start:end], dtype=np.uint32))
 
             i = chunk_end
         
@@ -1178,22 +1219,23 @@ cdef class MalvaIndex:
 
         return vals
 
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] _find_kmer_adaptive(self, 
+    cdef unordered_map[uint64_t, vector[uint32_t]] _find_kmer_adaptive(self, 
         np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, 
         uint32_t chunk_id=0, bint use_batched=False):
         cdef:
-            unordered_map[uint64_t, unordered_set[uint32_t]] vals = unordered_map[uint64_t, unordered_set[uint32_t]]()
+            unordered_map[uint64_t, vector[uint32_t]] vals = unordered_map[uint64_t, vector[uint32_t]]()
             vector[uint64_t] kmer_vec
             vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
             vector[pair[uint64_t, size_t]] exact_indices
             uint64_t kmer
-            unordered_set[uint32_t] _set
+            vector[uint32_t] _set
             double t0, t1
             size_t batch_size = 4096*256
             size_t total_kmers = len(kmers)
             size_t index_size
             vector[uint64_t] starts
             vector[uint64_t] ends
+            vector[uint64_t] filtered_kmers
             size_t start_idx, end_idx
             
         _indices = self.__index[f'index_{chunk_id}_indices']
@@ -1217,10 +1259,11 @@ cdef class MalvaIndex:
         # batch mode based on k-mers relative to index size or to the number of k-mers
         # in the case of very large indices
         # we only detect if it is False. When True, we force to True
-        if use_batched == False:
-            use_batched = (
-                (total_kmers > min(index_size * 0.001, 500_000))
-            )
+        # if use_batched == False:
+        #     use_batched = (
+        #         (total_kmers > min(index_size * 0.001, 500_000))
+        #     )
+        # we disable automatic batch mode detection for now... 
         
         if self.verbose:
             logging.info(f"Strategy selected: {'batched' if use_batched else 'direct'}")
@@ -1236,9 +1279,14 @@ cdef class MalvaIndex:
             if self.verbose:
                 logging.info(f"Time processing indices: {t1-t0:.2f}s")
             
+            t0 = time.time()
+            slice_requests = []
+
             # get all indptr values at once, then (meta)data
             for i in range(exact_indices.size()):
                 idx = exact_indices[i].second
+                kmer = exact_indices[i].first
+                
                 start_idx = _indptr[idx]
                 if idx + 1 == len(_indptr):
                     end_idx = len(_data) - 1
@@ -1249,25 +1297,44 @@ cdef class MalvaIndex:
                     (end_idx - start_idx) > count_at_least):
                     starts.push_back(start_idx)
                     ends.push_back(end_idx)
+                    slice_requests.append((start_idx, end_idx, kmer))
+                    filtered_kmers.push_back(kmer)
+
+            t1 = time.time()
+            if self.verbose:
+                logging.info(f"Time processing indptr: {t1-t0:.2f}s")
             
-            for i in range(starts.size()):
-                kmer = exact_indices[i].first
-                start_idx = starts[i]
-                end_idx = ends[i]
+            if hasattr(_data, 'get_multiple_slices'):
+                t0 = time.time()
+                results = _data.get_multiple_slices(slice_requests)
                 
-                _set = unordered_set[uint32_t]()
-                _set.reserve(end_idx - start_idx)
+                # Convert results to required format
+                for kmer in filtered_kmers:
+                    if kmer in results:
+                        vals[kmer] = np.unique(results[kmer])
                 
-                for val in _data[start_idx:end_idx]:
-                    _set.insert(val)
+                t1 = time.time()
+                if self.verbose:
+                    logging.info(f"Time processing data (batched): {t1-t0:.2f}s")
+            else:
+                t0 = time.time()
+                for i in range(starts.size()):
+                    kmer = filtered_kmers[i]
+                    start_idx = starts[i]
+                    end_idx = ends[i]
                     
-                vals[kmer] = _set
+                    vals[kmer] = np.unique(np.asarray(_data[start_idx:end_idx], dtype=np.uint32))
+
+                t1 = time.time()
+                if self.verbose:
+                    logging.info(f"Time processing data: {t1-t0:.2f}s")
+
         else:
             return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
             
         return vals
         
-    cdef unordered_map[uint64_t, unordered_set[uint32_t]] find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint use_batched=False):
+    cdef unordered_map[uint64_t, vector[uint32_t]] find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint use_batched=False):
         """Enhanced find_kmer to support both standard and hierarchical approaches."""
         if not self.using_hierarchical:
             return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
@@ -1406,7 +1473,7 @@ cdef class MalvaIndex:
             list sequence_groups = []
             FastKmerProcessor processor
             np.ndarray all_kmer_list
-            unordered_map[uint64_t, unordered_set[uint32_t]] current_kmers
+            unordered_map[uint64_t, vector[uint32_t]] current_kmers
             list results = []
             float CONST_THRESHOLD
             int BACKGROUND_THRESHOLD = 1
@@ -1424,15 +1491,15 @@ cdef class MalvaIndex:
             vector[uint32_t] cell_counts_updated
             unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map
             unordered_map[uint32_t, uint32_t] secondary_map
-            unordered_set[uint32_t] values
-            unordered_set[uint32_t].iterator it
+            vector[uint32_t] values
+            vector[uint32_t].iterator it
             unordered_map[uint32_t, pair[uint32_t, uint32_t]].iterator map_it 
             unordered_map[uint32_t, uint32_t].iterator sec_it
             np.ndarray[np.uint32_t, ndim=1] kmer_locations
             np.ndarray[np.uint32_t, ndim=1] kmer_count
             object iterator, subseq, group, seq, split_sliding_sequences
-            unordered_set[uint32_t]* values_ptr
-            unordered_set[uint32_t].iterator end_it
+            vector[uint32_t]* values_ptr
+            vector[uint32_t].iterator end_it
 
         # Input validation
         if pct_threshold < 0 or pct_threshold > 1:
@@ -1486,6 +1553,7 @@ cdef class MalvaIndex:
         for i in range(num_groups):
             group = sequence_groups[i]
             
+            # TODO: this is slow, though. Takes 2 minutes for 10,000 sequences. There's room for improvement.
             # Prepare the sliding sequences for this group
             split_sliding_sequences = set()
             for seq in group:
@@ -1510,8 +1578,8 @@ cdef class MalvaIndex:
 
             # Process each subsequence
             for subseq in iterator:
-                if PyErr_CheckSignals() != 0:  # Check for interrupts
-                    raise KeyboardInterrupt("Operation interrupted")
+                # if PyErr_CheckSignals() != 0:  # Check for interrupts
+                #     raise KeyboardInterrupt("Operation interrupted")
                     
                 # Calculate sliding size and constants
                 _sliding_size = sliding_size if sliding_size > 0 else len(subseq)
