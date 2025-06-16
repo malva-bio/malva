@@ -1,5 +1,5 @@
 # distutils: language = c++
-# cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
+# cython: language_level=3, boundscheck=True, wraparound=True, initializedcheck=True, cdivision=False
 
 """
 a MinHash-based short word filtering approach for clustering k-mers

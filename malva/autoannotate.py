@@ -971,7 +971,7 @@ def load_markers(marker_source):
     import os
     
     # Check if source is a reference or file
-    if marker_source in ['human_markers', 'human_markers_hallmarks', 'mouse_markers']:
+    if marker_source in ['human_markers', 'human_markers_hallmarks', 'mouse_markers', 'drosophila_markers', 'arabidopsis_markers']:
         # It's a reference, get it from the reference cache
         marker_file = get_reference_cache(marker_source + "_json")
     elif os.path.isfile(marker_source):
@@ -1027,7 +1027,7 @@ def score_annotate(adata, cell_markers, savefig=None):
     return adata, detailed_annotations
 
 def _run_autoannotate(args):
-    if args.reference not in ['human_markers', 'human_markers_hallmarks', 'mouse_markers']:
+    if args.reference not in ['human_markers', 'human_markers_hallmarks', 'mouse_markers', 'arabidopsis_markers', 'drosophila_markers']:
         logging.error("The --reference has to be either 'human_markers', 'human_markers_hallmarks', or 'mouse_markers'. Others are not supported yet.")
 
     if not check_directory_exists(args.savefig, except_when=None):

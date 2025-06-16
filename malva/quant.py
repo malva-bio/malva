@@ -115,7 +115,7 @@ def process_reference(
     batch_size: int = 500
 ):
     kmer_index.verbose = False
-    kmer_index.open(mode='r')
+    kmer_index.open(mode='r+')
     with open(os.path.join(folder_out, "matrix.mtx"), "wb") as mtx_file, gzip.open(
         os.path.join(folder_out, "features.tsv.gz"), "wb"
     ) as feature_file:

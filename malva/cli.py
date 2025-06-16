@@ -212,8 +212,7 @@ def get_quant_parser():
         type=str,
         required=False,
         default="human_utr",
-        choices=["human_utr", "human_cdna", "human_markers", "human_markers_hallmarks", "human_utr_ncrna", "human_cdna_ncrna", "mouse_utr", "mouse_markers", "mouse_cdna", "mouse_utr_ncrna", "mouse_cdna_ncrna"],
-        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_markers_hallmarks', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna'. Default: 'human_utr'""",
+        help="""Reference used for pseudoquantification. Options available: 'human_utr', 'human_cdna', 'human_markers', 'human_markers_hallmarks', 'human_utr_ncrna', 'human_cdna_ncrna', 'mouse_utr', 'mouse_markers', 'mouse_cdna', 'mouse_utr_ncrna', 'mouse_cdna_ncrna', 'drosophila_markers', 'arabidopsis_markers'. Default: 'human_utr'""",
     )
     parser.add_argument(
         "--background-model",
@@ -321,6 +320,11 @@ def get_cellxmer_parser():
         help="""Directory where the cell-by-mer object will be stored.""",
     )
     parser.add_argument(
+        "--save-kmer",
+        action="store_true",
+        help="""When specified, also saves the cell-by-kmer matrix together with the cell-by-bucket matrix""",
+    )
+    parser.add_argument(
         "--kmer-min",
         type=int,
         required=False,
@@ -412,7 +416,7 @@ def get_autoannotate_parser():
         type=str,
         required=False,
         default="human_markers",
-        choices=["human_markers", "human_markers_hallmarks", "mouse_markers"],
+        choices=["human_markers", "human_markers_hallmarks", "mouse_markers", "drosophila_markers", "arabidopsis_markers"],
         help="Flavor used for annotation. Valid options: 'human_markers', 'human_markers_hallmarks', 'mouse_markers'. More will be available soon...",
     )
     parser.add_argument(
@@ -476,6 +480,12 @@ def get_combine_parser():
         type=str,
         default=None,
         help="""When merging projects, this is a file with one UUID per line (in order, will assign the integer project ID)""",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="""Number of threads used for parallel processing""",
     )
     return parser
 

@@ -457,7 +457,11 @@ EXISTING_REFERENCES = {"human_utr": "human_utr.fa.gz",
                        "mouse_markers": "mouse_markers.fa.gz",
                        "mouse_markers_json": "markers_mouse.json",
                        "mouse_utr_ncrna": "mouse_utr_ncrna.fa.gz",
-                       "mouse_cdna_ncrna": "mouse_cdna_ncrna.fa.gz"}
+                       "mouse_cdna_ncrna": "mouse_cdna_ncrna.fa.gz",
+                       "drosophila_markers": "drosophila_markers.fa.gz",
+                       "drosophila_markers_json": "markers_drosophila.json",
+                       "arabidopsis_markers": "arabidopsis_markers.fa.gz",
+                       "arabidopsis_markers_json": "markers_arabidopsis.json",}
 REFERENCES_DIR = pathlib.Path.home().joinpath(".malva", "references")
 _MODEL_URL = "http://bimsbstatic.mdc-berlin.de/rajewsky/malva/references"
 def get_reference_cache(reference):
@@ -474,6 +478,9 @@ def get_reference_cache(reference):
     str
         Path to the cached reference file
     """
+    if os.path.isfile(reference):
+        return reference
+
     if reference not in EXISTING_REFERENCES:
         logging.error(f"The reference {reference} is not available. It has to be one of {EXISTING_REFERENCES}")
         exit(1)
