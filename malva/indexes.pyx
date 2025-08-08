@@ -27,7 +27,6 @@ import time
 import numpy as np
 import pandas as pd
 import glob
-import math
 import json
 
 from rich.progress import track
@@ -166,7 +165,7 @@ cdef class MalvaIndex:
         self.index = None
         self.__index = {}
 
-        project_bits = int(math.ceil(math.log2(max_project_capacity)))
+        project_bits = int(np.ceil(np.log2(max_project_capacity)))
         self.PROJECT_ID_SHIFT = 32 - project_bits
 
         cell_bits = 32 - project_bits

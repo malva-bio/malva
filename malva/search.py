@@ -29,7 +29,7 @@ def read_sequences_file(file_path: str) -> List[str]:
 def check_server_connection(server_url: str) -> bool:
     """Check if the Malva search server is running"""
     try:
-        response = requests.get(f"{server_url}/datasets")
+        response = requests.get(f"{server_url}/health")
         return response.status_code == 200
     except requests.RequestException:
         return False
@@ -37,18 +37,21 @@ def check_server_connection(server_url: str) -> bool:
 
 def submit_search_job(
     server_url: str,
-    sequences: List[str],
-    dataset_id: str,
-    min_kmer_matches: int = 0,
-    k_size: Optional[int] = None
+    query: str,
+    dataset_id: Optional[str] = None,
+    include_metadata: bool = False
 ) -> Dict[str, Any]:
     """Submit a search job to the server"""
+    # The new server expects a different format
     search_data = {
-        "dataset_id": dataset_id,
-        "sequences": sequences,
-        "min_kmer_matches": min_kmer_matches,
-        "k_size": k_size
+        "query": query
     }
+    
+    if dataset_id:
+        search_data["dataset_id"] = dataset_id
+        
+    if include_metadata:
+        search_data["include_metadata"] = True
     
     response = requests.post(f"{server_url}/search", json=search_data)
     response.raise_for_status()
@@ -84,25 +87,39 @@ def format_results(results: Dict[str, Any], format_type: str = 'text') -> str:
             execution_time = results['completed_at'] - results['created_at']
             output.append(f"Execution time: {execution_time:.2f} seconds")
         
+        output.append(f"\nQuery Type: {results.get('query', {}).get('query_type', 'Unknown')}")
         output.append("\nResults by sequence:")
         
-        for seq, result_data in results['results'].items():
-            # Truncate long sequences for display
-            display_seq = seq[:50] + '...' if len(seq) > 50 else seq
-            
-            cells = result_data.get('cells', [])
-            counts = result_data.get('counts', [])
-            
-            output.append(f"\nSequence: {display_seq}")
-            output.append(f"Found in {len(cells)} cells:")
-            
-            # List the first 2 cells and summarize the rest
-            for i, cell in enumerate(cells[:2]):
-                count_info = f" with {counts[i]} counts" if i < len(counts) else ""
-                output.append(f"  - Cell {cell}{count_info}")
-            
-            if len(cells) > 2:
-                output.append(f"  - ... and {len(cells) - 2} more cells")
+        if 'results' in results:
+            for seq, result_data in results['results'].items():
+                # Truncate long sequences for display
+                display_seq = seq[:50] + '...' if len(seq) > 50 else seq
+                
+                cells = result_data.get('cells', [])
+                counts = result_data.get('counts', [])
+                metadata = result_data.get('metadata', {})
+                
+                output.append(f"\nSequence: {display_seq}")
+                output.append(f"Found in {len(cells)} cells:")
+                
+                # List the first 5 cells and summarize the rest
+                for i, cell in enumerate(cells[:5]):
+                    count_info = f" with {counts[i]} counts" if i < len(counts) else ""
+                    
+                    # Add metadata if available
+                    meta_info = ""
+                    if metadata and cell in metadata:
+                        cell_meta = metadata[cell]
+                        meta_info = " ["
+                        meta_items = []
+                        for key, value in cell_meta.items():
+                            meta_items.append(f"{key}: {value}")
+                        meta_info += ", ".join(meta_items) + "]"
+                    
+                    output.append(f"  - Cell {cell}{count_info}{meta_info}")
+                
+                if len(cells) > 5:
+                    output.append(f"  - ... and {len(cells) - 5} more cells")
     
     elif results['status'] == 'error':
         output.append(f"Error: {results.get('error', 'Unknown error')}")
@@ -125,7 +142,15 @@ def wait_for_completion(server_url: str, job_id: str, poll_interval: int = 1) ->
             sys.stdout.write("\n")
             return job_info
         
-        sys.stdout.write(f"\rWaiting for job to complete {spinner[spinner_idx]} ")
+        # Show progress information if available
+        progress = job_info.get('progress')
+        step_desc = job_info.get('step_description', '')
+        
+        if progress is not None and step_desc:
+            sys.stdout.write(f"\rProgress: {progress}% - {step_desc} {spinner[spinner_idx]} ")
+        else:
+            sys.stdout.write(f"\rWaiting for job to complete {spinner[spinner_idx]} ")
+            
         sys.stdout.flush()
         spinner_idx = (spinner_idx + 1) % len(spinner)
         
@@ -211,42 +236,40 @@ def _run_search_data(args):
         return 1
     
     try:
-        # Get sequences
-        sequences = []
+        # Get query content
+        query = ""
         
         if args.sequence:
-            sequences.append(args.sequence)
+            query = args.sequence
         
-        if args.file:
-            file_sequences = read_sequences_file(args.file)
-            if not file_sequences:
-                logging.error(f"No sequences found in file {args.file}")
+        elif args.file:
+            try:
+                # Try to read as sequences
+                file_sequences = read_sequences_file(args.file)
+                if file_sequences:
+                    # Use the first sequence if multiple are found
+                    query = file_sequences[0]
+                    logging.info(f"Using first sequence from file ({len(query)} bases)")
+                else:
+                    # If no sequences found, try as plain text
+                    with open(args.file, 'r') as f:
+                        query = f.read().strip()
+                    logging.info(f"Using file content as raw query ({len(query)} characters)")
+            except Exception as e:
+                logging.error(f"Error reading file {args.file}: {str(e)}")
                 return 1
-            sequences.extend(file_sequences)
         
-        if not sequences:
-            logging.error("No sequences provided. Use --sequence or --file")
+        if not query:
+            logging.error("No query provided. Use --sequence or --file")
             return 1
         
-        # Get available datasets if not specified
-        if not args.dataset:
-            datasets = get_datasets(server_url)
-            if not datasets:
-                logging.error("No datasets available on the server")
-                return 1
-            
-            # Use the first dataset
-            dataset_id = datasets[0]['dataset_id']
-            logging.info(f"No dataset specified, using {dataset_id}: {datasets[0]['name']}")
-        else:
-            dataset_id = args.dataset
-        
         # Submit job
-        logging.info(f"Submitting search job for {len(sequences)} sequences in dataset {dataset_id}")
+        logging.info(f"Submitting search job to dataset {args.dataset or 'default'}")
         job_info = submit_search_job(
             server_url=server_url,
-            sequences=sequences,
-            dataset_id=dataset_id
+            query=query,
+            dataset_id=args.dataset,
+            include_metadata=args.metadata
         )
         
         logging.info(f"Job submitted with ID: {job_info['job_id']}")
@@ -283,6 +306,7 @@ def _run_search_data(args):
     except Exception as e:
         logging.error(f"Error performing search: {str(e)}")
         return 1
+    
     
 def _run_search(args):
     if args.command == "query":
