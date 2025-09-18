@@ -1435,7 +1435,7 @@ cdef class MalvaIndex:
 
     def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
             count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
-            max_mem: str = '1M', force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
+            max_mem: object = '1M', force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
         """
         Locate spatial positions where a sequence or set of sequences appear.
         
