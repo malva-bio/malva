@@ -83,7 +83,8 @@ def _run_index(args):
         sindex.save_binary(_sindex_loc)
 
     logging.info(f"Configuring the malva index")
-    kmer_index = MalvaIndex(args.index_out, kmer_size_initialize=args.kmer_length)
+    jump_amount = 1 if args.overlapping else args.kmer_length
+    kmer_index = MalvaIndex(args.index_out, kmer_size_initialize=args.kmer_length, jump_amount=jump_amount)
 
     # TODO: fix this more elegantly
     logging.info("Adding cell barcode index to malva index")

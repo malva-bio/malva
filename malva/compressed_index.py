@@ -7,6 +7,8 @@ from typing import List, Union, Tuple, Dict
 from tqdm import tqdm
 import mmap
 from pyfastpfor import getCodec, delta1, prefixSum1
+from collections import OrderedDict
+import threading
 
 blosc.set_nthreads(8)
 
@@ -109,7 +111,8 @@ class CompressedArrayStorage:
         dtype: np.dtype = np.uint64,
         fastpfor_codec: str = None,
         sort_chunks: bool = False,
-        use_delta: bool = False
+        use_delta: bool = False,
+        max_cache_size: int = 2000000,
     ):
         """
         Initialize the compressed array storage.
@@ -141,9 +144,38 @@ class CompressedArrayStorage:
         self.sort_chunks = sort_chunks
         self.use_delta = use_delta
         self.sorting_enabled = {}
+
+        # decompressed chunk cache
+        self.decompressed_cache = OrderedDict()
+        self.max_cache_size = max_cache_size
+        self.cache_lock = threading.Lock()
+        self.cache_hits = 0
+        self.cache_misses = 0
         
         # Initialize blosc
         blosc.set_nthreads(4)  # Adjust based on your system
+
+    def _get_from_cache(self, chunk_id: int) -> np.ndarray:
+        """Get decompressed chunk from cache if available"""
+        with self.cache_lock:
+            if chunk_id in self.decompressed_cache:
+                # Move to end (most recently used)
+                self.decompressed_cache.move_to_end(chunk_id)
+                self.cache_hits += 1
+                return self.decompressed_cache[chunk_id].copy()
+            self.cache_misses += 1
+            return None
+        
+    def _add_to_cache(self, chunk_id: int, chunk_data: np.ndarray):
+        """Add decompressed chunk to LRU cache"""
+        with self.cache_lock:
+            # Add new chunk
+            self.decompressed_cache[chunk_id] = chunk_data
+            self.decompressed_cache.move_to_end(chunk_id)
+            
+            # Remove oldest if cache is full
+            if len(self.decompressed_cache) > self.max_cache_size:
+                self.decompressed_cache.popitem(last=False)
 
     def _setup_mmap(self):
         """Set up memory mapping for the file to avoid excessive I/O operations"""
@@ -699,13 +731,21 @@ class CompressedArrayStorage:
         Returns:
             Numpy array with the chunk data
         """
+        cached_chunk = self._get_from_cache(chunk_id)
+        if cached_chunk is not None:
+            return cached_chunk
+        
         # Check if chunk is in memory (compressed format)
         if chunk_id in self.chunks:
-            return self._decompress_chunk(self.chunks[chunk_id])
+            decompressed = self._decompress_chunk(self.chunks[chunk_id])
+            self._add_to_cache(chunk_id, decompressed)
+            return decompressed
             
         # If file-backed, load from file
         if self.is_file_backed:
-            return self._load_chunk_from_file(chunk_id)
+            decompressed = self._load_chunk_from_file(chunk_id)
+            self._add_to_cache(chunk_id, decompressed)
+            return decompressed
             
         raise IndexError(f"Chunk ID {chunk_id} not found")
         
@@ -791,8 +831,7 @@ class CompressedArrayStorage:
 
     def prefetch_chunks(self, chunk_ids):
         """
-        Prefetch multiple chunks at once to reduce I/O overhead.
-        Especially useful for known access patterns.
+        Prefetch and cache decompressed chunks.
         
         Args:
             chunk_ids: List of chunk IDs to prefetch
@@ -800,8 +839,75 @@ class CompressedArrayStorage:
         if not self.is_file_backed:
             return
         
-        for chunk_id in tqdm(chunk_ids):
-            self.chunk_table[chunk_id]
+        # Filter chunks not already in cache
+        chunks_to_load = []
+        for chunk_id in chunk_ids:
+            if self._get_from_cache(chunk_id) is None:
+                chunks_to_load.append(chunk_id)
+        
+        if not chunks_to_load:
+            return  # All chunks already cached
+        
+        print(f"Prefetching {len(chunks_to_load)} chunks (skipped {len(chunk_ids) - len(chunks_to_load)} cached)")
+        
+        # Sort chunks by file offset for sequential I/O
+        chunk_info = []
+        for chunk_id in chunks_to_load:
+            chunk_entry = self.chunk_table[chunk_id]
+            if isinstance(chunk_entry, tuple):
+                _, chunk_offs, chunk_size = chunk_entry
+            else:
+                chunk_offs = int(chunk_entry[1])
+                chunk_size = int(chunk_entry[2])
+            chunk_info.append((chunk_id, chunk_offs, chunk_size))
+        
+        # Sort by file offset for sequential reading
+        chunk_info.sort(key=lambda x: x[1])
+        
+        # Use memory mapping if available, otherwise file I/O
+        if hasattr(self, 'mmap_data') and self.mmap_data is not None:
+            # Memory-mapped access
+            for chunk_id, chunk_offs, chunk_size in tqdm(chunk_info, desc="Loading chunks"):
+                try:
+                    compressed_data = self.mmap_data[chunk_offs+8:chunk_offs+8+chunk_size]
+                    decompressed = self._decompress_chunk(compressed_data)
+                    self._add_to_cache(chunk_id, decompressed)
+                except Exception as e:
+                    print(f"Failed to load chunk {chunk_id}: {e}")
+        else:
+            # File-based sequential reading
+            with open(self.filename, 'rb') as f:
+                for chunk_id, chunk_offs, chunk_size in tqdm(chunk_info, desc="Loading chunks"):
+                    try:
+                        f.seek(chunk_offs + 8)
+                        compressed_data = f.read(chunk_size)
+                        decompressed = self._decompress_chunk(compressed_data)
+                        self._add_to_cache(chunk_id, decompressed)
+                    except Exception as e:
+                        print(f"Failed to load chunk {chunk_id}: {e}")
+
+    def get_cache_stats(self) -> dict:
+        """Get cache performance statistics"""
+        with self.cache_lock:
+            total_requests = self.cache_hits + self.cache_misses
+            hit_rate = (self.cache_hits / total_requests * 100) if total_requests > 0 else 0
+            
+            return {
+                'cache_hits': self.cache_hits,
+                'cache_misses': self.cache_misses,
+                'hit_rate_percent': hit_rate,
+                'cache_size': len(self.decompressed_cache),
+                'max_cache_size': self.max_cache_size,
+                'cache_usage_percent': len(self.decompressed_cache) / self.max_cache_size * 100
+            }
+        
+    def set_cache_size(self, new_size: int):
+        """Dynamically adjust cache size"""
+        with self.cache_lock:
+            self.max_cache_size = new_size
+            # Trim cache if necessary
+            while len(self.decompressed_cache) > new_size:
+                self.decompressed_cache.popitem(last=False)
 
     def get_multiple_slices(self, slice_requests):
         """

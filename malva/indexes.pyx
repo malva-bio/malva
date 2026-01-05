@@ -136,6 +136,7 @@ cdef class MalvaIndex:
         public str index_dir
         public str index_file
         public int kmer_size
+        public int jump_amount
         public bint verbose
         public object index
         public dict __index
@@ -160,7 +161,7 @@ cdef class MalvaIndex:
         int page_size
 
     def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24,
-                  bint verbose=False, int max_project_capacity=512):
+                  bint verbose=False, int max_project_capacity=512, int jump_amount=0):
         self.index_dir = index_dir
         self.index = None
         self.__index = {}
@@ -176,6 +177,8 @@ cdef class MalvaIndex:
         self.project_mapping = None
         self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
         self.kmer_size = kmer_size_initialize
+        # when jump_amount is 0 we just assume we should take the k-mer size
+        self.jump_amount = kmer_size_initialize if jump_amount == 0 else jump_amount
         self.n_chunks = 0
         self._n_kmers_processed = 0
         self.verbose = verbose
@@ -506,7 +509,7 @@ cdef class MalvaIndex:
 
         if isinstance(reads_in[0], int):
             logging.info("Processing bulk reads")
-            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.kmer_size)
+            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.jump_amount)
             
             while True:
                 try:
@@ -529,7 +532,7 @@ cdef class MalvaIndex:
             self.write()
         elif num_reads == 2:
             iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, trim_start = trim_limit[0], trim_end = trim_limit[1])
-            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.kmer_size)
+            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.jump_amount)
             
             while True:
                 try:
