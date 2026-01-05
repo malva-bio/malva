@@ -3,9 +3,98 @@ import blosc
 import os
 import pickle
 import math
-from typing import List, Union
+from typing import List, Union, Tuple, Dict
 from tqdm import tqdm
+import mmap
 from pyfastpfor import getCodec, delta1, prefixSum1
+from collections import OrderedDict
+import threading
+
+blosc.set_nthreads(8)
+
+class LazyChunkTable:
+    def __init__(self, filename: str, chunk_table_pos: int, num_chunks: int, buffer_size=1):
+        self.filename = filename
+        self.chunk_table_pos = chunk_table_pos
+        self.num_chunks = num_chunks
+        self.entry_size = 24
+        self.cache = {}
+        self.cache_max_size = 10_000_000
+        self.buffer_size = buffer_size
+        
+        # Keep a single file handle open
+        self.file = open(self.filename, 'rb')
+        # Use a memory-mapped buffer for faster access
+        self.mmap_data = mmap.mmap(self.file.fileno(), 0, access=mmap.ACCESS_READ)
+        
+        # Pre-calculate offset ranges to avoid repeated calculation
+        self.chunk_table_end = self.chunk_table_pos + (self.num_chunks * self.entry_size)
+
+    def __len__(self) -> int:
+        """Return the number of chunks."""
+        return self.num_chunks
+
+    def __getitem__(self, idx):
+        """
+        Get chunk entry at the specified index.
+        Supports integer indexing.
+        """
+        if isinstance(idx, int):
+            return self._load_entry(idx)
+        elif isinstance(idx, slice):
+            # If someone slices, load the requested range
+            start = 0 if idx.start is None else idx.start
+            stop = self.num_chunks if idx.stop is None else idx.stop
+            step = 1 if idx.step is None else idx.step
+            
+            return [self._load_entry(i) for i in range(start, min(stop, self.num_chunks), step)]
+        else:
+            raise TypeError(f"Invalid index type: {type(idx)}")
+    
+    def __del__(self):
+        # Clean up resources
+        if hasattr(self, 'mmap_data') and self.mmap_data:
+            self.mmap_data.close()
+        if hasattr(self, 'file') and self.file:
+            self.file.close()
+    
+    def _load_entries_batch(self, start_chunk_id: int) -> None:
+        """Load a batch of entries at once to minimize I/O operations"""
+        if start_chunk_id >= self.num_chunks:
+            return
+            
+        end_chunk_id = min(start_chunk_id + self.buffer_size, self.num_chunks)
+        start_pos = self.chunk_table_pos + (start_chunk_id * self.entry_size)
+        batch_size = (end_chunk_id - start_chunk_id) * self.entry_size
+        
+        # Read the entire batch at once from mmap
+        batch_data = self.mmap_data[start_pos:start_pos + batch_size]
+        
+        # Parse entries and update cache
+        for i in range(start_chunk_id, end_chunk_id):
+            offset = (i - start_chunk_id) * self.entry_size
+            chunk_id_read = int.from_bytes(batch_data[offset:offset+8], byteorder='little')
+            chunk_offset = int.from_bytes(batch_data[offset+8:offset+16], byteorder='little')
+            chunk_size = int.from_bytes(batch_data[offset+16:offset+24], byteorder='little')
+            
+            self.cache[i] = (chunk_id_read, chunk_offset, chunk_size)
+    
+    def _load_entry(self, chunk_id: int) -> tuple:
+        """Load a specific entry, using batched loading for efficiency"""
+        if chunk_id in self.cache:
+            return self.cache[chunk_id]
+            
+        if chunk_id >= self.num_chunks:
+            raise IndexError(f"Chunk ID {chunk_id} out of bounds (max: {self.num_chunks-1})")
+        
+        # Calculate which batch this entry belongs to
+        batch_start = (chunk_id // self.buffer_size) * self.buffer_size
+        
+        # Load the entire batch containing this entry
+        self._load_entries_batch(batch_start)
+        
+        # The entry should now be in cache
+        return self.cache[chunk_id]
 
 class CompressedArrayStorage:
     """
@@ -22,7 +111,8 @@ class CompressedArrayStorage:
         dtype: np.dtype = np.uint64,
         fastpfor_codec: str = None,
         sort_chunks: bool = False,
-        use_delta: bool = False
+        use_delta: bool = False,
+        max_cache_size: int = 2000000,
     ):
         """
         Initialize the compressed array storage.
@@ -48,14 +138,54 @@ class CompressedArrayStorage:
         self.filename = None
         self.file_handle = None
         self.metadata_size = 0
+        self.mmap_data = None
         self.fastpfor_codec = fastpfor_codec
 
         self.sort_chunks = sort_chunks
         self.use_delta = use_delta
         self.sorting_enabled = {}
+
+        # decompressed chunk cache
+        self.decompressed_cache = OrderedDict()
+        self.max_cache_size = max_cache_size
+        self.cache_lock = threading.Lock()
+        self.cache_hits = 0
+        self.cache_misses = 0
         
         # Initialize blosc
         blosc.set_nthreads(4)  # Adjust based on your system
+
+    def _get_from_cache(self, chunk_id: int) -> np.ndarray:
+        """Get decompressed chunk from cache if available"""
+        with self.cache_lock:
+            if chunk_id in self.decompressed_cache:
+                # Move to end (most recently used)
+                self.decompressed_cache.move_to_end(chunk_id)
+                self.cache_hits += 1
+                return self.decompressed_cache[chunk_id].copy()
+            self.cache_misses += 1
+            return None
+        
+    def _add_to_cache(self, chunk_id: int, chunk_data: np.ndarray):
+        """Add decompressed chunk to LRU cache"""
+        with self.cache_lock:
+            # Add new chunk
+            self.decompressed_cache[chunk_id] = chunk_data
+            self.decompressed_cache.move_to_end(chunk_id)
+            
+            # Remove oldest if cache is full
+            if len(self.decompressed_cache) > self.max_cache_size:
+                self.decompressed_cache.popitem(last=False)
+
+    def _setup_mmap(self):
+        """Set up memory mapping for the file to avoid excessive I/O operations"""
+        if self.mmap_data is not None:
+            return
+        
+        self.file_handle = open(self.filename, 'rb')
+        self.mmap_data = mmap.mmap(self.file_handle.fileno(), 0, access=mmap.ACCESS_READ)
+        self.in_memory_compressed = True
+        print(f"File {self.filename} memory-mapped for faster access")
         
     def _get_chunk_id(self, index: int) -> int:
         """Get the chunk ID for a given element index."""
@@ -275,101 +405,10 @@ class CompressedArrayStorage:
             Numpy array with decompressed data
         """
         try:
-            header_size = int.from_bytes(compressed_data[:8], byteorder='little')
-            header = pickle.loads(compressed_data[8:8+header_size])
-            
-            if 'codec' in header:
-                offset = 8 + header_size
-                comp_size = header['comp_size']
-                
-                compressed = np.frombuffer(
-                    compressed_data[offset:offset+comp_size*4],  # uint32 = 4 bytes
-                    dtype=np.uint32
-                )
-                
-                decompressed = np.zeros(header['orig_size'], dtype=np.uint32)
-                
-                codec = getCodec(header['codec'])
-                codec.decodeArray(compressed, comp_size, decompressed, len(decompressed))
-
-                if header.get('delta', False):
-                    prefixSum1(decompressed, len(decompressed))
-                
-                if header['dtype'] != str(np.dtype(np.uint32)):
-                    decompressed = decompressed.astype(np.dtype(header['dtype']))
-
-                if header.get('sorted', False):
-                    pos_offset = offset + comp_size*4
-                    pos_compressed = compressed_data[pos_offset:]
-                    original_positions = blosc.unpack_array(pos_compressed)
-                    
-                    result = np.zeros_like(decompressed)
-
-                    for i, pos in enumerate(original_positions):
-                        if pos < len(result):
-                            result[pos] = decompressed[i]
-                    
-                    return result
-                
-                return decompressed
-            else:
-                offset = 8 + header_size
-                was_sorted = header.get('sorted', False)
-                was_delta_encoded = header.get('delta', False)
-                
-                if was_sorted:
-                    try:
-                        data_compressed = compressed_data[offset:]
-                        blosc_header = blosc.decode_blosc_header(data_compressed)
-                        data_size = blosc_header['nbytes'] + 16
-                        
-                        decompressed = blosc.unpack_array(data_compressed[:data_size])
-                        positions_compressed = data_compressed[data_size:]
-                        original_positions = blosc.unpack_array(positions_compressed)
-                        
-                        if was_delta_encoded:
-                            np.cumsum(decompressed, out=decompressed)
-                        
-                        result = np.zeros_like(decompressed)
-                        for i, pos in enumerate(original_positions):
-                            if pos < len(result):
-                                result[pos] = decompressed[i]
-                        
-                        return result
-                    except Exception as e:
-                        print(f"Warning: Advanced decompression failed: {str(e)}. Falling back.")
-                        pass
-                else:
-                    if was_delta_encoded:
-                        decompressed = blosc.unpack_array(compressed_data[offset:])
-                        np.cumsum(decompressed, out=decompressed)
-                        return decompressed
-                        
-        except Exception as e:
-            pass
-
-        try:
             result = blosc.unpack_array(compressed_data)
             return result
         except Exception as e:
-            try:
-                decompressed_bytes = blosc.decompress(compressed_data)
-                
-                result = np.frombuffer(decompressed_bytes, dtype=self.dtype)
-                
-                # too small, pad it
-                if len(result) < self.chunk_size:
-                    pad_value = result[-1] if len(result) > 0 else 0
-                    padding = np.full(self.chunk_size - len(result), pad_value, dtype=self.dtype)
-                    result = np.concatenate([result, padding])
-                # too large, truncate
-                elif len(result) > self.chunk_size:
-                    result = result[:self.chunk_size]
-                
-                return result
-            except Exception as e:
-                print(f"Warning: Decompression failed, returning zeros. Error: {str(e)}")
-                return np.zeros(self.chunk_size, dtype=self.dtype)
+            raise ValueError(f"Decompression failed. Error: {str(e)}")
     
     def _start_incremental_save(self, filename: str) -> None:
         """
@@ -601,7 +640,7 @@ class CompressedArrayStorage:
         self.is_file_backed = True
         self.filename = filename
     
-    def load(self, filename: str, load_in_memory: bool = False) -> None:
+    def load(self, filename: str, load_in_memory: bool = False, max_chunks_in_memory: int = 100_000_000) -> None:
         with open(filename, 'rb') as f:
             # Read metadata and chunk table positions
             metadata_pos = int.from_bytes(f.read(8), byteorder='little')
@@ -623,24 +662,30 @@ class CompressedArrayStorage:
             self.use_delta = metadata.get('use_delta', False)
             num_chunks = metadata['num_chunks']
             
-            # Now read the chunk table all at once
-            f.seek(chunk_table_pos)
-            # Each entry is 24 bytes (8 for chunk_id, 8 for offset, 8 for size)
-            chunk_table_bytes = f.read(num_chunks * 24)
-            
-            chunk_table_dtype = np.dtype([
-                ('chunk_id', '<u8'),
-                ('offset', '<u8'),
-                ('size', '<u8')
-            ])
-
-            self.chunk_table = np.frombuffer(chunk_table_bytes, dtype=chunk_table_dtype)
+            if num_chunks <= max_chunks_in_memory:
+                # Small enough to load in memory - use original approach
+                f.seek(chunk_table_pos)
+                # Each entry is 24 bytes (8 for chunk_id, 8 for offset, 8 for size)
+                chunk_table_bytes = f.read(num_chunks * 24)
+                
+                chunk_table_dtype = np.dtype([
+                    ('chunk_id', '<u8'),
+                    ('offset', '<u8'),
+                    ('size', '<u8')
+                ])
+                
+                self.chunk_table = np.frombuffer(chunk_table_bytes, dtype=chunk_table_dtype)
+            else:
+                # Too large - use lazy loading
+                print(f"Use lazy loading for {filename}")
+                self.chunk_table = LazyChunkTable(filename, chunk_table_pos, num_chunks)
         
         # Update state
         self.is_file_backed = True
         self.filename = filename
-
-        if load_in_memory:
+        if os.path.getsize(filename) > 1e9:
+            self._setup_mmap()
+        elif load_in_memory:
             self.load_all_chunks_to_memory()
     
     def _load_chunk_from_file(self, chunk_id: int) -> np.ndarray:
@@ -656,28 +701,25 @@ class CompressedArrayStorage:
         if not self.is_file_backed or self.filename is None:
             raise ValueError("No backing file available")
             
-        if chunk_id > len(self.chunk_table):
+        if chunk_id >= len(self.chunk_table):
             raise IndexError(f"Chunk ID {chunk_id} not found")
+        
+        # Fast chunk info extraction
+        chunk_entry = self.chunk_table[chunk_id]
+        if isinstance(chunk_entry, tuple):
+            _, chunk_offs, chunk_size = chunk_entry
+        else:
+            chunk_offs = int(chunk_entry[1])
+            chunk_size = int(chunk_entry[2])
+        
+        # Direct memory access for mmapped files (no copy)
+        if hasattr(self, 'mmap_data') and self.mmap_data is not None:
+            return self._decompress_chunk(self.mmap_data[chunk_offs+8:chunk_offs+8+chunk_size])
             
+        # Optimized file reading
         with open(self.filename, 'rb') as f:
-            # Seek to the chunk offset
-            chunk_offs = int(self.chunk_table[chunk_id][1])
-            chunk_size = int(self.chunk_table[chunk_id][2])
-
             f.seek(chunk_offs + 8)
-            
-            # Read compressed chunk
-            compressed_chunk = f.read(chunk_size)
-            
-            # Check if this is uncompressed data (from our fallback mechanism)
-            if compressed_chunk.startswith(b'UNCOMP:'):
-                # Extract the raw bytes and convert to numpy array
-                raw_bytes = compressed_chunk[7:]  # Skip the 'UNCOMP:' prefix
-                chunk_array = np.frombuffer(raw_bytes, dtype=self.dtype)
-                return chunk_array
-            
-            # Regular compressed data - decompress
-            return self._decompress_chunk(compressed_chunk)
+            return self._decompress_chunk(f.read(chunk_size))
     
     def get_chunk(self, chunk_id: int) -> np.ndarray:
         """
@@ -689,13 +731,21 @@ class CompressedArrayStorage:
         Returns:
             Numpy array with the chunk data
         """
+        cached_chunk = self._get_from_cache(chunk_id)
+        if cached_chunk is not None:
+            return cached_chunk
+        
         # Check if chunk is in memory (compressed format)
         if chunk_id in self.chunks:
-            return self._decompress_chunk(self.chunks[chunk_id])
+            decompressed = self._decompress_chunk(self.chunks[chunk_id])
+            self._add_to_cache(chunk_id, decompressed)
+            return decompressed
             
         # If file-backed, load from file
         if self.is_file_backed:
-            return self._load_chunk_from_file(chunk_id)
+            decompressed = self._load_chunk_from_file(chunk_id)
+            self._add_to_cache(chunk_id, decompressed)
+            return decompressed
             
         raise IndexError(f"Chunk ID {chunk_id} not found")
         
@@ -778,6 +828,131 @@ class CompressedArrayStorage:
                 result[result_idx] = chunk[chunk_offset]
                 
         return result
+
+    def prefetch_chunks(self, chunk_ids):
+        """
+        Prefetch and cache decompressed chunks.
+        
+        Args:
+            chunk_ids: List of chunk IDs to prefetch
+        """
+        if not self.is_file_backed:
+            return
+        
+        # Filter chunks not already in cache
+        chunks_to_load = []
+        for chunk_id in chunk_ids:
+            if self._get_from_cache(chunk_id) is None:
+                chunks_to_load.append(chunk_id)
+        
+        if not chunks_to_load:
+            return  # All chunks already cached
+        
+        print(f"Prefetching {len(chunks_to_load)} chunks (skipped {len(chunk_ids) - len(chunks_to_load)} cached)")
+        
+        # Sort chunks by file offset for sequential I/O
+        chunk_info = []
+        for chunk_id in chunks_to_load:
+            chunk_entry = self.chunk_table[chunk_id]
+            if isinstance(chunk_entry, tuple):
+                _, chunk_offs, chunk_size = chunk_entry
+            else:
+                chunk_offs = int(chunk_entry[1])
+                chunk_size = int(chunk_entry[2])
+            chunk_info.append((chunk_id, chunk_offs, chunk_size))
+        
+        # Sort by file offset for sequential reading
+        chunk_info.sort(key=lambda x: x[1])
+        
+        # Use memory mapping if available, otherwise file I/O
+        if hasattr(self, 'mmap_data') and self.mmap_data is not None:
+            # Memory-mapped access
+            for chunk_id, chunk_offs, chunk_size in tqdm(chunk_info, desc="Loading chunks"):
+                try:
+                    compressed_data = self.mmap_data[chunk_offs+8:chunk_offs+8+chunk_size]
+                    decompressed = self._decompress_chunk(compressed_data)
+                    self._add_to_cache(chunk_id, decompressed)
+                except Exception as e:
+                    print(f"Failed to load chunk {chunk_id}: {e}")
+        else:
+            # File-based sequential reading
+            with open(self.filename, 'rb') as f:
+                for chunk_id, chunk_offs, chunk_size in tqdm(chunk_info, desc="Loading chunks"):
+                    try:
+                        f.seek(chunk_offs + 8)
+                        compressed_data = f.read(chunk_size)
+                        decompressed = self._decompress_chunk(compressed_data)
+                        self._add_to_cache(chunk_id, decompressed)
+                    except Exception as e:
+                        print(f"Failed to load chunk {chunk_id}: {e}")
+
+    def get_cache_stats(self) -> dict:
+        """Get cache performance statistics"""
+        with self.cache_lock:
+            total_requests = self.cache_hits + self.cache_misses
+            hit_rate = (self.cache_hits / total_requests * 100) if total_requests > 0 else 0
+            
+            return {
+                'cache_hits': self.cache_hits,
+                'cache_misses': self.cache_misses,
+                'hit_rate_percent': hit_rate,
+                'cache_size': len(self.decompressed_cache),
+                'max_cache_size': self.max_cache_size,
+                'cache_usage_percent': len(self.decompressed_cache) / self.max_cache_size * 100
+            }
+        
+    def set_cache_size(self, new_size: int):
+        """Dynamically adjust cache size"""
+        with self.cache_lock:
+            self.max_cache_size = new_size
+            # Trim cache if necessary
+            while len(self.decompressed_cache) > new_size:
+                self.decompressed_cache.popitem(last=False)
+
+    def get_multiple_slices(self, slice_requests):
+        """
+        Optimized implementation for multiple slice requests.
+        
+        Args:
+            slice_requests: List of (start_idx, end_idx, kmer) tuples
+        """
+        result_mapping = {}
+        
+        all_chunks_needed = set()
+        request_details = {}
+        
+        for start_idx, end_idx, kmer in slice_requests:
+            result_size = end_idx - start_idx
+            result_mapping[kmer] = np.zeros(result_size, dtype=self.dtype)
+
+            chunk_id_start = start_idx // self.chunk_size
+            chunk_id_end = (end_idx - 1) // self.chunk_size
+
+            request_details[kmer] = (start_idx, end_idx, chunk_id_start, chunk_id_end)
+
+            for chunk_id in range(chunk_id_start, chunk_id_end + 1):
+                all_chunks_needed.add(chunk_id)
+
+        self.prefetch_chunks(sorted(all_chunks_needed))
+        
+        for kmer, (start_idx, end_idx, chunk_id_start, chunk_id_end) in tqdm(request_details.items()):
+            result = result_mapping[kmer]
+            result_pos = 0
+            
+            for chunk_id in range(chunk_id_start, chunk_id_end + 1):
+                chunk = self.get_chunk(chunk_id)
+                
+                # Calculate slice boundaries
+                chunk_start = chunk_id * self.chunk_size
+                local_start = max(0, start_idx - chunk_start)
+                local_end = min(self.chunk_size, end_idx - chunk_start)
+                
+                # Copy data to result
+                size = local_end - local_start
+                result[result_pos:result_pos + size] = chunk[local_start:local_end]
+                result_pos += size
+        
+        return result_mapping
     
     def get_slice(self, start_idx: int, end_idx: int) -> np.ndarray:
         """

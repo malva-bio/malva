@@ -1,5 +1,5 @@
 [build-system]
-requires = ["poetry", "Cython>=0.29.21", "setuptools", "wheel", "numpy", "pkgconfig"]
+requires = ["poetry", "Cython>=0.29.21", "setuptools", "wheel", "numpy>=1.17.0", "pkgconfig"]
 build-backend = "poetry.masonry.api"
 
 [tool.poetry]
@@ -64,7 +64,7 @@ tqdm = ">=4.66.6"
 pyfastpfor = ">=1.4.0"
 
 [tool.poetry.dev-dependencies]
-Cython = "^0.29.21"
+Cython = "^0.29.21,<3.0.11"
 pytest = ">=7.0.0"
 pytest-cov = ">=4.0.0"
 coverage = ">=7.0.0"

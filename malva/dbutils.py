@@ -193,8 +193,8 @@ class EnsemblLocalDB:
             
             # Use a single query to fetch all relevant sequences
             cursor.execute('''
-                SELECT sequence FROM gene_data 
-                WHERE gene_name = ? COLLATE NOCASE OR ensembl_id = ?
+                SELECT sequence FROM gene_data
+                WHERE gene_name = ? COLLATE NOCASE OR ensembl_id = ? COLLATE NOCASE
             ''', (gene_id, gene_id))
             
             sequences = [row[0] for row in cursor.fetchall()]

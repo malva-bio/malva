@@ -289,12 +289,12 @@ cdef class KmerFastqParser:
                 sequence_length -= 1
 
             # Calculate the number of kmers
-            if not self.overlapping:
-                num_kmers = (sequence_length + self.kmer_size - 1) // self.kmer_size
-                jump_amount = self.jump_amount
-            else:
-                num_kmers = sequence_length - self.kmer_size
+            if self.overlapping:
                 jump_amount = 1
+            else:
+                jump_amount = self.jump_amount
+
+            num_kmers = (sequence_length - self.kmer_size) // jump_amount + 1
 
             # Allocate memory for the kmer array
             kmer_array.resize(num_kmers)

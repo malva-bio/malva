@@ -320,6 +320,11 @@ def get_cellxmer_parser():
         help="""Directory where the cell-by-mer object will be stored.""",
     )
     parser.add_argument(
+        "--save-kmer",
+        action="store_true",
+        help="""When specified, also saves the cell-by-kmer matrix together with the cell-by-bucket matrix""",
+    )
+    parser.add_argument(
         "--kmer-min",
         type=int,
         required=False,
@@ -475,6 +480,12 @@ def get_combine_parser():
         type=str,
         default=None,
         help="""When merging projects, this is a file with one UUID per line (in order, will assign the integer project ID)""",
+    )
+    parser.add_argument(
+        "--threads",
+        type=int,
+        default=1,
+        help="""Number of threads used for parallel processing""",
     )
     return parser
 
