@@ -1,0 +1,928 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><link rel="author" title="About these documents" href="../../about.html" /><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" />
+        <link rel="prefetch" href="../../_static/malva_logo.svg" as="image" />
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
+        <title>malva.utils - Malva</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=25af2a20" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../index.html"><div class="brand">Malva</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../../_static/malva_logo.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">Malva</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About Malva Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_index.html">index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_quant.html">quant</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_cellxmer.html">cellxmer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_show.html">show</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_serve.html">serve</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.indexes.html">malva.indexes module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.dbutils.html">malva.dbutils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.spacemake.html">malva.spacemake module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Links</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for malva.utils</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">shutil</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">contextlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">contextmanager</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">rich.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">track</span>
+
+
+<div class="viewcode-block" id="FormatError">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.FormatError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">FormatError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Exception raised for errors in the input format.&quot;&quot;&quot;</span>
+
+<div class="viewcode-block" id="FormatError.__init__">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.FormatError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span></div>
+</div>
+
+
+
+<div class="viewcode-block" id="check_cell_string">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.check_cell_string">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_cell_string</span><span class="p">(</span><span class="n">cell</span><span class="o">=</span><span class="s2">&quot;r1[2:27]&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Validates and parses the &#39;cell&#39; string parameter to ensure it</span>
+<span class="sd">    follows the expected format and extracts the read group and index range.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        cell (str): A string specifying the read group and index range</span>
+<span class="sd">        in the format &#39;r1[start:end]&#39; or &#39;r2[start:end]&#39;. Default is &#39;r1[2:27]&#39;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple: A tuple containing the read group (str) and the start</span>
+<span class="sd">        (int) and end (int) indices parsed from the &#39;cell&#39; string.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        FormatError: If the &#39;cell&#39; string does not match the expected format.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;(r[12])\[(\d+):(\d+)\]&quot;</span><span class="p">,</span> <span class="n">cell</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">FormatError</span><span class="p">(</span><span class="s2">&quot;Cell format must be &#39;r1[start:end]&#39; or &#39;r2[start:end]&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">read_group</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+    <span class="n">start</span><span class="p">,</span> <span class="n">end</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">start</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">end</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">read_group</span><span class="p">,</span> <span class="n">start</span><span class="p">,</span> <span class="n">end</span></div>
+
+
+
+<div class="viewcode-block" id="conditional_track">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.conditional_track">[docs]</a>
+<span class="nd">@contextmanager</span>
+<span class="k">def</span><span class="w"> </span><span class="nf">conditional_track</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">silent</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">silent</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">sequence</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">yield</span> <span class="n">track</span><span class="p">(</span><span class="n">sequence</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="n">description</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="safety_check_eval">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.safety_check_eval">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">safety_check_eval</span><span class="p">(</span><span class="n">s</span><span class="p">,</span> <span class="n">danger</span><span class="o">=</span><span class="s2">&quot;();.&quot;</span><span class="p">):</span>
+    <span class="n">chars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">s</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">chars</span> <span class="o">&amp;</span> <span class="nb">set</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">danger</span><span class="p">)):</span>
+        <span class="k">return</span> <span class="kc">False</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span></div>
+
+
+
+<div class="viewcode-block" id="get_module_path">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.get_module_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_module_path</span><span class="p">():</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">malva</span>
+
+    <span class="k">return</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="n">malva</span><span class="o">.</span><span class="vm">__file__</span><span class="p">)</span><span class="o">.</span><span class="n">resolve</span><span class="p">()</span><span class="o">.</span><span class="n">parent</span></div>
+
+
+
+<div class="viewcode-block" id="save_pickle">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.save_pickle">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">save_pickle</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">file_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Save an object to a pickle file.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        obj (any): The object to be saved.</span>
+<span class="sd">        file_path (str): The path to the pickle file.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="s2">&quot;wb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">(</span><span class="n">obj</span><span class="p">,</span> <span class="n">f</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="load_pickle">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.load_pickle">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_pickle</span><span class="p">(</span><span class="n">file_path</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load an object from a pickle file.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        file_path (str): The path to the pickle file.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        any: The loaded object.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">file_path</span><span class="p">,</span> <span class="s2">&quot;rb&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">obj</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">obj</span></div>
+
+
+
+<div class="viewcode-block" id="check_file_exists">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.check_file_exists">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_file_exists</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">except_when</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check whether the file exists.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f (str): Path to the input file.</span>
+<span class="sd">        except_when (bool): Throw exception when file exists (or not). Default: None</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        FileNotFoundError: If the file does not exist.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_path_exists</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">except_when</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">except_when</span> <span class="o">==</span> <span class="n">_path_exists</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The file &#39;</span><span class="si">{</span><span class="n">f</span><span class="si">}</span><span class="s2">&#39; does </span><span class="si">{</span><span class="s1">&#39;not &#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="n">except_when</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="si">}</span><span class="s2">exist&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_path_exists</span></div>
+
+
+
+<div class="viewcode-block" id="check_directory_exists">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.check_directory_exists">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_directory_exists</span><span class="p">(</span><span class="n">path</span><span class="p">,</span> <span class="n">except_when</span><span class="o">=</span><span class="kc">None</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check if a file exists, or if its parent directory exists.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        path (str): Path to the file or directory.</span>
+<span class="sd">        except_when (bool): Throw exception when file exists (or not). Default: None</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True if the parent directory exists or if the file exists, False otherwise.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_ret_val</span> <span class="o">=</span> <span class="kc">False</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">path</span><span class="p">):</span>
+        <span class="n">_ret_val</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+        <span class="c1"># handle file created in the same directory</span>
+        <span class="k">if</span> <span class="n">path</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+            <span class="n">_ret_val</span> <span class="o">=</span> <span class="kc">True</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">_ret_val</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">path</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">except_when</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">except_when</span> <span class="o">==</span> <span class="n">_ret_val</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">FileNotFoundError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The directory &#39;</span><span class="si">{</span><span class="n">path</span><span class="si">}</span><span class="s2">&#39; does </span><span class="si">{</span><span class="s1">&#39;not &#39;</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="ow">not</span><span class="w"> </span><span class="n">except_when</span><span class="w"> </span><span class="k">else</span><span class="w"> </span><span class="s1">&#39;&#39;</span><span class="si">}</span><span class="s2">exist&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">_ret_val</span></div>
+
+
+
+<div class="viewcode-block" id="check_adata_structure">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.check_adata_structure">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_adata_structure</span><span class="p">(</span><span class="n">f</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check the validity of the input Open-ST h5 object.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f (str): Path to the input Open-ST h5 object.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        KeyError: If required properties are not found in the file.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">file</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;obsm/spatial&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;The Open-ST h5 object does not have the &#39;obsm/spatial&#39; property.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;obs/tile_id&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;The Open-ST h5 object does not have the &#39;obs/tile_id&#39; property.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;obs/total_counts&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">KeyError</span><span class="p">(</span><span class="s2">&quot;The Open-ST h5 object does not have the &#39;obs/total_counts&#39; property.&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="s2">&quot;spatial_aligned&quot;</span> <span class="ow">in</span> <span class="n">file</span><span class="p">:</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">warning</span><span class="p">(</span><span class="s2">&quot;The Open-ST h5 object has a &#39;spatial_aligned&#39; layer&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="load_properties_from_adata">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.load_properties_from_adata">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_properties_from_adata</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">properties</span><span class="p">:</span> <span class="nb">list</span> <span class="o">=</span> <span class="p">[</span><span class="s2">&quot;obsm/spatial&quot;</span><span class="p">],</span> <span class="n">backed</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load specified properties from an AnnData file (h5py format).</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        f (str): Path to the AnnData h5py file.</span>
+<span class="sd">        properties (list, optional): List of property paths to load from the file.</span>
+<span class="sd">        backed (bool, optional): If True, data will not be read into memory.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A dictionary containing the loaded properties.</span>
+<span class="sd">            - For each property path specified in the &#39;properties&#39; list:</span>
+<span class="sd">                * The dictionary key is the property path.</span>
+<span class="sd">                * The value is the corresponding parsed property data.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - This function loads specified properties from an AnnData h5py file.</span>
+<span class="sd">        - The &#39;properties&#39; list should consist of property paths within the file.</span>
+<span class="sd">        - Returns a dictionary where keys are property paths and values are the loaded data.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">anndata</span><span class="w"> </span><span class="kn">import</span> <span class="n">AnnData</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">anndata._io.specs</span><span class="w"> </span><span class="kn">import</span> <span class="n">read_elem</span>
+
+    <span class="n">parsed_properties</span> <span class="o">=</span> <span class="p">{}</span>
+
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="n">AnnData</span><span class="p">):</span>
+        <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">:</span>
+            <span class="n">parsed_properties</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_elem</span><span class="p">(</span><span class="n">f</span><span class="p">[</span><span class="n">p</span><span class="p">])</span>
+    <span class="k">elif</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">f</span><span class="p">,</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">backed</span><span class="p">:</span>
+            <span class="n">_f</span> <span class="o">=</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">:</span>
+                <span class="n">parsed_properties</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">_f</span><span class="p">[</span><span class="n">p</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">f</span><span class="p">)</span> <span class="k">as</span> <span class="n">_f</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">properties</span><span class="p">:</span>
+                    <span class="n">parsed_properties</span><span class="p">[</span><span class="n">p</span><span class="p">]</span> <span class="o">=</span> <span class="n">read_elem</span><span class="p">(</span><span class="n">_f</span><span class="p">[</span><span class="n">p</span><span class="p">])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">TypeError</span><span class="p">(</span><span class="s2">&quot;Type of &#39;f&#39; is incorrect. It needs to be an AnnData or str object.&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parsed_properties</span></div>
+
+
+
+<div class="viewcode-block" id="check_obs_unique">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.check_obs_unique">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">check_obs_unique</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">obs_key</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;tile_id&quot;</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">bool</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Check if the values in a specified observation key in an AnnData object are unique.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        adata (AnnData): AnnData object to check for unique observations.</span>
+<span class="sd">        obs_key (str, optional): The name of the observation key to check for uniqueness. Defaults to &quot;tile_id&quot;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        bool: True if the specified observation key has unique values, False otherwise.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">        ValueError: If the specified observation key exists in the AnnData object but is not unique.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">obs_key</span><span class="p">]</span><span class="o">.</span><span class="n">nunique</span><span class="p">()</span> <span class="o">==</span> <span class="mi">1</span></div>
+
+
+
+<div class="viewcode-block" id="copytree2">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.copytree2">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">copytree2</span><span class="p">(</span><span class="n">source</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">dest</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Recursively copy the contents of a source directory to a destination directory.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        source (str): The source directory to be copied.</span>
+<span class="sd">        dest (str): The destination directory where the contents will be copied to.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: The path to the destination directory where the contents were copied.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - This function creates the destination directory and its parent directories if they do not exist.</span>
+<span class="sd">        - It checks if the source and destination directories already exist and have the same size.</span>
+<span class="sd">          If so, it skips copying.</span>
+<span class="sd">        - If the source and destination directories differ in size or do not exist, it performs a recursive copy.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">Path</span><span class="p">(</span><span class="n">dest</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">dest_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">dest</span><span class="p">,</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">basename</span><span class="p">(</span><span class="n">source</span><span class="p">))</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">dest_dir</span><span class="p">)</span> <span class="ow">and</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">dest_dir</span><span class="p">)</span> <span class="o">==</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">getsize</span><span class="p">(</span><span class="n">source</span><span class="p">):</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;The directory </span><span class="si">{OUTFILE}</span><span class="s2"> was already copied. Skipping!&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">shutil</span><span class="o">.</span><span class="n">copytree</span><span class="p">(</span><span class="n">source</span><span class="p">,</span> <span class="n">dest_dir</span><span class="p">,</span> <span class="n">dirs_exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">dest_dir</span></div>
+
+
+
+<div class="viewcode-block" id="get_package_path">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.get_package_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_package_path</span><span class="p">()</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get the absolute path of the directory containing the current Python package.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Absolute path of the directory containing the current Python package.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">openst</span>
+
+    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">abspath</span><span class="p">(</span><span class="n">openst</span><span class="o">.</span><span class="vm">__file__</span><span class="p">))</span></div>
+
+
+
+<div class="viewcode-block" id="get_absolute_package_path">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.get_absolute_package_path">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_absolute_package_path</span><span class="p">(</span><span class="n">relative_path</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the absolute path by concatenating the package path and the relative path.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        relative_path (str): Relative path from the package directory.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Absolute path.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">package_path</span> <span class="o">=</span> <span class="n">get_package_path</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">package_path</span><span class="p">,</span> <span class="n">relative_path</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="h5_to_dict">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.h5_to_dict">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">h5_to_dict</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Recursively converts an h5py.Group object and its nested datasets into a nested dictionary structure.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        adata (h5py.Group): An h5py Group object to be converted.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A nested dictionary representing the structure of the h5py Group object.</span>
+<span class="sd">            Leaf nodes contain strings representing the type and shape (if applicable) of the datasets.</span>
+<span class="sd">            Non-leaf nodes contain nested dictionaries representing their child groups and datasets.</span>
+
+<span class="sd">    Notes:</span>
+<span class="sd">        - Leaf nodes in the resulting dictionary contain strings formatted as &quot;{type}_{shape}&quot;.</span>
+<span class="sd">          If the dataset has no shape attribute (e.g., scalar dataset), shape will be None.</span>
+<span class="sd">          Example: &quot;&lt;class &#39;numpy.ndarray&#39;&gt;_(10,)&quot;</span>
+<span class="sd">        - Non-leaf nodes in the resulting dictionary contain nested dictionaries</span>
+<span class="sd">          representing their child groups and datasets.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+
+    <span class="n">result</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">Group</span><span class="p">):</span>
+            <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">h5_to_dict</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">dataset_type</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="nb">type</span><span class="p">(</span><span class="n">value</span><span class="p">))</span>
+            <span class="n">dataset_shape</span> <span class="o">=</span> <span class="n">value</span><span class="o">.</span><span class="n">shape</span> <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="s2">&quot;shape&quot;</span><span class="p">)</span> <span class="k">else</span> <span class="kc">None</span>
+            <span class="n">result</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">dataset_type</span><span class="si">}</span><span class="s2">_</span><span class="si">{</span><span class="n">dataset_shape</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+
+<div class="viewcode-block" id="write_key_to_h5">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.write_key_to_h5">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">write_key_to_h5</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">key</span><span class="p">,</span> <span class="n">data</span><span class="p">,</span> <span class="n">delete_before</span><span class="o">=</span><span class="kc">False</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">adata</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">delete_before</span><span class="p">:</span>
+        <span class="n">adata</span><span class="p">[</span><span class="n">key</span><span class="p">][:]</span> <span class="o">=</span> <span class="n">data</span>
+    <span class="k">elif</span> <span class="n">key</span> <span class="ow">in</span> <span class="n">adata</span> <span class="ow">and</span> <span class="n">delete_before</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">adata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">adata</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">data</span></div>
+
+
+
+<div class="viewcode-block" id="binary_search">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.binary_search">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">binary_search</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">low</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">high</span> <span class="o">&gt;=</span> <span class="n">low</span><span class="p">:</span>
+        <span class="n">mid</span> <span class="o">=</span> <span class="p">(</span><span class="n">high</span> <span class="o">+</span> <span class="n">low</span><span class="p">)</span> <span class="o">//</span> <span class="mi">2</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="p">[</span><span class="n">mid</span><span class="p">]</span> <span class="o">==</span> <span class="n">x</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">mid</span>
+        <span class="k">elif</span> <span class="n">arr</span><span class="p">[</span><span class="n">mid</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">x</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">binary_search</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">low</span><span class="p">,</span> <span class="n">mid</span> <span class="o">-</span> <span class="mi">1</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">binary_search</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">mid</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span> <span class="n">high</span><span class="p">,</span> <span class="n">x</span><span class="p">)</span>
+
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="o">-</span><span class="mi">1</span></div>
+
+
+
+<div class="viewcode-block" id="group_intervals">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.group_intervals">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">group_intervals</span><span class="p">(</span><span class="n">arr</span><span class="p">,</span> <span class="n">min_interval</span><span class="p">):</span>
+    <span class="n">arr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">arr</span><span class="p">)</span>
+
+    <span class="n">intervals</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">start</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">end</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">arr</span><span class="p">)):</span>
+        <span class="k">if</span> <span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">end</span> <span class="o">&gt;</span> <span class="n">min_interval</span><span class="p">:</span>
+            <span class="n">intervals</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+        <span class="n">end</span> <span class="o">=</span> <span class="n">arr</span><span class="p">[</span><span class="n">i</span><span class="p">]</span>
+
+    <span class="n">intervals</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">start</span><span class="p">,</span> <span class="n">end</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">intervals</span></div>
+
+
+
+<div class="viewcode-block" id="defragment_hdf5_file">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.defragment_hdf5_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">defragment_hdf5_file</span><span class="p">(</span><span class="n">input_file</span><span class="p">,</span> <span class="n">output_file</span><span class="p">,</span> <span class="n">dataset_name</span><span class="p">,</span> <span class="n">chunk_size</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Defragment an HDF5 file by copying the dataset to a new file with optimized chunks and compression.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input_file (str): The path to the original HDF5 file.</span>
+<span class="sd">        output_file (str): The path to the new optimized HDF5 file.</span>
+<span class="sd">        dataset_name (str): The name of the dataset to be defragmented.</span>
+<span class="sd">        chunk_size (tuple, optional): The chunk size to be used for the new dataset. Defaults to (1000,).</span>
+<span class="sd">        compression (str, optional): The compression method to be used for the new dataset. Defaults to None.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        None</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">h5py</span>
+
+    <span class="k">with</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">input_file</span><span class="p">,</span> <span class="s2">&quot;r&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_in</span><span class="p">,</span> <span class="n">h5py</span><span class="o">.</span><span class="n">File</span><span class="p">(</span><span class="n">output_file</span><span class="p">,</span> <span class="s2">&quot;w&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f_out</span><span class="p">:</span>
+        <span class="n">dset_in</span> <span class="o">=</span> <span class="n">f_in</span><span class="p">[</span><span class="n">dataset_name</span><span class="p">]</span>
+
+        <span class="k">if</span> <span class="n">chunk_size</span><span class="p">:</span>
+            <span class="n">chunks</span> <span class="o">=</span> <span class="n">chunk_size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">chunks</span> <span class="o">=</span> <span class="p">(</span><span class="nb">min</span><span class="p">(</span><span class="mi">1000</span><span class="p">,</span> <span class="n">dset_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]),)</span>
+
+        <span class="n">dset_out</span> <span class="o">=</span> <span class="n">f_out</span><span class="o">.</span><span class="n">create_dataset</span><span class="p">(</span>
+            <span class="n">dataset_name</span><span class="p">,</span> <span class="n">shape</span><span class="o">=</span><span class="n">dset_in</span><span class="o">.</span><span class="n">shape</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">dset_in</span><span class="o">.</span><span class="n">dtype</span><span class="p">,</span> <span class="n">chunks</span><span class="o">=</span><span class="n">chunks</span><span class="p">,</span> <span class="n">compression</span><span class="o">=</span><span class="n">compression</span>
+        <span class="p">)</span>
+
+        <span class="n">total_chunks</span> <span class="o">=</span> <span class="p">(</span><span class="n">dset_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span> <span class="o">//</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
+        <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">total_chunks</span><span class="p">):</span>
+            <span class="n">start</span> <span class="o">=</span> <span class="n">i</span> <span class="o">*</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">end</span> <span class="o">=</span> <span class="nb">min</span><span class="p">((</span><span class="n">i</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">chunks</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dset_in</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+            <span class="n">dset_out</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span> <span class="o">=</span> <span class="n">dset_in</span><span class="p">[</span><span class="n">start</span><span class="p">:</span><span class="n">end</span><span class="p">]</span>
+            <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Processed chunk </span><span class="si">{</span><span class="n">i</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">total_chunks</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Defragmentation complete.&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="download_url_to_file">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.download_url_to_file">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">download_url_to_file</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">dst</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sa">r</span><span class="sd">&quot;&quot;&quot;Download object at the given URL to a local path.</span>
+<span class="sd">            Thanks to torch &amp; cellpose</span>
+<span class="sd">    Args:</span>
+<span class="sd">        url (string): URL of the object to download</span>
+<span class="sd">        dst (string): Full path where object will be saved, e.g. `/tmp/temporary_file`</span>
+<span class="sd">        progress (bool, optional): whether or not to display a progress bar to stderr</span>
+<span class="sd">            Default: True</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">ssl</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">urllib.request</span><span class="w"> </span><span class="kn">import</span> <span class="n">urlopen</span>
+
+    <span class="n">file_size</span> <span class="o">=</span> <span class="kc">None</span>
+
+    <span class="n">ssl</span><span class="o">.</span><span class="n">_create_default_https_context</span> <span class="o">=</span> <span class="n">ssl</span><span class="o">.</span><span class="n">_create_unverified_context</span>
+    <span class="n">u</span> <span class="o">=</span> <span class="n">urlopen</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+    <span class="n">meta</span> <span class="o">=</span> <span class="n">u</span><span class="o">.</span><span class="n">info</span><span class="p">()</span>
+    <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">meta</span><span class="p">,</span> <span class="s2">&quot;getheaders&quot;</span><span class="p">):</span>
+        <span class="n">content_length</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">getheaders</span><span class="p">(</span><span class="s2">&quot;Content-Length&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">content_length</span> <span class="o">=</span> <span class="n">meta</span><span class="o">.</span><span class="n">get_all</span><span class="p">(</span><span class="s2">&quot;Content-Length&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">content_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="n">content_length</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">file_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">content_length</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="c1"># We deliberately save it in a temp file and move it after</span>
+    <span class="n">dst</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">expanduser</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+    <span class="n">dst_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">dst</span><span class="p">)</span>
+    <span class="n">f</span> <span class="o">=</span> <span class="n">tempfile</span><span class="o">.</span><span class="n">NamedTemporaryFile</span><span class="p">(</span><span class="n">delete</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="nb">dir</span><span class="o">=</span><span class="n">dst_dir</span><span class="p">)</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">dst</span><span class="p">,</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">chunk_size</span> <span class="o">=</span> <span class="mi">8192</span>
+            <span class="n">chunks</span> <span class="o">=</span> <span class="nb">iter</span><span class="p">(</span><span class="k">lambda</span><span class="p">:</span> <span class="n">u</span><span class="o">.</span><span class="n">read</span><span class="p">(</span><span class="n">chunk_size</span><span class="p">),</span> <span class="sa">b</span><span class="s1">&#39;&#39;</span><span class="p">)</span>
+            
+            <span class="k">for</span> <span class="n">chunk</span> <span class="ow">in</span> <span class="n">track</span><span class="p">(</span>
+                <span class="n">chunks</span><span class="p">,</span>
+                <span class="n">total</span><span class="o">=</span><span class="n">file_size</span> <span class="o">//</span> <span class="n">chunk_size</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="k">if</span> <span class="n">file_size</span> <span class="o">%</span> <span class="n">chunk_size</span> <span class="k">else</span> <span class="mi">0</span><span class="p">),</span>
+                <span class="n">description</span><span class="o">=</span><span class="s2">&quot;Downloading&quot;</span>
+            <span class="p">):</span>
+                <span class="n">f</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="n">chunk</span><span class="p">)</span>
+        
+        <span class="n">shutil</span><span class="o">.</span><span class="n">move</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">dst</span><span class="p">)</span>
+    <span class="k">finally</span><span class="p">:</span>
+        <span class="n">f</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="p">):</span>
+            <span class="n">os</span><span class="o">.</span><span class="n">remove</span><span class="p">(</span><span class="n">f</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+
+
+<span class="n">EXISTING_REFERENCES</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;human_utr&quot;</span><span class="p">:</span> <span class="s2">&quot;human_utr.fa.gz&quot;</span><span class="p">,</span> 
+                       <span class="s2">&quot;human_markers&quot;</span><span class="p">:</span> <span class="s2">&quot;human_markers.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;human_markers_json&quot;</span><span class="p">:</span> <span class="s2">&quot;markers_human.json&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;human_markers_hallmarks&quot;</span><span class="p">:</span> <span class="s2">&quot;human_markers_hallmarks.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;human_markers_hallmarks_json&quot;</span><span class="p">:</span> <span class="s2">&quot;markers_human_hallmarks.json&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;human_cdna&quot;</span><span class="p">:</span> <span class="s2">&quot;human_cdna.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;human_utr_ncrna&quot;</span><span class="p">:</span> <span class="s2">&quot;human_utr_ncrna.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;human_cdna_ncrna&quot;</span><span class="p">:</span> <span class="s2">&quot;human_cdna_ncrna.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;mouse_utr&quot;</span><span class="p">:</span> <span class="s2">&quot;mouse_utr.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;mouse_cdna&quot;</span><span class="p">:</span> <span class="s2">&quot;mouse_cdna.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;mouse_markers&quot;</span><span class="p">:</span> <span class="s2">&quot;mouse_markers.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;mouse_markers_json&quot;</span><span class="p">:</span> <span class="s2">&quot;markers_mouse.json&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;mouse_utr_ncrna&quot;</span><span class="p">:</span> <span class="s2">&quot;mouse_utr_ncrna.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;mouse_cdna_ncrna&quot;</span><span class="p">:</span> <span class="s2">&quot;mouse_cdna_ncrna.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;drosophila_markers&quot;</span><span class="p">:</span> <span class="s2">&quot;drosophila_markers.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;drosophila_markers_json&quot;</span><span class="p">:</span> <span class="s2">&quot;markers_drosophila.json&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;arabidopsis_markers&quot;</span><span class="p">:</span> <span class="s2">&quot;arabidopsis_markers.fa.gz&quot;</span><span class="p">,</span>
+                       <span class="s2">&quot;arabidopsis_markers_json&quot;</span><span class="p">:</span> <span class="s2">&quot;markers_arabidopsis.json&quot;</span><span class="p">,}</span>
+<span class="n">REFERENCES_DIR</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;.malva&quot;</span><span class="p">,</span> <span class="s2">&quot;references&quot;</span><span class="p">)</span>
+<span class="n">_MODEL_URL</span> <span class="o">=</span> <span class="s2">&quot;http://bimsbstatic.mdc-berlin.de/rajewsky/malva/references&quot;</span>
+<div class="viewcode-block" id="get_reference_cache">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.get_reference_cache">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_reference_cache</span><span class="p">(</span><span class="n">reference</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the path to a cached reference file, downloading it if necessary.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    reference : str</span>
+<span class="sd">        Name of the reference to retrieve, must be in EXISTING_REFERENCES</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    str</span>
+<span class="sd">        Path to the cached reference file</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">reference</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">reference</span>
+
+    <span class="k">if</span> <span class="n">reference</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">EXISTING_REFERENCES</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;The reference </span><span class="si">{</span><span class="n">reference</span><span class="si">}</span><span class="s2"> is not available. It has to be one of </span><span class="si">{</span><span class="n">EXISTING_REFERENCES</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">exit</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">REFERENCES_DIR</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">reference_filename</span> <span class="o">=</span> <span class="n">EXISTING_REFERENCES</span><span class="p">[</span><span class="n">reference</span><span class="p">]</span>
+    <span class="n">cached_file</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">fspath</span><span class="p">(</span><span class="n">REFERENCES_DIR</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="n">reference_filename</span><span class="p">))</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">cached_file</span><span class="p">):</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">_MODEL_URL</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">reference_filename</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s1">&#39;Downloading: &quot;</span><span class="si">{</span><span class="n">url</span><span class="si">}</span><span class="s1">&quot; to </span><span class="si">{</span><span class="n">cached_file</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">download_url_to_file</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">cached_file</span><span class="p">,</span> <span class="n">progress</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">cached_file</span></div>
+
+
+
+<div class="viewcode-block" id="convert_to_bytes">
+<a class="viewcode-back" href="../../api/malva.utils.html#malva.utils.convert_to_bytes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">convert_to_bytes</span><span class="p">(</span><span class="n">max_mem</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">int</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Convert a memory size string to its equivalent in bytes.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">    max_mem (str): A string representing memory size, e.g., &#39;100M&#39;, &#39;2G&#39;, &#39;500K&#39;.</span>
+<span class="sd">                   Supports units &#39;K&#39;, &#39;M&#39;, &#39;G&#39;, &#39;T&#39; (case-insensitive).</span>
+<span class="sd">                   The &#39;B&#39; suffix for bytes is optional.</span>
+<span class="sd">                   If no unit is specified, the input is assumed to be in bytes.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">    int: The equivalent size in bytes.</span>
+
+<span class="sd">    Raises:</span>
+<span class="sd">    ValueError: If the input string format is invalid.</span>
+
+<span class="sd">    Examples:</span>
+<span class="sd">    &gt;&gt;&gt; convert_to_bytes(&#39;100M&#39;)</span>
+<span class="sd">    104857600</span>
+<span class="sd">    &gt;&gt;&gt; convert_to_bytes(&#39;2G&#39;)</span>
+<span class="sd">    2147483648</span>
+<span class="sd">    &gt;&gt;&gt; convert_to_bytes(&#39;500K&#39;)</span>
+<span class="sd">    512000</span>
+<span class="sd">    &gt;&gt;&gt; convert_to_bytes(&#39;1024&#39;)</span>
+<span class="sd">    1024</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">max_mem</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">None</span>
+    
+    <span class="n">pattern</span> <span class="o">=</span> <span class="sa">r</span><span class="s1">&#39;^(\d+(\.\d+)?)\s*([kKmMgGtT])?[bB]?$&#39;</span>
+    <span class="n">match</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">pattern</span><span class="p">,</span> <span class="n">max_mem</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+    
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">match</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid memory string format: </span><span class="si">{</span><span class="n">max_mem</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="n">value</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">unit</span> <span class="o">=</span> <span class="n">match</span><span class="o">.</span><span class="n">groups</span><span class="p">()</span>
+    <span class="n">value</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">value</span><span class="p">)</span>
+    
+    <span class="n">units</span> <span class="o">=</span> <span class="p">{</span>
+        <span class="s1">&#39;k&#39;</span><span class="p">:</span> <span class="mi">1024</span><span class="p">,</span>
+        <span class="s1">&#39;m&#39;</span><span class="p">:</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="s1">&#39;g&#39;</span><span class="p">:</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">3</span><span class="p">,</span>
+        <span class="s1">&#39;t&#39;</span><span class="p">:</span> <span class="mi">1024</span> <span class="o">**</span> <span class="mi">4</span>
+    <span class="p">}</span>
+    
+    <span class="k">if</span> <span class="n">unit</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span> <span class="o">*</span> <span class="n">units</span><span class="p">[</span><span class="n">unit</span><span class="o">.</span><span class="n">lower</span><span class="p">()])</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">value</span><span class="p">)</span></div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Malva Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    </body>
+</html>

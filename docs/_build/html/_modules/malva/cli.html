@@ -1,0 +1,1089 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><link rel="author" title="About these documents" href="../../about.html" /><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" />
+        <link rel="prefetch" href="../../_static/malva_logo.svg" as="image" />
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
+        <title>malva.cli - Malva</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=25af2a20" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../index.html"><div class="brand">Malva</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../../_static/malva_logo.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">Malva</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About Malva Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_index.html">index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_quant.html">quant</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_cellxmer.html">cellxmer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_show.html">show</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_serve.html">serve</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.indexes.html">malva.indexes module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.dbutils.html">malva.dbutils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.spacemake.html">malva.spacemake module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Links</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for malva.cli</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">argparse</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+
+<span class="n">INDEX_HELP</span> <span class="o">=</span> <span class="s2">&quot;Build a malva index from spatial transcriptomic sequencing reads&quot;</span>
+
+
+<div class="viewcode-block" id="get_index_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_index_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_index_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">INDEX_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--reads-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">nargs</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Pair of FASTQ files containing the transcriptomic information, </span>
+<span class="s2">        UMI and cell (spatial) barcode (in R1/R2 structure, paired-end)&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--spatial-bc-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Tabular file containing columns BC,X,Y:</span>
+<span class="s2">        BC: the cell (spatial) barcode sequence</span>
+<span class="s2">        X: x spatial coordinate (any units)</span>
+<span class="s2">        Y: y spatial coordinate (any units)&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--index-out&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Valid directory where the malva index (and metadata) will be written into.</span>
+<span class="s2">        If the directory exists, it must not contain files called `malva_index.h5`.</span>
+<span class="s2">        Otherwise, an exception will be thrown.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--flavor&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;openst&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Spatial transcriptomics technology. </span>
+<span class="s2">        These are default configurations to read from the paired FASTQ (or BAM) files.</span>
+<span class="s2">        Other configurations can be provided as a properly formatted `.yaml` file - see</span>
+<span class="s2">        documentation.</span>
+<span class="s2">        </span>
+<span class="s2">        Currently, flavors &#39;openst&#39;, &#39;stereo_seq&#39;, &#39;slide_seq&#39;, &#39;visium&#39;, </span>
+<span class="s2">        &#39;seq_scope_v1&#39;, &#39;sc_10x_v1&#39;, &#39;sc_10x_v3&#39;, &#39;bulk&#39;, or a path to a .yaml file, are supported&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--kmer-length&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">24</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Length (in nucleotides) of indexed k-mers, non-overlapping.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--bulk-id&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;When the technology is bulk, will set all reads to have this ID - also for smart-seq or other well-based technologies.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--chunksize&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">100_000_000</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Consecutive chunk that will be accumulated into RAM before writing.</span>
+<span class="s2">        Consider reducing this number to reduce RAM usage (indexing might be slower).&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--overlapping&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;By default, the index stores non-overlapping k-mers.</span>
+<span class="s2">        With this option, overlapping k-mers are indexed, increasing</span>
+<span class="s2">        sensitivity against mutation events during query time, but also</span>
+<span class="s2">        increases time to build the index and its size.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--merge-chunks&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;When the chunk size is less than the number of total reads, there will be</span>
+<span class="s2">        several separate chunks in the index file. When this option is provided, the different</span>
+<span class="s2">        chunks are merged into a single one, which will reduce index size and improve query speed.</span>
+<span class="s2">        This adds a bit of time to the overall processing.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--threads&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Number of threads used for parallel processing&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_index_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_index_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_index_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;index&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">INDEX_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_index_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_index</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_index">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_index">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_index</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.index</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_index</span>
+
+    <span class="n">_run_index</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+
+<span class="n">SHOW_HELP</span> <span class="o">=</span> <span class="s2">&quot;Query a DNA/RNA sequence against a malva index and visualize spatial distribution&quot;</span>
+
+
+<div class="viewcode-block" id="get_show_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_show_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_show_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">SHOW_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--index-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Valid directory where the malva index (and metadata) is located.</span>
+<span class="s2">        The directory must contain the file `malva_index.h5`.</span>
+<span class="s2">        Otherwise, an exception will be thrown.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--query&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;FASTA file containing the query sequences.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--image-out&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Directory where the image results will be saved into. </span>
+<span class="s2">        </span>
+<span class="s2">        One image in TIFF format will be created per query sequence, under the directory specified in </span>
+<span class="s2">        Filenames are generated from the FASTA header per sequence.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--multichannel&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Will save a single image where channels are the individual query sequences (named)&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--save-npy&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Additionally to TIFF images, the coordinates of spots and the amount of </span>
+<span class="s2">        signal is stored as a N_SPOTS-by-(X, Y, INTENSITY) pickled numpy array.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--scalebar&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;A scalebar is automatically displayed.</span>
+<span class="s2">        The size is by default 25/100 of the image width.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--render-scale&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;What is the scale, respect to the original index spatial dimensions per unit, used for rendering.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--render-smoothing&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mf">1.5</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Sigma value for gaussian smoothing of pseudoimages (for rendering purposes)&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_show_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_show_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_show_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;show&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">SHOW_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_show_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_show</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_show">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_show">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_show</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.show</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_show</span>
+
+    <span class="n">_run_show</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+
+<span class="n">QUANT_HELP</span> <span class="o">=</span> <span class="s2">&quot;Pseudo-quantification of gene expression profiles&quot;</span>
+
+
+<div class="viewcode-block" id="get_quant_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_quant_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_quant_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">QUANT_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--index-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Valid directory where the malva index (and metadata) is located.</span>
+<span class="s2">        The directory must contain the file `malva_index.h5`.</span>
+<span class="s2">        Otherwise, an exception will be thrown.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--reference&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;human_utr&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Reference used for pseudoquantification. Options available: &#39;human_utr&#39;, &#39;human_cdna&#39;, &#39;human_markers&#39;, &#39;human_markers_hallmarks&#39;, &#39;human_utr_ncrna&#39;, &#39;human_cdna_ncrna&#39;, &#39;mouse_utr&#39;, &#39;mouse_markers&#39;, &#39;mouse_cdna&#39;, &#39;mouse_utr_ncrna&#39;, &#39;mouse_cdna_ncrna&#39;, &#39;drosophila_markers&#39;, &#39;arabidopsis_markers&#39;. Default: &#39;human_utr&#39;&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--background-model&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Path to background model (*.bmodel.bin) of k-mer abundance (those too abundant will be ignored during query, e.g., multimappers). Default: None&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--folder-out&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Directory where the gene expression pseudoquantification.</span>
+<span class="s2">        </span>
+<span class="s2">        Three files will be created, similar to cellranger output: </span>
+<span class="s2">        barcodes.txt.gz, features.txt.gz, and matrix.mtx&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--h5ad&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;When specified, Resaves matrix.mtx to AnnData format, at --folder-out.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--bin-size&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Aggregates spatial units from the AnnData file into bins (when --h5ad is specified). Default: 0 (no binning)&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--sliding-size&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">128</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Quantification sliding window size; should match average indexed read length. Default: 128&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--pct-threshold&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Percentage of indexed k-mers (0-1 range) that should match per coordinates for considering match. Default: 65 (percent)&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--kmer-min&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;k-mers occurring less than --kmer-min times are ignored&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--kmer-max&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;k-mers occurring more than --kmer-max times are ignored&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--single-count&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;When specified, malva counts whether the query sequence was found or not</span>
+<span class="s2">        for a specific sequence.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_quant_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_quant_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_quant_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;quant&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">QUANT_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_quant_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_quant</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_quant">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_quant">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_quant</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.quant</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_quant</span>
+
+    <span class="n">_run_quant</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+
+<span class="n">CELLXMER_HELP</span> <span class="o">=</span> <span class="s2">&quot;Convert the malva index to a cell-by-mer AnnData file that can be used for clustering and sequence assembly&quot;</span>
+
+
+<div class="viewcode-block" id="get_cellxmer_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_cellxmer_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_cellxmer_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">CELLXMER_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--index-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Valid directory where the malva index (and metadata) is located.</span>
+<span class="s2">        The directory must contain the file `malva_index.h5`.</span>
+<span class="s2">        Otherwise, an exception will be thrown.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--h5ad-out&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Directory where the cell-by-mer object will be stored.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--save-kmer&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;When specified, also saves the cell-by-kmer matrix together with the cell-by-bucket matrix&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--kmer-min&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;k-mers occurring less than --kmer-min times are ignored&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--kmer-max&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">10_000</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;k-mers occurring more than --kmer-max times are ignored&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--bin-size&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Aggregates spatial units at the final AnnData file to reduce dimensions of final cell-by-kmer matrix&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--w-size&#39;</span><span class="p">,</span> 
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> 
+        <span class="n">default</span><span class="o">=</span><span class="mi">16</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;W-mer size for filtering (default: 16, must be &lt;= k-mer size)&#39;</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--num-buckets&#39;</span><span class="p">,</span> 
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> 
+        <span class="n">default</span><span class="o">=</span><span class="mi">100_000</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Number of buckets for clustering k-mers (default: 100,000)&#39;</span>
+    <span class="p">)</span>
+    <span class="c1"># Add arguments for chunked processing</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--chunk-size&#39;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1_000_000</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Number of k-mers to process in each chunk (default: 1,000,000)&#39;</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--tmp-dir&#39;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Directory for temporary files (default: system temp directory)&#39;</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_cellxmer_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_cellxmer_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_cellxmer_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;cellxmer&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">CELLXMER_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_cellxmer_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_cellxmer</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_cellxmer">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_cellxmer">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_cellxmer</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.cellxmer</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_cellxmer</span>
+
+    <span class="n">_run_cellxmer</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+
+<span class="n">AUTOANNOTATE_HELP</span> <span class="o">=</span> <span class="s2">&quot;Convert the malva index to a cell-by-mer AnnData file that can be used for clustering and sequence assembly&quot;</span>
+
+<div class="viewcode-block" id="get_autoannotate_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_autoannotate_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_autoannotate_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">AUTOANNOTATE_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--adata-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;cell-by-gene matrix in AnnData format, to be annotated. It must be raw (pseudo)counts, unfiltered&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--adata-out&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Where to save the annotated, normalized and filtered AnnData object&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--reference&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;human_markers&quot;</span><span class="p">,</span>
+        <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;human_markers&quot;</span><span class="p">,</span> <span class="s2">&quot;human_markers_hallmarks&quot;</span><span class="p">,</span> <span class="s2">&quot;mouse_markers&quot;</span><span class="p">,</span> <span class="s2">&quot;drosophila_markers&quot;</span><span class="p">,</span> <span class="s2">&quot;arabidopsis_markers&quot;</span><span class="p">],</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Flavor used for annotation. Valid options: &#39;human_markers&#39;, &#39;human_markers_hallmarks&#39;, &#39;mouse_markers&#39;. More will be available soon...&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--savefig&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">required</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Folder where the output plots are saved. When not specified, plots are not generated nor saved.&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_autoannotate_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_autoannotate_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_autoannotate_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;autoannotate&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">AUTOANNOTATE_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_autoannotate_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_autoannotate</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_autoannotate">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_autoannotate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_autoannotate</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.autoannotate</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_autoannotate</span>
+
+    <span class="n">_run_autoannotate</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+
+<span class="n">COMBINE_HELP</span> <span class="o">=</span> <span class="s2">&quot;Combine various sub-indexes from the same sample (e.g., processed in parallel) into a single index&quot;</span>
+
+
+<div class="viewcode-block" id="get_combine_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_combine_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_combine_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">COMBINE_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--index-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Valid directory where the malva indices are located as subdirectories.</span>
+<span class="s2">        The new combined index (and metadata) will be stored at this folder.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--merge-chunks&quot;</span><span class="p">,</span>
+        <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;When the chunk size is less than the number of total reads, there will be</span>
+<span class="s2">        several separate chunks in the index file. When this option is provided, the different</span>
+<span class="s2">        chunks are merged into a single one, which will reduce index size and improve query speed.</span>
+<span class="s2">        This adds a bit of time to the overall processing.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s1">&#39;--merge-projects&#39;</span><span class="p">,</span> 
+        <span class="n">action</span><span class="o">=</span><span class="s1">&#39;store_true&#39;</span><span class="p">,</span> 
+        <span class="n">help</span><span class="o">=</span><span class="s1">&#39;Merge data from different projects, preserving project identities&#39;</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--uuid&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;When merging projects, this is a file with one UUID per line (in order, will assign the integer project ID)&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--threads&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Number of threads used for parallel processing&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_combine_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_combine_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_combine_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;combine&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">COMBINE_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_combine_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_combine</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_combine">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_combine">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_combine</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.combine</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_combine</span>
+
+    <span class="n">_run_combine</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+
+<span class="n">SERVE_HELP</span> <span class="o">=</span> <span class="s2">&quot;Webserver for interactive spatial querying of malva indexes&quot;</span>
+
+
+<div class="viewcode-block" id="get_serve_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_serve_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_serve_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">SERVE_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--index-in&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Valid directory where the malva index (and metadata) is located.</span>
+<span class="s2">        The directory must contain the file `malva_index.h5`.</span>
+<span class="s2">        Otherwise, an exception will be thrown.&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--uuid&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;UUID for the server&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--annotation&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Path to a tippecanoe annotation (vector-tile GeoJSON)&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--port&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">8888</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Port where the webserver will be listening to&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--address&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="s2">&quot;127.0.0.1&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Address where the webserver will be available at&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--max-mem&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Maximum allowed memory usage for the k-mer index&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--max-len&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1000</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;&quot;&quot;Maximum allowed length for DNA/RNA queries&quot;&quot;&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span>
+        <span class="s2">&quot;--rescale-coords&quot;</span><span class="p">,</span>
+        <span class="nb">type</span><span class="o">=</span><span class="nb">float</span><span class="p">,</span>
+        <span class="n">default</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Provided coordinate units (from the index) are rescaled by this factor&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_serve_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_serve_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_serve_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;serve&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">SERVE_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_serve_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_serve</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_serve">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_serve">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_serve</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.serve.serve</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_serve</span>
+
+    <span class="n">_run_serve</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+<span class="n">SEARCH_HELP</span> <span class="o">=</span> <span class="s2">&quot;Query a malva server malva indexes for sequences&quot;</span>
+
+<div class="viewcode-block" id="get_search_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.get_search_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_search_parser</span><span class="p">():</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">description</span><span class="o">=</span><span class="n">SEARCH_HELP</span><span class="p">,</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">add_help</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+    <span class="p">)</span>
+    <span class="n">subparsers</span> <span class="o">=</span> <span class="n">parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">dest</span><span class="o">=</span><span class="s2">&quot;command&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Command to run&quot;</span><span class="p">)</span>
+
+    <span class="n">default_server</span> <span class="o">=</span> <span class="s2">&quot;http://localhost:7175&quot;</span>
+    
+    <span class="n">search_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">&quot;query&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Search sequences in a Malva dataset&quot;</span><span class="p">)</span>
+    <span class="n">search_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--file&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;File containing sequences to search (FASTA format)&quot;</span><span class="p">)</span>
+    <span class="n">search_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--sequence&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Sequence to search&quot;</span><span class="p">)</span>
+    <span class="n">search_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--dataset&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Dataset ID to search (if not specified, uses all)&quot;</span><span class="p">)</span>
+    <span class="n">search_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output file for results&quot;</span><span class="p">)</span>
+    <span class="n">search_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--server&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">default_server</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Server URL (default: </span><span class="si">{</span><span class="n">default_server</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="n">search_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--wait&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Wait for job completion&quot;</span><span class="p">)</span>
+    <span class="n">search_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--format&quot;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output format (default: text)&quot;</span><span class="p">)</span>
+    
+    <span class="n">list_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">&quot;list-datasets&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;List available datasets&quot;</span><span class="p">)</span>
+    <span class="n">list_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--server&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">default_server</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Server URL (default: </span><span class="si">{</span><span class="n">default_server</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    
+    <span class="n">status_parser</span> <span class="o">=</span> <span class="n">subparsers</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span><span class="s2">&quot;status&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Check status of a search job&quot;</span><span class="p">)</span>
+    <span class="n">status_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;job_id&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Job ID to check&quot;</span><span class="p">)</span>
+    <span class="n">status_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--output&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output file for results&quot;</span><span class="p">)</span>
+    <span class="n">status_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--server&quot;</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="n">default_server</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;Server URL (default: </span><span class="si">{</span><span class="n">default_server</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">)</span>
+    <span class="n">status_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--format&quot;</span><span class="p">,</span> <span class="n">choices</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="s2">&quot;json&quot;</span><span class="p">],</span> <span class="n">default</span><span class="o">=</span><span class="s2">&quot;text&quot;</span><span class="p">,</span> <span class="n">help</span><span class="o">=</span><span class="s2">&quot;Output format (default: text)&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="setup_search_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.setup_search_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">setup_search_parser</span><span class="p">(</span><span class="n">parent_parser</span><span class="p">):</span>
+    <span class="n">parser</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_parser</span><span class="p">(</span>
+        <span class="s2">&quot;search&quot;</span><span class="p">,</span>
+        <span class="n">help</span><span class="o">=</span><span class="n">SEARCH_HELP</span><span class="p">,</span>
+        <span class="n">parents</span><span class="o">=</span><span class="p">[</span><span class="n">get_search_parser</span><span class="p">()],</span>
+    <span class="p">)</span>
+    <span class="n">parser</span><span class="o">.</span><span class="n">set_defaults</span><span class="p">(</span><span class="n">func</span><span class="o">=</span><span class="n">cmd_run_search</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parser</span></div>
+
+
+
+<div class="viewcode-block" id="cmd_run_search">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmd_run_search">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmd_run_search</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.search</span><span class="w"> </span><span class="kn">import</span> <span class="n">_run_search</span>
+    <span class="n">_run_search</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="cmdline_args">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmdline_args">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmdline_args</span><span class="p">():</span>
+    <span class="n">parent_parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;malva: fast indexing and querying of genomic sequences from spatial transcriptomics data&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parent_parser_subparsers</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;commands&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;subcommand&quot;</span><span class="p">)</span>
+    <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--version&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">)</span>
+
+    <span class="n">setup_index_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_show_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_serve_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_quant_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_cellxmer_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_combine_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_autoannotate_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_search_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+
+    <span class="n">parsed_args</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">parent_parser</span><span class="p">,</span> <span class="n">parsed_args</span></div>
+
+
+<div class="viewcode-block" id="cmdline_parser">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmdline_parser">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmdline_parser</span><span class="p">():</span>
+    <span class="n">parent_parser</span> <span class="o">=</span> <span class="n">argparse</span><span class="o">.</span><span class="n">ArgumentParser</span><span class="p">(</span>
+        <span class="n">allow_abbrev</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">description</span><span class="o">=</span><span class="s2">&quot;malva: fast indexing and querying of genomic sequences from spatial transcriptomics data&quot;</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">parent_parser_subparsers</span> <span class="o">=</span> <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_subparsers</span><span class="p">(</span><span class="n">title</span><span class="o">=</span><span class="s2">&quot;commands&quot;</span><span class="p">,</span> <span class="n">dest</span><span class="o">=</span><span class="s2">&quot;subcommand&quot;</span><span class="p">)</span>
+    <span class="n">parent_parser</span><span class="o">.</span><span class="n">add_argument</span><span class="p">(</span><span class="s2">&quot;--version&quot;</span><span class="p">,</span> <span class="n">action</span><span class="o">=</span><span class="s2">&quot;store_true&quot;</span><span class="p">)</span>
+
+    <span class="n">setup_index_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_show_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_serve_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_quant_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_cellxmer_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+    <span class="n">setup_combine_parser</span><span class="p">(</span><span class="n">parent_parser_subparsers</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">parent_parser</span></div>
+
+
+<div class="viewcode-block" id="cmdline_main">
+<a class="viewcode-back" href="../../api/malva.cli.html#malva.cli.cmdline_main">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">cmdline_main</span><span class="p">():</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">importlib.metadata</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">sys</span>
+
+    <span class="kn">import</span><span class="w"> </span><span class="nn">setproctitle</span>
+
+    <span class="n">setproctitle</span><span class="o">.</span><span class="n">setproctitle</span><span class="p">(</span><span class="s2">&quot;malva &quot;</span> <span class="o">+</span> <span class="s2">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">sys</span><span class="o">.</span><span class="n">argv</span><span class="p">[</span><span class="mi">1</span><span class="p">:]))</span>
+
+    <span class="n">parser</span><span class="p">,</span> <span class="n">args</span> <span class="o">=</span> <span class="n">cmdline_args</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">version</span> <span class="ow">and</span> <span class="n">args</span><span class="o">.</span><span class="n">subcommand</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="n">importlib</span><span class="o">.</span><span class="n">metadata</span><span class="o">.</span><span class="n">version</span><span class="p">(</span><span class="s2">&quot;malva&quot;</span><span class="p">))</span>
+        <span class="k">return</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">del</span> <span class="n">args</span><span class="o">.</span><span class="n">version</span>
+
+    <span class="k">if</span> <span class="s2">&quot;func&quot;</span> <span class="ow">in</span> <span class="n">args</span><span class="p">:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;malva </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">subcommand</span><span class="si">}</span><span class="s2"> - running with the following parameters:&quot;</span><span class="p">)</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="vm">__dict__</span><span class="p">)</span>
+        <span class="n">args</span><span class="o">.</span><span class="n">func</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">parser</span><span class="o">.</span><span class="n">print_help</span><span class="p">()</span>
+        <span class="k">return</span> <span class="mi">0</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">cmdline_main</span><span class="p">()</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Malva Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    </body>
+</html>

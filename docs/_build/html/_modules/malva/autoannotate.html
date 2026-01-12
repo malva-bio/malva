@@ -1,0 +1,1425 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><link rel="author" title="About these documents" href="../../about.html" /><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" />
+        <link rel="prefetch" href="../../_static/malva_logo.svg" as="image" />
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
+        <title>malva.autoannotate - Malva</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=25af2a20" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../index.html"><div class="brand">Malva</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../../_static/malva_logo.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">Malva</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About Malva Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_index.html">index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_quant.html">quant</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_cellxmer.html">cellxmer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_show.html">show</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_serve.html">serve</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.indexes.html">malva.indexes module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.dbutils.html">malva.dbutils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.spacemake.html">malva.spacemake module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Links</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for malva.autoannotate</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">scanpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">sc</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">matplotlib.pyplot</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">plt</span>
+
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy</span><span class="w"> </span><span class="kn">import</span> <span class="n">stats</span><span class="p">,</span> <span class="n">optimize</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">malva.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_reference_cache</span><span class="p">,</span> <span class="n">check_directory_exists</span>
+
+<div class="viewcode-block" id="load_marker_genes">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.load_marker_genes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_marker_genes</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="n">exclude_technical</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load marker genes from a JSON file, optionally excluding technical genes</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    json_path : str</span>
+<span class="sd">        Path to the marker gene JSON file</span>
+<span class="sd">    exclude_technical : bool</span>
+<span class="sd">        If True, exclude any gene categories that start with &#39;technical_&#39;</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    dict</span>
+<span class="sd">        Dictionary of filtered marker genes</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">json_path</span><span class="p">,</span> <span class="s1">&#39;r&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="n">all_markers</span> <span class="o">=</span> <span class="n">json</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+    
+    <span class="c1"># Filter out technical gene categories if requested</span>
+    <span class="k">if</span> <span class="n">exclude_technical</span><span class="p">:</span>
+        <span class="n">filtered_markers</span> <span class="o">=</span> <span class="p">{</span><span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="n">all_markers</span><span class="o">.</span><span class="n">items</span><span class="p">()</span> 
+                           <span class="k">if</span> <span class="ow">not</span> <span class="n">k</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;technical_&#39;</span><span class="p">)}</span>
+        
+        <span class="c1"># Log what was excluded</span>
+        <span class="n">excluded</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="n">all_markers</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">filtered_markers</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+        <span class="k">if</span> <span class="n">excluded</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Excluded technical categories: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">excluded</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">filtered_markers</span> <span class="o">=</span> <span class="n">all_markers</span>
+    
+    <span class="k">return</span> <span class="n">filtered_markers</span></div>
+
+
+<div class="viewcode-block" id="run_clustering">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.run_clustering">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">run_clustering</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">savefig</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">resolution</span><span class="o">=</span><span class="mi">1</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Automated analysis pipeline for filtering and clustering</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        AnnData object containing raw counts (not filtered nor normalized)</span>
+<span class="sd">    savefig : str, default=None</span>
+<span class="sd">        Folder where to save the plots. By default, save in current path</span>
+<span class="sd">    resolution : float, default=1</span>
+<span class="sd">        Resolution used for leiden clustering (higher values = more clusters)</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    adata_filtered : AnnData</span>
+<span class="sd">        AnnData object containing only the called cells    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">pca</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">svd_solver</span><span class="o">=</span><span class="s1">&#39;arpack&#39;</span><span class="p">,</span> <span class="n">mask_var</span><span class="o">=</span><span class="s1">&#39;non_technical&#39;</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">neighbors</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">leiden</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">resolution</span> <span class="o">=</span> <span class="n">resolution</span><span class="p">,</span> <span class="n">key_added</span><span class="o">=</span><span class="s2">&quot;leiden&quot;</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">umap</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+
+    <span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">rank_genes_groups</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="s1">&#39;leiden&#39;</span><span class="p">,</span> <span class="n">use_raw</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">pts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">dendrogram</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="s1">&#39;leiden&#39;</span><span class="p">,</span> <span class="n">use_raw</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">savefig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">umap</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;total_counts&quot;</span><span class="p">,</span> <span class="s2">&quot;leiden&quot;</span><span class="p">],</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;inferno&#39;</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">savefig</span><span class="p">,</span> <span class="s2">&quot;umap_counts_clusters.png&quot;</span><span class="p">))</span>
+        <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">rank_genes_groups_dotplot</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">n_genes</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span> <span class="n">standard_scale</span><span class="o">=</span><span class="s1">&#39;var&#39;</span><span class="p">,</span> <span class="n">min_logfoldchange</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">savefig</span><span class="p">,</span> <span class="s2">&quot;dotplot_markers.png&quot;</span><span class="p">))</span>
+        
+        <span class="n">bestmarkers</span> <span class="o">=</span> <span class="p">[</span><span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s2">&quot;rank_genes_groups&quot;</span><span class="p">][</span><span class="s2">&quot;names&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">][</span><span class="n">i</span><span class="p">]</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s2">&quot;rank_genes_groups&quot;</span><span class="p">][</span><span class="s2">&quot;names&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]))]</span>
+        <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">umap</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="n">bestmarkers</span><span class="p">,</span> <span class="n">legend_fontsize</span><span class="o">=</span><span class="mi">4</span><span class="p">,</span> <span class="n">legend_fontoutline</span><span class="o">=</span><span class="mf">0.1</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;inferno&#39;</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">savefig</span><span class="p">,</span> <span class="s2">&quot;umap_markers.png&quot;</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+<div class="viewcode-block" id="preprocess_adata">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.preprocess_adata">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">preprocess_adata</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">umi_cutoff</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">cell_cutoff</span><span class="o">=</span><span class="mi">2</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Preprocesses by filtering cells (by counts) and genes (by cells),</span>
+<span class="sd">    and then applies normalization. Copies raw counts.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        AnnData object containing raw counts (not filtered nor normalized)</span>
+<span class="sd">        umi_cutoff : int</span>
+<span class="sd">        UMI count threshold used for cell filtering</span>
+<span class="sd">    cell_cutoff : int</span>
+<span class="sd">        Cell count threshold used for gene filtering</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    adata_filtered : AnnData</span>
+<span class="sd">        AnnData object containing only the called cells</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">raw</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">filter_cells</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">min_counts</span><span class="o">=</span><span class="n">umi_cutoff</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">filter_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">min_cells</span><span class="o">=</span><span class="n">cell_cutoff</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">normalize_total</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">log1p</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+
+<div class="viewcode-block" id="score_cells_by_cell_type">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.score_cells_by_cell_type">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">score_cells_by_cell_type</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">cell_markers</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Score cells for each cell type based on marker gene expression</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data matrix with cells as rows and genes as columns</span>
+<span class="sd">    cell_markers : dict</span>
+<span class="sd">        Dictionary mapping cell types to lists of marker genes</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Input object with scores added to obs</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Ensure normalized and log-transformed data</span>
+    <span class="k">if</span> <span class="s1">&#39;log1p&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Note: Data should be normalized and log-transformed&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Add a score for each cell type</span>
+    <span class="k">for</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">markers</span> <span class="ow">in</span> <span class="n">cell_markers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="s2">&quot;technical_&quot;</span> <span class="ow">in</span> <span class="n">cell_type</span> <span class="ow">or</span> <span class="s2">&quot;HALLMARK_&quot;</span> <span class="ow">in</span> <span class="n">cell_type</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="c1"># Only use markers that are in the dataset</span>
+        <span class="n">available_markers</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">markers</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="p">]</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">available_markers</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="c1"># Use scanpy&#39;s score_genes function</span>
+                <span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">score_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gene_list</span><span class="o">=</span><span class="n">available_markers</span><span class="p">,</span> 
+                                <span class="n">score_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;score_</span><span class="si">{</span><span class="n">cell_type</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39; &#39;</span><span class="p">,</span><span class="w"> </span><span class="s1">&#39;_&#39;</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Scored </span><span class="si">{</span><span class="n">cell_type</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">available_markers</span><span class="p">)</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">markers</span><span class="p">)</span><span class="si">}</span><span class="s2"> markers found&quot;</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: No markers found for </span><span class="si">{</span><span class="n">cell_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">except</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: No markers found for </span><span class="si">{</span><span class="n">cell_type</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+<div class="viewcode-block" id="get_top_cell_types">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.get_top_cell_types">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_top_cell_types</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">n_types</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">score_prefix</span><span class="o">=</span><span class="s2">&quot;score_&quot;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    For each cell, get the top scoring cell types</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data with cell type scores</span>
+<span class="sd">    n_types : int</span>
+<span class="sd">        Number of top cell types to retrieve</span>
+<span class="sd">    score_prefix : str</span>
+<span class="sd">        Prefix for score columns</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    top_cell_types : pd.DataFrame</span>
+<span class="sd">        DataFrame with top cell types and scores for each cell</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get all score columns</span>
+    <span class="n">score_cols</span> <span class="o">=</span> <span class="p">[</span><span class="n">col</span> <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span> <span class="k">if</span> <span class="n">col</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="n">score_prefix</span><span class="p">)]</span>
+    
+    <span class="c1"># Create a DataFrame with all scores</span>
+    <span class="n">scores_df</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">score_cols</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="c1"># Prepare output DataFrame</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">obs_names</span><span class="p">)</span>
+    
+    <span class="c1"># For each cell, get the top cell types</span>
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_types</span> <span class="o">+</span> <span class="mi">1</span><span class="p">):</span>
+        <span class="c1"># Get the column with the highest score</span>
+        <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;cell_type_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scores_df</span><span class="o">.</span><span class="n">idxmax</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span><span class="o">.</span><span class="n">apply</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="n">score_prefix</span><span class="p">):]</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="s1">&#39;_&#39;</span><span class="p">,</span> <span class="s1">&#39; &#39;</span><span class="p">))</span>
+        <span class="n">result</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;score_</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">scores_df</span><span class="o">.</span><span class="n">max</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+        
+        <span class="c1"># Remove the top cell type from consideration for the next iteration</span>
+        <span class="k">for</span> <span class="n">cell</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs_names</span><span class="p">:</span>
+            <span class="n">scores_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cell</span><span class="p">,</span> <span class="n">scores_df</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cell</span><span class="p">]</span><span class="o">.</span><span class="n">idxmax</span><span class="p">()]</span> <span class="o">=</span> <span class="o">-</span><span class="mi">1</span>
+    
+    <span class="k">return</span> <span class="n">result</span></div>
+
+
+<div class="viewcode-block" id="annotate_clusters">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.annotate_clusters">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">annotate_clusters</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">cell_markers</span><span class="p">,</span> <span class="n">cluster_key</span><span class="o">=</span><span class="s1">&#39;leiden&#39;</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="n">min_markers</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span> <span class="n">savefig</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Score and annotate cell types based on cluster-level expression signatures</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data matrix with clustering results</span>
+<span class="sd">    cell_markers : dict</span>
+<span class="sd">        Dictionary mapping cell types to lists of marker genes</span>
+<span class="sd">    cluster_key : str</span>
+<span class="sd">        Key in adata.obs for cluster assignments</span>
+<span class="sd">    threshold : float</span>
+<span class="sd">        Minimum differential expression score threshold for a marker to be considered</span>
+<span class="sd">    min_markers : int</span>
+<span class="sd">        Minimum number of markers needed for a cell type to be assigned</span>
+<span class="sd">    savefig : str</span>
+<span class="sd">        Path where the plots will be saved. If None, then no plots are saved</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Input object with cell type annotations added</span>
+<span class="sd">    annotations : pd.DataFrame</span>
+<span class="sd">        Detailed annotation information for each cluster</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Get unique clusters</span>
+    <span class="n">clusters</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">cluster_key</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    
+    <span class="c1"># Create a DataFrame to store cluster-level annotations</span>
+    <span class="n">cluster_annotations</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">clusters</span><span class="p">)</span>
+    
+    <span class="c1"># For each cluster, identify the most likely cell type</span>
+    <span class="k">for</span> <span class="n">cluster</span> <span class="ow">in</span> <span class="n">clusters</span><span class="p">:</span>
+        <span class="c1"># Get cells in this cluster</span>
+        <span class="n">cluster_mask</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">cluster_key</span><span class="p">]</span> <span class="o">==</span> <span class="n">cluster</span>
+        <span class="n">cluster_cells</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">cluster_mask</span><span class="p">]</span>
+        
+        <span class="c1"># Calculate average expression by cluster for all genes</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">cluster_cells</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">cluster_expr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">cluster_cells</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">cluster_expr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">cluster_cells</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">(),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        
+        <span class="c1"># Calculate average expression for all other clusters</span>
+        <span class="n">other_mask</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">cluster_key</span><span class="p">]</span> <span class="o">!=</span> <span class="n">cluster</span>
+        <span class="n">other_cells</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">other_mask</span><span class="p">]</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">other_cells</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">other_expr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">other_cells</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">other_expr</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">other_cells</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">(),</span> <span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+        
+        <span class="c1"># Calculate fold change and differential score</span>
+        <span class="n">epsilon</span> <span class="o">=</span> <span class="mf">1e-9</span>  <span class="c1"># To avoid division by zero</span>
+        <span class="n">fold_change</span> <span class="o">=</span> <span class="p">(</span><span class="n">cluster_expr</span> <span class="o">+</span> <span class="n">epsilon</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">other_expr</span> <span class="o">+</span> <span class="n">epsilon</span><span class="p">)</span>
+        <span class="n">diff_score</span> <span class="o">=</span> <span class="n">cluster_expr</span> <span class="o">-</span> <span class="n">other_expr</span>
+        
+        <span class="c1"># Score each cell type based on its markers</span>
+        <span class="n">cell_type_scores</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">cell_type_marker_counts</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">cell_type_top_markers</span> <span class="o">=</span> <span class="p">{}</span>
+        
+        <span class="k">for</span> <span class="n">cell_type</span><span class="p">,</span> <span class="n">markers</span> <span class="ow">in</span> <span class="n">cell_markers</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="k">if</span> <span class="s2">&quot;technical_&quot;</span> <span class="ow">in</span> <span class="n">cell_type</span> <span class="ow">or</span> <span class="s2">&quot;HALLMARK_&quot;</span> <span class="ow">in</span> <span class="n">cell_type</span><span class="p">:</span>
+                <span class="k">continue</span>
+                
+            <span class="c1"># Only use markers that are in the dataset</span>
+            <span class="n">available_markers</span> <span class="o">=</span> <span class="p">[</span><span class="n">m</span> <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">markers</span> <span class="k">if</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">available_markers</span><span class="p">)</span> <span class="o">&lt;</span> <span class="n">min_markers</span><span class="p">:</span>
+                <span class="k">continue</span>
+                
+            <span class="c1"># Calculate marker scores for this cell type</span>
+            <span class="n">marker_scores</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">marker</span> <span class="ow">in</span> <span class="n">available_markers</span><span class="p">:</span>
+                <span class="n">marker_idx</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="o">.</span><span class="n">get_loc</span><span class="p">(</span><span class="n">marker</span><span class="p">)</span>
+                <span class="n">marker_score</span> <span class="o">=</span> <span class="n">diff_score</span><span class="p">[</span><span class="n">marker_idx</span><span class="p">]</span>
+                <span class="n">marker_fc</span> <span class="o">=</span> <span class="n">fold_change</span><span class="p">[</span><span class="n">marker_idx</span><span class="p">]</span>
+                
+                <span class="c1"># Only count markers that are differentially expressed in this cluster</span>
+                <span class="k">if</span> <span class="n">marker_score</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">:</span>
+                    <span class="n">marker_scores</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">marker</span><span class="p">,</span> <span class="n">marker_score</span><span class="p">,</span> <span class="n">marker_fc</span><span class="p">))</span>
+            
+            <span class="c1"># Sort markers by score</span>
+            <span class="n">marker_scores</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            
+            <span class="c1"># Calculate overall score based on top markers</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">marker_scores</span><span class="p">)</span> <span class="o">&gt;=</span> <span class="n">min_markers</span><span class="p">:</span>
+                <span class="c1"># Use geometric mean of top marker scores to reduce influence of outliers</span>
+                <span class="n">top_scores</span> <span class="o">=</span> <span class="p">[</span><span class="n">score</span> <span class="k">for</span> <span class="n">_</span><span class="p">,</span> <span class="n">score</span><span class="p">,</span> <span class="n">_</span> <span class="ow">in</span> <span class="n">marker_scores</span><span class="p">[:</span><span class="mi">10</span><span class="p">]]</span>
+                <span class="k">if</span> <span class="n">top_scores</span><span class="p">:</span>
+                    <span class="n">overall_score</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">top_scores</span><span class="p">)</span> <span class="o">+</span> <span class="n">epsilon</span><span class="p">)))</span>
+                    <span class="n">cell_type_scores</span><span class="p">[</span><span class="n">cell_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">overall_score</span>
+                    <span class="n">cell_type_marker_counts</span><span class="p">[</span><span class="n">cell_type</span><span class="p">]</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">marker_scores</span><span class="p">)</span>
+                    <span class="n">cell_type_top_markers</span><span class="p">[</span><span class="n">cell_type</span><span class="p">]</span> <span class="o">=</span> <span class="n">marker_scores</span><span class="p">[:</span><span class="mi">5</span><span class="p">]</span>  <span class="c1"># Store top 5 markers</span>
+        
+        <span class="c1"># Initialize variables to handle the case where no cell types meet criteria</span>
+        <span class="n">cell_label</span> <span class="o">=</span> <span class="s2">&quot;Unknown&quot;</span>
+        <span class="n">confidence</span> <span class="o">=</span> <span class="s2">&quot;low&quot;</span>
+        <span class="n">marker_str</span> <span class="o">=</span> <span class="s2">&quot;No significant markers&quot;</span>
+        <span class="n">best_score</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">best_cell_type</span> <span class="o">=</span> <span class="kc">None</span>  <span class="c1"># Initialize to avoid UnboundLocalError</span>
+        
+        <span class="c1"># Find the best matching cell type</span>
+        <span class="k">if</span> <span class="n">cell_type_scores</span><span class="p">:</span>
+            <span class="c1"># Sort cell types by score</span>
+            <span class="n">sorted_cell_types</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="n">cell_type_scores</span><span class="o">.</span><span class="n">items</span><span class="p">(),</span> <span class="n">key</span><span class="o">=</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> <span class="n">reverse</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+            <span class="n">best_cell_type</span> <span class="o">=</span> <span class="n">sorted_cell_types</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">best_score</span> <span class="o">=</span> <span class="n">sorted_cell_types</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+            
+            <span class="c1"># Check if the best match is significantly better than the second best</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_cell_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+                <span class="n">second_best</span> <span class="o">=</span> <span class="n">sorted_cell_types</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+                <span class="n">second_score</span> <span class="o">=</span> <span class="n">sorted_cell_types</span><span class="p">[</span><span class="mi">1</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+                <span class="n">score_ratio</span> <span class="o">=</span> <span class="n">best_score</span> <span class="o">/</span> <span class="p">(</span><span class="n">second_score</span> <span class="o">+</span> <span class="n">epsilon</span><span class="p">)</span>
+                
+                <span class="c1"># If scores are close, might be a mixed population</span>
+                <span class="k">if</span> <span class="n">score_ratio</span> <span class="o">&lt;</span> <span class="mf">1.5</span><span class="p">:</span>  <span class="c1"># Threshold for considering mixed population</span>
+                    <span class="n">cell_label</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">best_cell_type</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">second_best</span><span class="si">}</span><span class="s2">&quot;</span>
+                    <span class="n">confidence</span> <span class="o">=</span> <span class="s2">&quot;medium&quot;</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">cell_label</span> <span class="o">=</span> <span class="n">best_cell_type</span>
+                    <span class="n">confidence</span> <span class="o">=</span> <span class="s2">&quot;high&quot;</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">cell_label</span> <span class="o">=</span> <span class="n">best_cell_type</span>
+                <span class="n">confidence</span> <span class="o">=</span> <span class="s2">&quot;high&quot;</span>
+                
+            <span class="c1"># Get top markers for the best cell type</span>
+            <span class="n">top_markers</span> <span class="o">=</span> <span class="n">cell_type_top_markers</span><span class="p">[</span><span class="n">best_cell_type</span><span class="p">]</span>
+            <span class="n">marker_str</span> <span class="o">=</span> <span class="s2">&quot;, &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">m</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">s</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">x)&quot;</span> <span class="k">for</span> <span class="n">m</span><span class="p">,</span> <span class="n">s</span><span class="p">,</span> <span class="n">fc</span> <span class="ow">in</span> <span class="n">top_markers</span><span class="p">])</span>
+        
+        <span class="c1"># Store annotation for this cluster</span>
+        <span class="n">cluster_annotations</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cluster</span><span class="p">,</span> <span class="s2">&quot;cell_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_label</span>
+        <span class="n">cluster_annotations</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cluster</span><span class="p">,</span> <span class="s2">&quot;confidence&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">confidence</span>
+        <span class="n">cluster_annotations</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cluster</span><span class="p">,</span> <span class="s2">&quot;score&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">best_score</span>
+        <span class="n">cluster_annotations</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cluster</span><span class="p">,</span> <span class="s2">&quot;n_markers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cell_type_marker_counts</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">best_cell_type</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">best_cell_type</span> <span class="k">else</span> <span class="mi">0</span>
+        <span class="n">cluster_annotations</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cluster</span><span class="p">,</span> <span class="s2">&quot;top_markers&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">marker_str</span>
+    
+    <span class="c1"># Add cell type annotations to original data</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s2">&quot;cell_type&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">cluster_key</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">cluster_annotations</span><span class="p">[</span><span class="s2">&quot;cell_type&quot;</span><span class="p">])</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s2">&quot;annotation_confidence&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">cluster_key</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">cluster_annotations</span><span class="p">[</span><span class="s2">&quot;confidence&quot;</span><span class="p">])</span>
+    
+    <span class="c1"># Add cluster-level metadata</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">uns</span><span class="p">[</span><span class="s2">&quot;cluster_annotations&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cluster_annotations</span>
+
+    <span class="k">if</span> <span class="n">savefig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">umap</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;leiden&#39;</span><span class="p">,</span> <span class="s1">&#39;cell_type&#39;</span><span class="p">],</span> <span class="n">legend_loc</span><span class="o">=</span><span class="s1">&#39;on data&#39;</span><span class="p">,</span> <span class="n">legend_fontsize</span><span class="o">=</span><span class="mi">8</span><span class="p">,</span> <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">savefig</span><span class="p">,</span> <span class="s2">&quot;umap_clustername.png&quot;</span><span class="p">))</span>
+    
+    <span class="k">if</span> <span class="s2">&quot;spatial&quot;</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obsm</span> <span class="ow">and</span> <span class="n">savefig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">embedding</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;leiden&#39;</span><span class="p">],</span> <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s1">&#39;spatial&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">savefig</span><span class="p">,</span> <span class="s2">&quot;spatial_leiden.png&quot;</span><span class="p">))</span>
+        <span class="n">ax</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">embedding</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="p">[</span><span class="s1">&#39;cell_type&#39;</span><span class="p">],</span> <span class="n">show</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">basis</span><span class="o">=</span><span class="s1">&#39;spatial&#39;</span><span class="p">)</span>
+        <span class="n">ax</span><span class="o">.</span><span class="n">set_aspect</span><span class="p">(</span><span class="mi">1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">savefig</span><span class="p">,</span> <span class="s2">&quot;spatial_clustername.png&quot;</span><span class="p">))</span>
+
+    
+    <span class="k">return</span> <span class="n">adata</span><span class="p">,</span> <span class="n">cluster_annotations</span></div>
+
+
+<div class="viewcode-block" id="get_detailed_cluster_annotations">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.get_detailed_cluster_annotations">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_detailed_cluster_annotations</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">cluster_key</span><span class="o">=</span><span class="s1">&#39;leiden&#39;</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Get detailed cluster annotations with cell type distribution&quot;&quot;&quot;</span>
+    <span class="n">clusters</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">cluster_key</span><span class="p">]</span><span class="o">.</span><span class="n">unique</span><span class="p">()</span>
+    <span class="n">results</span> <span class="o">=</span> <span class="p">[]</span>
+    
+    <span class="k">for</span> <span class="n">cluster</span> <span class="ow">in</span> <span class="n">clusters</span><span class="p">:</span>
+        <span class="n">cells_in_cluster</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">cluster_key</span><span class="p">]</span> <span class="o">==</span> <span class="n">cluster</span>
+        <span class="n">n_cells</span> <span class="o">=</span> <span class="n">cells_in_cluster</span><span class="o">.</span><span class="n">sum</span><span class="p">()</span>
+        
+        <span class="c1"># Count cell types in this cluster</span>
+        <span class="n">type_counts</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">cells_in_cluster</span><span class="p">,</span> <span class="s1">&#39;cell_type_1&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">value_counts</span><span class="p">()</span>
+        
+        <span class="c1"># Get the top 3 types</span>
+        <span class="n">top_types</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="p">(</span><span class="n">cell_type</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">type_counts</span><span class="o">.</span><span class="n">items</span><span class="p">()):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="mi">3</span><span class="p">:</span>
+                <span class="k">break</span>
+            <span class="n">pct</span> <span class="o">=</span> <span class="p">(</span><span class="n">count</span> <span class="o">/</span> <span class="n">n_cells</span><span class="p">)</span> <span class="o">*</span> <span class="mi">100</span>
+            <span class="n">top_types</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cell_type</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">pct</span><span class="si">:</span><span class="s2">.1f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Come up with a composite name for the cluster</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">type_counts</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">/</span> <span class="n">n_cells</span> <span class="o">&gt;</span> <span class="mf">0.7</span><span class="p">:</span>
+            <span class="c1"># If one type is dominant (&gt;70%), use that</span>
+            <span class="n">cluster_name</span> <span class="o">=</span> <span class="n">type_counts</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="k">elif</span> <span class="nb">len</span><span class="p">(</span><span class="n">top_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span> <span class="ow">and</span> <span class="p">(</span><span class="n">type_counts</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">type_counts</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">/</span> <span class="n">n_cells</span> <span class="o">&gt;</span> <span class="mf">0.8</span><span class="p">:</span>
+            <span class="c1"># If top 2 types make up &gt;80%, use a compound name</span>
+            <span class="n">cluster_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">type_counts</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">type_counts</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Otherwise, list top types</span>
+            <span class="n">cluster_name</span> <span class="o">=</span> <span class="s2">&quot;Mixed: &quot;</span> <span class="o">+</span> <span class="s2">&quot;/&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">([</span><span class="n">t</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">t</span> <span class="ow">in</span> <span class="n">top_types</span><span class="p">[:</span><span class="mi">2</span><span class="p">]])</span>
+        
+        <span class="n">results</span><span class="o">.</span><span class="n">append</span><span class="p">({</span>
+            <span class="s1">&#39;cluster&#39;</span><span class="p">:</span> <span class="n">cluster</span><span class="p">,</span>
+            <span class="s1">&#39;n_cells&#39;</span><span class="p">:</span> <span class="n">n_cells</span><span class="p">,</span>
+            <span class="s1">&#39;cluster_name&#39;</span><span class="p">:</span> <span class="n">cluster_name</span><span class="p">,</span>
+            <span class="s1">&#39;cell_type_composition&#39;</span><span class="p">:</span> <span class="s2">&quot; | &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">top_types</span><span class="p">)</span>
+        <span class="p">})</span>
+    
+    <span class="k">return</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">results</span><span class="p">)</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="s1">&#39;cluster&#39;</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="analyze_technical_genes">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.analyze_technical_genes">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">analyze_technical_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">housekeeping_genes</span><span class="p">,</span> <span class="n">savefig</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Analyze technical and housekeeping genes to assess data quality</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Annotated data matrix</span>
+<span class="sd">    housekeeping_genes : dict</span>
+<span class="sd">        Dictionary of gene categories and their corresponding genes</span>
+<span class="sd">    savefig : str</span>
+<span class="sd">        Path where the plots will be saved. If None, then no plots are saved</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Create a DataFrame to store metrics</span>
+    <span class="n">metrics</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">index</span><span class="o">=</span><span class="n">adata</span><span class="o">.</span><span class="n">obs_names</span><span class="p">)</span>
+    
+    <span class="c1"># Calculate metrics for each category</span>
+    <span class="k">for</span> <span class="n">category</span><span class="p">,</span> <span class="n">genes</span> <span class="ow">in</span> <span class="n">housekeeping_genes</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="k">if</span> <span class="s2">&quot;technical_&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">category</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
+        <span class="c1"># Find genes present in the dataset</span>
+        <span class="n">available_genes</span> <span class="o">=</span> <span class="p">[</span><span class="n">g</span> <span class="k">for</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">genes</span> <span class="k">if</span> <span class="n">g</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="p">]</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">available_genes</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">available_genes</span><span class="p">)</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">genes</span><span class="p">)</span><span class="si">}</span><span class="s2"> genes found&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Calculate mean expression</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[:,</span> <span class="n">available_genes</span><span class="p">]</span><span class="o">.</span><span class="n">X</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">expr</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[:,</span> <span class="n">available_genes</span><span class="p">]</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span>
+            
+            <span class="n">metrics</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s1">_mean&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">expr</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+            <span class="n">metrics</span><span class="p">[</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s1">_percent&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">expr</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">,</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="nb">len</span><span class="p">(</span><span class="n">available_genes</span><span class="p">))</span> <span class="o">*</span> <span class="mi">100</span>
+            
+            <span class="c1"># Score cells for this category</span>
+            <span class="n">sc</span><span class="o">.</span><span class="n">tl</span><span class="o">.</span><span class="n">score_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">gene_list</span><span class="o">=</span><span class="n">available_genes</span><span class="p">,</span> <span class="n">score_name</span><span class="o">=</span><span class="sa">f</span><span class="s2">&quot;score_</span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: No </span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s2"> genes found in the dataset&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Add metrics to adata.obs</span>
+    <span class="k">for</span> <span class="n">col</span> <span class="ow">in</span> <span class="n">metrics</span><span class="o">.</span><span class="n">columns</span><span class="p">:</span>
+        <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="n">col</span><span class="p">]</span> <span class="o">=</span> <span class="n">metrics</span><span class="p">[</span><span class="n">col</span><span class="p">]</span>
+    
+    <span class="c1"># Create visualization</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">15</span><span class="p">,</span> <span class="mi">10</span><span class="p">))</span>
+    
+    <span class="c1"># Housekeeping gene metrics across clusters</span>
+    <span class="n">categories</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">housekeeping_genes</span><span class="o">.</span><span class="n">keys</span><span class="p">())</span>
+    <span class="n">available_categories</span> <span class="o">=</span> <span class="p">[</span><span class="n">cat</span> <span class="k">for</span> <span class="n">cat</span> <span class="ow">in</span> <span class="n">categories</span> <span class="k">if</span> <span class="sa">f</span><span class="s1">&#39;score_</span><span class="si">{</span><span class="n">cat</span><span class="si">}</span><span class="s1">&#39;</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">columns</span> <span class="ow">and</span> <span class="s2">&quot;technical_&quot;</span> <span class="o">==</span> <span class="n">cat</span><span class="p">[:</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;technical_&quot;</span><span class="p">)]]</span>
+    
+    <span class="k">if</span> <span class="n">available_categories</span><span class="p">:</span>
+        <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">violin</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="p">[</span><span class="sa">f</span><span class="s1">&#39;score_</span><span class="si">{</span><span class="n">cat</span><span class="si">}</span><span class="s1">&#39;</span> <span class="k">for</span> <span class="n">cat</span> <span class="ow">in</span> <span class="n">available_categories</span><span class="p">],</span> 
+                     <span class="n">groupby</span><span class="o">=</span><span class="s1">&#39;leiden&#39;</span><span class="p">,</span> <span class="n">rotation</span><span class="o">=</span><span class="mi">90</span><span class="p">,</span> <span class="n">stripplot</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> <span class="n">multi_panel</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="c1"># UMAP colored by technical metrics</span>
+    <span class="k">for</span> <span class="n">category</span> <span class="ow">in</span> <span class="n">available_categories</span><span class="p">:</span>
+        <span class="k">if</span> <span class="s2">&quot;technical_&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">category</span><span class="p">:</span>
+            <span class="k">continue</span>
+
+        <span class="n">sc</span><span class="o">.</span><span class="n">pl</span><span class="o">.</span><span class="n">umap</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;score_</span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;</span><span class="si">{</span><span class="n">category</span><span class="si">}</span><span class="s1"> Score&#39;</span><span class="p">,</span> 
+                  <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;viridis&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">50</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.8</span><span class="p">)</span>
+        
+    <span class="k">if</span> <span class="n">savefig</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">savefig</span><span class="p">,</span> <span class="s2">&quot;technical_genes.png&quot;</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">adata</span></div>
+
+
+<div class="viewcode-block" id="umi_threshold_cell_calling">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.umi_threshold_cell_calling">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">umi_threshold_cell_calling</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">expected_cells</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">min_cells</span><span class="o">=</span><span class="mi">2</span><span class="p">,</span> <span class="n">max_cells</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> 
+                              <span class="n">percentile</span><span class="o">=</span><span class="mi">99</span><span class="p">,</span> <span class="n">ordmag_divisor</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of a UMI threshold method for cell calling, similar to Cell Ranger&#39;s approach</span>
+<span class="sd">    but independent of Cell Ranger and working directly with AnnData objects.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        AnnData object containing raw counts (not filtered or normalized)</span>
+<span class="sd">    expected_cells : int, optional</span>
+<span class="sd">        Expected number of cells in the dataset. If None, it will be estimated.</span>
+<span class="sd">    min_cells : int, default=2</span>
+<span class="sd">        Minimum number of cells to consider in the grid search</span>
+<span class="sd">    max_cells : int, optional</span>
+<span class="sd">        Maximum number of cells to consider in the grid search.</span>
+<span class="sd">        If None, it will be set to int(n_barcodes/2) or 45,000, whichever is smaller.</span>
+<span class="sd">    percentile : int, default=99</span>
+<span class="sd">        Percentile used for the UMI threshold calculation (Cell Ranger uses 99th percentile)</span>
+<span class="sd">    ordmag_divisor : int, default=10</span>
+<span class="sd">        Divisor used in the Order of Magnitude algorithm (Cell Ranger uses 10)</span>
+<span class="sd">    plot : bool, default=True</span>
+<span class="sd">        Whether to plot the UMI distribution and threshold</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    adata_filtered : AnnData</span>
+<span class="sd">        AnnData object containing only the called cells</span>
+<span class="sd">    threshold : float</span>
+<span class="sd">        UMI count threshold used for cell calling</span>
+<span class="sd">    cell_barcodes : list</span>
+<span class="sd">        List of barcodes that were called as cells</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Calculate total UMIs per barcode</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+        <span class="n">total_umi_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    <span class="k">else</span><span class="p">:</span>  <span class="c1"># For sparse matrices</span>
+        <span class="n">total_umi_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    
+    <span class="c1"># Sort barcodes by UMI counts (descending)</span>
+    <span class="n">sorted_indices</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">total_umi_counts</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">sorted_counts</span> <span class="o">=</span> <span class="n">total_umi_counts</span><span class="p">[</span><span class="n">sorted_indices</span><span class="p">]</span>
+    
+    <span class="n">n_barcodes</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">total_umi_counts</span><span class="p">)</span>
+    <span class="n">barcode_rank</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">n_barcodes</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+    
+    <span class="c1"># Set max_cells if not provided</span>
+    <span class="k">if</span> <span class="n">max_cells</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">max_cells</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">n_barcodes</span> <span class="o">/</span> <span class="mi">2</span><span class="p">),</span> <span class="mi">45000</span><span class="p">)</span>
+    
+    <span class="c1"># Define the Order of Magnitude function</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">order_magnitude</span><span class="p">(</span><span class="n">n_top</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">n_top</span> <span class="o">&lt;=</span> <span class="mi">0</span> <span class="ow">or</span> <span class="n">n_top</span> <span class="o">&gt;=</span> <span class="n">n_barcodes</span><span class="p">:</span>
+            <span class="k">return</span> <span class="mi">0</span>
+        
+        <span class="c1"># Get the 99th percentile UMI count of the top n_top barcodes</span>
+        <span class="n">top_counts</span> <span class="o">=</span> <span class="n">sorted_counts</span><span class="p">[:</span><span class="nb">int</span><span class="p">(</span><span class="n">n_top</span><span class="p">)]</span>
+        <span class="n">p99_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">top_counts</span><span class="p">,</span> <span class="n">percentile</span><span class="p">)</span>
+        
+        <span class="c1"># Count barcodes with UMI counts &gt; p99/10</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">p99_count</span> <span class="o">/</span> <span class="n">ordmag_divisor</span>
+        <span class="n">cells_above_threshold</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">sorted_counts</span> <span class="o">&gt;</span> <span class="n">threshold</span><span class="p">)</span>
+        
+        <span class="k">return</span> <span class="n">cells_above_threshold</span>
+    
+    <span class="c1"># Define the loss function to minimize</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">loss_function</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
+        <span class="n">ordmag_x</span> <span class="o">=</span> <span class="n">order_magnitude</span><span class="p">(</span><span class="nb">int</span><span class="p">(</span><span class="n">x</span><span class="p">))</span>
+        <span class="n">relative_loss</span> <span class="o">=</span> <span class="p">((</span><span class="n">ordmag_x</span> <span class="o">-</span> <span class="n">x</span><span class="p">)</span> <span class="o">**</span> <span class="mi">2</span><span class="p">)</span> <span class="o">/</span> <span class="n">x</span> <span class="k">if</span> <span class="n">x</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">relative_loss</span>
+    
+    <span class="c1"># If expected_cells is not provided, estimate it</span>
+    <span class="k">if</span> <span class="n">expected_cells</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Grid search to find the number of cells that minimizes the loss</span>
+        <span class="n">x_values</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">logspace</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">min_cells</span><span class="p">),</span> <span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">max_cells</span><span class="p">),</span> <span class="mi">100</span><span class="p">)</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="nb">int</span><span class="p">)</span>
+        <span class="n">best_x</span> <span class="o">=</span> <span class="n">min_cells</span>
+        <span class="n">min_loss</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="s1">&#39;inf&#39;</span><span class="p">)</span>
+        
+        <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">x_values</span><span class="p">:</span>
+            <span class="n">current_loss</span> <span class="o">=</span> <span class="n">loss_function</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">current_loss</span> <span class="o">&lt;</span> <span class="n">min_loss</span><span class="p">:</span>
+                <span class="n">min_loss</span> <span class="o">=</span> <span class="n">current_loss</span>
+                <span class="n">best_x</span> <span class="o">=</span> <span class="n">x</span>
+        
+        <span class="c1"># Refine with a more focused optimization</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="n">optimize</span><span class="o">.</span><span class="n">minimize_scalar</span><span class="p">(</span>
+            <span class="n">loss_function</span><span class="p">,</span> 
+            <span class="n">bounds</span><span class="o">=</span><span class="p">(</span><span class="nb">max</span><span class="p">(</span><span class="n">min_cells</span><span class="p">,</span> <span class="n">best_x</span><span class="o">/</span><span class="mi">2</span><span class="p">),</span> <span class="nb">min</span><span class="p">(</span><span class="n">max_cells</span><span class="p">,</span> <span class="n">best_x</span><span class="o">*</span><span class="mi">2</span><span class="p">)),</span>
+            <span class="n">method</span><span class="o">=</span><span class="s1">&#39;bounded&#39;</span>
+        <span class="p">)</span>
+        <span class="n">expected_cells</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">result</span><span class="o">.</span><span class="n">x</span><span class="p">)</span>
+    
+    <span class="c1"># Get the 99th percentile UMI count of the top expected_cells barcodes</span>
+    <span class="n">top_counts</span> <span class="o">=</span> <span class="n">sorted_counts</span><span class="p">[:</span><span class="n">expected_cells</span><span class="p">]</span>
+    <span class="n">p99_count</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">top_counts</span><span class="p">,</span> <span class="n">percentile</span><span class="p">)</span>
+    
+    <span class="c1"># Calculate threshold</span>
+    <span class="n">threshold</span> <span class="o">=</span> <span class="n">p99_count</span> <span class="o">/</span> <span class="n">ordmag_divisor</span>
+    
+    <span class="c1"># Call cells (barcodes with UMI counts &gt; threshold)</span>
+    <span class="n">is_cell</span> <span class="o">=</span> <span class="n">total_umi_counts</span> <span class="o">&gt;</span> <span class="n">threshold</span>
+    <span class="n">cell_barcodes</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs_names</span><span class="p">[</span><span class="n">is_cell</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    
+    <span class="c1"># Filter AnnData to keep only cells</span>
+    <span class="n">adata_filtered</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">is_cell</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="c1"># Add cell calling information to the AnnData object</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">total_umi_counts</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;is_cell&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">is_cell</span>
+    
+    <span class="c1"># Additional statistics for the user</span>
+    <span class="n">n_cells_called</span> <span class="o">=</span> <span class="nb">sum</span><span class="p">(</span><span class="n">is_cell</span><span class="p">)</span>
+    <span class="n">mean_umis_per_cell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="n">total_umi_counts</span><span class="p">[</span><span class="n">is_cell</span><span class="p">])</span>
+    <span class="n">median_umis_per_cell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">median</span><span class="p">(</span><span class="n">total_umi_counts</span><span class="p">[</span><span class="n">is_cell</span><span class="p">])</span>
+    
+    <span class="c1"># Print summary</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cell calling summary:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Expected cells (estimated): </span><span class="si">{</span><span class="n">expected_cells</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - UMI threshold: </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Cells called: </span><span class="si">{</span><span class="n">n_cells_called</span><span class="si">}</span><span class="s2"> out of </span><span class="si">{</span><span class="n">n_barcodes</span><span class="si">}</span><span class="s2"> barcodes (</span><span class="si">{</span><span class="n">n_cells_called</span><span class="o">/</span><span class="n">n_barcodes</span><span class="o">*</span><span class="mi">100</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">%)&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Mean UMIs per cell: </span><span class="si">{</span><span class="n">mean_umis_per_cell</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Median UMIs per cell: </span><span class="si">{</span><span class="n">median_umis_per_cell</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Plot the UMI distribution and threshold</span>
+    <span class="k">if</span> <span class="n">plot</span><span class="p">:</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">12</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+        
+        <span class="c1"># Plot 1: Barcode rank plot (log-log)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">barcode_rank</span><span class="p">,</span> <span class="n">sorted_counts</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;UMI counts&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">threshold</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Threshold: </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">n_cells_called</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;g&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Cells called: </span><span class="si">{</span><span class="n">n_cells_called</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;Barcode rank&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;UMI counts&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;Barcode rank plot&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        
+        <span class="c1"># Plot 2: Histogram of UMI counts</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">subplot</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">hist</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">total_umi_counts</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">bins</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">axvline</span><span class="p">(</span><span class="n">x</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">threshold</span> <span class="o">+</span> <span class="mi">1</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> 
+                   <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Threshold: </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s1">.2f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">xlabel</span><span class="p">(</span><span class="s1">&#39;log10(UMI counts + 1)&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">ylabel</span><span class="p">(</span><span class="s1">&#39;Frequency&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">title</span><span class="p">(</span><span class="s1">&#39;UMI count distribution&#39;</span><span class="p">)</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    
+    <span class="k">return</span> <span class="n">adata_filtered</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">cell_barcodes</span></div>
+
+
+<div class="viewcode-block" id="simple_good_turing_smoothing">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.simple_good_turing_smoothing">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">simple_good_turing_smoothing</span><span class="p">(</span><span class="n">counts</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implements the Simple Good-Turing smoothing algorithm to estimate probabilities</span>
+<span class="sd">    for unseen events, ensuring non-zero proportions for genes with zero counts.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    counts : array-like</span>
+<span class="sd">        Count data for each gene</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    probabilities : ndarray</span>
+<span class="sd">        Smoothed probabilities for each gene</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Convert counts to array and ensure it&#39;s 1D</span>
+    <span class="n">counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">asarray</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    
+    <span class="c1"># Calculate frequency of frequencies</span>
+    <span class="n">unique_counts</span><span class="p">,</span> <span class="n">counts_freq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span> <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    
+    <span class="c1"># Handle the case where we have zeros in the data</span>
+    <span class="k">if</span> <span class="mi">0</span> <span class="ow">in</span> <span class="n">unique_counts</span><span class="p">:</span>
+        <span class="n">zero_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">unique_counts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">unique_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">unique_counts</span><span class="p">,</span> <span class="n">zero_idx</span><span class="p">)</span>
+        <span class="n">counts_freq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">delete</span><span class="p">(</span><span class="n">counts_freq</span><span class="p">,</span> <span class="n">zero_idx</span><span class="p">)</span>
+    
+    <span class="c1"># Need at least two non-zero frequency values for interpolation</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">unique_counts</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">2</span><span class="p">:</span>
+        <span class="c1"># If not enough data, use simple add-one smoothing</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">counts</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">))</span>
+    
+    <span class="c1"># Log-log linear regression for frequency estimation</span>
+    <span class="n">log_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">unique_counts</span><span class="p">)</span>
+    <span class="n">log_freq</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">counts_freq</span><span class="p">)</span>
+    
+    <span class="c1"># Use linear regression to estimate the slope</span>
+    <span class="n">slope</span><span class="p">,</span> <span class="n">intercept</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">stats</span><span class="o">.</span><span class="n">linregress</span><span class="p">(</span><span class="n">log_counts</span><span class="p">,</span> <span class="n">log_freq</span><span class="p">)</span>
+    
+    <span class="c1"># For each count r, estimate r+1 frequency</span>
+    <span class="n">n_r_plus_one</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">total_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">counts</span><span class="p">)</span>
+    
+    <span class="k">for</span> <span class="n">r</span><span class="p">,</span> <span class="n">n_r</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">unique_counts</span><span class="p">,</span> <span class="n">counts_freq</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">r</span><span class="o">+</span><span class="mi">1</span> <span class="ow">in</span> <span class="n">unique_counts</span><span class="p">:</span>
+            <span class="n">idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">unique_counts</span> <span class="o">==</span> <span class="n">r</span><span class="o">+</span><span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">n_r_plus_one</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="n">counts_freq</span><span class="p">[</span><span class="n">idx</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Use the regression to estimate</span>
+            <span class="n">n_r_plus_one</span><span class="p">[</span><span class="n">r</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">exp</span><span class="p">(</span><span class="n">intercept</span> <span class="o">+</span> <span class="n">slope</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">r</span><span class="o">+</span><span class="mi">1</span><span class="p">))</span>
+    
+    <span class="c1"># Calculate the smoothed probabilities</span>
+    <span class="n">probabilities</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">counts</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">float</span><span class="p">)</span>
+    <span class="n">zero_prob</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">c</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">counts</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">c</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">probabilities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">0</span>  <span class="c1"># Will be set to zero_prob later</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># Good-Turing estimate: (c+1) * N(c+1) / N(c) / total</span>
+            <span class="k">if</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">n_r_plus_one</span> <span class="ow">and</span> <span class="n">n_r_plus_one</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">probabilities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">n_r_plus_one</span><span class="p">[</span><span class="n">c</span><span class="p">]</span> <span class="o">/</span> <span class="p">(</span><span class="n">counts_freq</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">unique_counts</span> <span class="o">==</span> <span class="n">c</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span> <span class="o">*</span> <span class="n">total_counts</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># Fallback to simple smoothing if we can&#39;t estimate</span>
+                <span class="n">probabilities</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="p">(</span><span class="n">c</span> <span class="o">+</span> <span class="mf">0.5</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">total_counts</span> <span class="o">+</span> <span class="mf">0.5</span> <span class="o">*</span> <span class="nb">len</span><span class="p">(</span><span class="n">counts</span><span class="p">))</span>
+    
+    <span class="c1"># Assign probability mass for unseen events (0 counts)</span>
+    <span class="k">if</span> <span class="mi">1</span> <span class="ow">in</span> <span class="n">unique_counts</span><span class="p">:</span>
+        <span class="n">n1</span> <span class="o">=</span> <span class="n">counts_freq</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">unique_counts</span> <span class="o">==</span> <span class="mi">1</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+        <span class="n">zero_prob</span> <span class="o">=</span> <span class="n">n1</span> <span class="o">/</span> <span class="n">total_counts</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">counts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">counts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">zero_prob</span> <span class="o">=</span> <span class="mf">0.1</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">counts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">counts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span> <span class="k">else</span> <span class="mi">0</span>
+    
+    <span class="c1"># Assign zero_prob to all genes with zero counts</span>
+    <span class="n">probabilities</span><span class="p">[</span><span class="n">counts</span> <span class="o">==</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">zero_prob</span>
+    
+    <span class="c1"># Normalize to ensure probabilities sum to 1</span>
+    <span class="n">probabilities</span> <span class="o">=</span> <span class="n">probabilities</span> <span class="o">/</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">probabilities</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">probabilities</span></div>
+
+
+
+<div class="viewcode-block" id="emptydrops_refinement">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.emptydrops_refinement">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">emptydrops_refinement</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">adata_filtered</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">threshold</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">ambient_min_umi</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> 
+                          <span class="n">ambient_max_umi</span><span class="o">=</span><span class="mi">100</span><span class="p">,</span> <span class="n">min_total_umi</span><span class="o">=</span><span class="mi">500</span><span class="p">,</span> <span class="n">fdr_threshold</span><span class="o">=</span><span class="mf">0.01</span><span class="p">,</span> 
+                          <span class="n">plot</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Implementation of the EmptyDrops algorithm for refining cell calling by identifying</span>
+<span class="sd">    low RNA content cells that are distinguishable from empty droplets.</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters</span>
+<span class="sd">    ----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Original AnnData object containing all barcodes (filtered and unfiltered)</span>
+<span class="sd">    adata_filtered : AnnData, optional</span>
+<span class="sd">        AnnData object containing barcodes called as cells by OrdMag or another method.</span>
+<span class="sd">        If None, it assumes all barcodes in adata are potential cells.</span>
+<span class="sd">    threshold : float, optional</span>
+<span class="sd">        UMI threshold used in initial cell calling. If None, it will be estimated.</span>
+<span class="sd">    ambient_min_umi : int, default=1</span>
+<span class="sd">        Minimum total UMI count to consider a barcode for ambient RNA profile estimation</span>
+<span class="sd">    ambient_max_umi : int, default=100</span>
+<span class="sd">        Maximum total UMI count to consider a barcode for ambient RNA profile estimation</span>
+<span class="sd">    min_total_umi : int, default=500</span>
+<span class="sd">        Minimum total UMI count for a barcode to be considered as a candidate cell</span>
+<span class="sd">    fdr_threshold : float, default=0.01</span>
+<span class="sd">        False discovery rate threshold for cell calling</span>
+<span class="sd">    plot : bool, default=True</span>
+<span class="sd">        Whether to plot diagnostic visualizations</span>
+<span class="sd">        </span>
+<span class="sd">    Returns</span>
+<span class="sd">    -------</span>
+<span class="sd">    adata_refined : AnnData</span>
+<span class="sd">        AnnData object containing all called cells (OrdMag + EmptyDrops)</span>
+<span class="sd">    ambient_profile : ndarray</span>
+<span class="sd">        Estimated ambient RNA profile</span>
+<span class="sd">    cell_barcodes : list</span>
+<span class="sd">        List of barcodes that were called as cells</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Calculate total UMIs per barcode if not already in adata.obs</span>
+    <span class="k">if</span> <span class="s1">&#39;total_umi_counts&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">:</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># For sparse matrices</span>
+            <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">))</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    
+    <span class="c1"># If adata_filtered is provided, identify barcodes already called as cells</span>
+    <span class="k">if</span> <span class="n">adata_filtered</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">already_called</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs_names</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">adata_filtered</span><span class="o">.</span><span class="n">obs_names</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="c1"># If no filtered data provided, assume all are uncalled</span>
+        <span class="n">already_called</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        
+    <span class="c1"># If threshold is not provided, estimate it</span>
+    <span class="k">if</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">adata_filtered</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">already_called</span><span class="p">,</span> <span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">min</span><span class="p">()</span>
+    <span class="k">elif</span> <span class="n">threshold</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="c1"># Use a default threshold if no filtered data and no threshold provided</span>
+        <span class="n">threshold</span> <span class="o">=</span> <span class="n">ambient_max_umi</span>
+    
+    <span class="c1"># Identify ambient barcodes for background profile estimation</span>
+    <span class="n">is_ambient</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">ambient_min_umi</span><span class="p">)</span> <span class="o">&amp;</span> 
+        <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">ambient_max_umi</span><span class="p">)</span> <span class="o">&amp;</span>
+        <span class="p">(</span><span class="o">~</span><span class="n">already_called</span><span class="p">)</span>
+    <span class="p">)</span>
+    
+    <span class="c1"># Ensure we have enough ambient barcodes</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_ambient</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">100</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: Only </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_ambient</span><span class="p">)</span><span class="si">}</span><span class="s2"> ambient barcodes found. Consider adjusting ambient_min_umi and ambient_max_umi.&quot;</span><span class="p">)</span>
+        <span class="c1"># Adjust ambient range if needed</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_ambient</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">10</span><span class="p">:</span>  <span class="c1"># If critically low, expand range</span>
+            <span class="n">ambient_max_umi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">],</span> <span class="mi">10</span><span class="p">)</span>
+            <span class="n">is_ambient</span> <span class="o">=</span> <span class="p">(</span>
+                <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">ambient_min_umi</span><span class="p">)</span> <span class="o">&amp;</span> 
+                <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">&lt;=</span> <span class="n">ambient_max_umi</span><span class="p">)</span> <span class="o">&amp;</span>
+                <span class="p">(</span><span class="o">~</span><span class="n">already_called</span><span class="p">)</span>
+            <span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Adjusted ambient_max_umi to </span><span class="si">{</span><span class="n">ambient_max_umi</span><span class="si">:</span><span class="s2">.2f</span><span class="si">}</span><span class="s2">, now using </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_ambient</span><span class="p">)</span><span class="si">}</span><span class="s2"> ambient barcodes.&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Extract ambient counts</span>
+    <span class="n">ambient_counts</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">[</span><span class="n">is_ambient</span><span class="p">]</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">axis</span><span class="o">=</span><span class="mi">0</span><span class="p">)</span>
+    <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">ambient_counts</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">matrix</span><span class="p">):</span>
+        <span class="n">ambient_counts</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">ambient_counts</span><span class="p">)</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+    
+    <span class="c1"># Apply Simple Good-Turing smoothing to get ambient profile</span>
+    <span class="n">ambient_profile</span> <span class="o">=</span> <span class="n">simple_good_turing_smoothing</span><span class="p">(</span><span class="n">ambient_counts</span><span class="p">)</span>
+    
+    <span class="c1"># Identify candidate barcodes for testing against the ambient profile</span>
+    <span class="c1"># These are barcodes with UMI counts &gt; ambient_max_umi and ≥ min_total_umi, not already called</span>
+    <span class="n">is_candidate</span> <span class="o">=</span> <span class="p">(</span>
+        <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">ambient_max_umi</span><span class="p">)</span> <span class="o">&amp;</span> 
+        <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">min_total_umi</span><span class="p">)</span> <span class="o">&amp;</span>
+        <span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">threshold</span><span class="p">)</span> <span class="o">&amp;</span>  <span class="c1"># Below the OrdMag threshold</span>
+        <span class="p">(</span><span class="o">~</span><span class="n">already_called</span><span class="p">)</span>
+    <span class="p">)</span>
+    
+    <span class="c1"># If no candidates, return the original filtered data</span>
+    <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_candidate</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;No candidate barcodes found for EmptyDrops refinement.&quot;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">adata_filtered</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">adata_filtered</span><span class="p">,</span> <span class="n">ambient_profile</span><span class="p">,</span> <span class="n">adata_filtered</span><span class="o">.</span><span class="n">obs_names</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="c1"># If no filtered data provided, return an empty AnnData object</span>
+            <span class="k">return</span> <span class="n">adata</span><span class="p">[[]]</span><span class="o">.</span><span class="n">copy</span><span class="p">(),</span> <span class="n">ambient_profile</span><span class="p">,</span> <span class="p">[]</span>
+    
+    <span class="c1"># Calculate the log-likelihood ratio test for each candidate barcode</span>
+    <span class="n">pvalues</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">ones</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    <span class="n">test_stats</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span>
+    
+    <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_candidate</span><span class="p">)[</span><span class="mi">0</span><span class="p">]:</span>
+        <span class="c1"># Get gene counts for this barcode</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+            <span class="n">barcode_counts</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+        <span class="k">else</span><span class="p">:</span>  <span class="c1"># For sparse matrices</span>
+            <span class="n">barcode_counts</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">X</span><span class="p">[</span><span class="n">i</span><span class="p">]</span><span class="o">.</span><span class="n">toarray</span><span class="p">()</span><span class="o">.</span><span class="n">flatten</span><span class="p">()</span>
+        
+        <span class="n">total_umi</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">iloc</span><span class="p">[</span><span class="n">i</span><span class="p">])</span>
+        
+        <span class="c1"># Skip if no counts (shouldn&#39;t happen but just in case)</span>
+        <span class="k">if</span> <span class="n">total_umi</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">continue</span>
+        
+        <span class="c1"># Calculate expected counts under the null (ambient) model</span>
+        <span class="n">expected_counts</span> <span class="o">=</span> <span class="n">ambient_profile</span> <span class="o">*</span> <span class="n">total_umi</span>
+        
+        <span class="c1"># Calculate test statistic using multinomial likelihood ratio test</span>
+        <span class="c1"># We use a chi-squared approximation</span>
+        <span class="n">nonzero_idx</span> <span class="o">=</span> <span class="n">barcode_counts</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">nonzero_idx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="c1"># Calculate test statistic only for genes with non-zero counts</span>
+            <span class="n">obs</span> <span class="o">=</span> <span class="n">barcode_counts</span><span class="p">[</span><span class="n">nonzero_idx</span><span class="p">]</span>
+            <span class="n">exp</span> <span class="o">=</span> <span class="n">expected_counts</span><span class="p">[</span><span class="n">nonzero_idx</span><span class="p">]</span>
+            
+            <span class="c1"># Avoid division by zero</span>
+            <span class="n">exp</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">exp</span><span class="p">,</span> <span class="mf">1e-10</span><span class="p">)</span>
+            
+            <span class="c1"># Calculate test statistic (2 * sum(O * log(O/E)))</span>
+            <span class="n">test_stat</span> <span class="o">=</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">obs</span> <span class="o">*</span> <span class="n">np</span><span class="o">.</span><span class="n">log</span><span class="p">(</span><span class="n">obs</span> <span class="o">/</span> <span class="n">exp</span><span class="p">))</span>
+            <span class="n">df</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">nonzero_idx</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>  <span class="c1"># Degrees of freedom</span>
+            
+            <span class="k">if</span> <span class="n">df</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>  <span class="c1"># Need at least 2 genes with non-zero counts</span>
+                <span class="n">pvalues</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="mi">1</span> <span class="o">-</span> <span class="n">stats</span><span class="o">.</span><span class="n">chi2</span><span class="o">.</span><span class="n">cdf</span><span class="p">(</span><span class="n">test_stat</span><span class="p">,</span> <span class="n">df</span><span class="p">)</span>
+                <span class="n">test_stats</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">test_stat</span>
+    
+    <span class="c1"># Apply multiple testing correction (Benjamini-Hochberg FDR)</span>
+    <span class="n">candidate_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_candidate</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">candidate_idx</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">candidate_pvals</span> <span class="o">=</span> <span class="n">pvalues</span><span class="p">[</span><span class="n">candidate_idx</span><span class="p">]</span>
+        <span class="c1"># Sort p-values</span>
+        <span class="n">sorted_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">candidate_pvals</span><span class="p">)</span>
+        <span class="n">sorted_pvals</span> <span class="o">=</span> <span class="n">candidate_pvals</span><span class="p">[</span><span class="n">sorted_idx</span><span class="p">]</span>
+        
+        <span class="c1"># Calculate Benjamini-Hochberg critical values</span>
+        <span class="n">m</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">sorted_pvals</span><span class="p">)</span>
+        <span class="n">j</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">m</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">critical_values</span> <span class="o">=</span> <span class="n">j</span> <span class="o">*</span> <span class="n">fdr_threshold</span> <span class="o">/</span> <span class="n">m</span>
+        
+        <span class="c1"># Find the largest p-value that is &lt;= its critical value</span>
+        <span class="n">significant</span> <span class="o">=</span> <span class="n">sorted_pvals</span> <span class="o">&lt;=</span> <span class="n">critical_values</span>
+        <span class="k">if</span> <span class="n">np</span><span class="o">.</span><span class="n">any</span><span class="p">(</span><span class="n">significant</span><span class="p">):</span>
+            <span class="n">max_idx</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">significant</span><span class="p">)[</span><span class="mi">0</span><span class="p">][</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+            <span class="n">significance_threshold</span> <span class="o">=</span> <span class="n">sorted_pvals</span><span class="p">[</span><span class="n">max_idx</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">significance_threshold</span> <span class="o">=</span> <span class="mi">0</span>
+        
+        <span class="c1"># Call cells with p-values &lt;= significance threshold</span>
+        <span class="n">is_emptydrops_cell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">pvalues</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+        <span class="n">is_emptydrops_cell</span><span class="p">[</span><span class="n">candidate_idx</span><span class="p">]</span> <span class="o">=</span> <span class="n">candidate_pvals</span> <span class="o">&lt;=</span> <span class="n">significance_threshold</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">is_emptydrops_cell</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros_like</span><span class="p">(</span><span class="n">pvalues</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="nb">bool</span><span class="p">)</span>
+    
+    <span class="c1"># Combine cells from OrdMag and EmptyDrops</span>
+    <span class="n">is_cell</span> <span class="o">=</span> <span class="n">already_called</span> <span class="o">|</span> <span class="n">is_emptydrops_cell</span>
+    
+    <span class="c1"># Create refined AnnData</span>
+    <span class="n">adata_refined</span> <span class="o">=</span> <span class="n">adata</span><span class="p">[</span><span class="n">is_cell</span><span class="p">]</span><span class="o">.</span><span class="n">copy</span><span class="p">()</span>
+    
+    <span class="c1"># Add metadata to the original AnnData</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;is_ambient&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">is_ambient</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;is_candidate&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">is_candidate</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;pvalue&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">pvalues</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;test_statistic&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">test_stats</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;is_emptydrops_cell&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">is_emptydrops_cell</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;is_cell&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">is_cell</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;cell_calling_method&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;None&#39;</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">already_called</span><span class="p">,</span> <span class="s1">&#39;cell_calling_method&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;OrdMag&#39;</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="o">.</span><span class="n">loc</span><span class="p">[</span><span class="n">is_emptydrops_cell</span><span class="p">,</span> <span class="s1">&#39;cell_calling_method&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;EmptyDrops&#39;</span>
+    
+    <span class="c1"># Print summary</span>
+    <span class="n">n_ordmag</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">already_called</span><span class="p">)</span>
+    <span class="n">n_emptydrops</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_emptydrops_cell</span><span class="p">)</span>
+    <span class="n">n_total</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_cell</span><span class="p">)</span>
+    
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;EmptyDrops refinement summary:&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Ambient barcodes used for background: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_ambient</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Candidate barcodes tested: </span><span class="si">{</span><span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_candidate</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Cells called by OrdMag: </span><span class="si">{</span><span class="n">n_ordmag</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Additional cells called by EmptyDrops: </span><span class="si">{</span><span class="n">n_emptydrops</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  - Total cells called: </span><span class="si">{</span><span class="n">n_total</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Create diagnostic plots</span>
+    <span class="k">if</span> <span class="n">plot</span> <span class="ow">and</span> <span class="n">np</span><span class="o">.</span><span class="n">sum</span><span class="p">(</span><span class="n">is_candidate</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="n">fig</span><span class="p">,</span> <span class="n">axs</span> <span class="o">=</span> <span class="n">plt</span><span class="o">.</span><span class="n">subplots</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">14</span><span class="p">,</span> <span class="mi">6</span><span class="p">))</span>
+        
+        <span class="c1"># Plot 1: UMI counts vs. p-values</span>
+        <span class="n">scatter</span> <span class="o">=</span> <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span>
+            <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">][</span><span class="n">is_candidate</span><span class="p">],</span>
+            <span class="o">-</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">pvalues</span><span class="p">[</span><span class="n">is_candidate</span><span class="p">]</span> <span class="o">+</span> <span class="mf">1e-10</span><span class="p">),</span>
+            <span class="n">c</span><span class="o">=</span><span class="n">is_emptydrops_cell</span><span class="p">[</span><span class="n">is_candidate</span><span class="p">],</span>
+            <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
+            <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span>
+            <span class="n">cmap</span><span class="o">=</span><span class="s1">&#39;coolwarm&#39;</span>
+        <span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xscale</span><span class="p">(</span><span class="s1">&#39;log&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Total UMI counts&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;-log10(p-value)&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;EmptyDrops p-values vs. UMI counts&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=-</span><span class="n">np</span><span class="o">.</span><span class="n">log10</span><span class="p">(</span><span class="n">fdr_threshold</span><span class="p">),</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;r&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> 
+                        <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;FDR threshold: </span><span class="si">{</span><span class="n">fdr_threshold</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        
+        <span class="c1"># Plot 2: Barcode rank plot with cell calls</span>
+        <span class="n">barcode_ranks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">arange</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="n">adata</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span>
+        <span class="n">sorted_umi</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sort</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span>
+        
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">loglog</span><span class="p">(</span><span class="n">barcode_ranks</span><span class="p">,</span> <span class="n">sorted_umi</span><span class="p">,</span> <span class="s1">&#39;grey&#39;</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.5</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;All barcodes&#39;</span><span class="p">)</span>
+        
+        <span class="c1"># Color points by calling method</span>
+        <span class="n">cell_ranks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_cell</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">ordmag_ranks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">already_called</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+        <span class="n">emptydrops_ranks</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">where</span><span class="p">(</span><span class="n">is_emptydrops_cell</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">argsort</span><span class="p">(</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;total_umi_counts&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">]])[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">ordmag_ranks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">ordmag_umis</span> <span class="o">=</span> <span class="n">sorted_umi</span><span class="p">[</span><span class="n">ordmag_ranks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">ordmag_ranks</span><span class="p">,</span> <span class="n">ordmag_umis</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;blue&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;OrdMag&#39;</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">emptydrops_ranks</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">emptydrops_umis</span> <span class="o">=</span> <span class="n">sorted_umi</span><span class="p">[</span><span class="n">emptydrops_ranks</span> <span class="o">-</span> <span class="mi">1</span><span class="p">]</span>
+            <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="n">emptydrops_ranks</span><span class="p">,</span> <span class="n">emptydrops_umis</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;red&#39;</span><span class="p">,</span> <span class="n">s</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span> <span class="n">alpha</span><span class="o">=</span><span class="mf">0.7</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="s1">&#39;EmptyDrops&#39;</span><span class="p">)</span>
+            
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">threshold</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;k&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;OrdMag threshold: </span><span class="si">{</span><span class="n">threshold</span><span class="si">:</span><span class="s1">.1f</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">ambient_max_umi</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;g&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Ambient max: </span><span class="si">{</span><span class="n">ambient_max_umi</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">axhline</span><span class="p">(</span><span class="n">y</span><span class="o">=</span><span class="n">min_total_umi</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s1">&#39;purple&#39;</span><span class="p">,</span> <span class="n">linestyle</span><span class="o">=</span><span class="s1">&#39;--&#39;</span><span class="p">,</span> <span class="n">label</span><span class="o">=</span><span class="sa">f</span><span class="s1">&#39;Min UMI: </span><span class="si">{</span><span class="n">min_total_umi</span><span class="si">}</span><span class="s1">&#39;</span><span class="p">)</span>
+        
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_xlabel</span><span class="p">(</span><span class="s1">&#39;Barcode rank&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_ylabel</span><span class="p">(</span><span class="s1">&#39;Total UMI counts&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">set_title</span><span class="p">(</span><span class="s1">&#39;Barcode rank plot with cell calls&#39;</span><span class="p">)</span>
+        <span class="n">axs</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">legend</span><span class="p">()</span>
+        
+        <span class="n">plt</span><span class="o">.</span><span class="n">tight_layout</span><span class="p">()</span>
+        <span class="n">plt</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+    
+    <span class="c1"># Return the refined dataset, ambient profile, and cell barcodes</span>
+    <span class="n">cell_barcodes</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs_names</span><span class="p">[</span><span class="n">is_cell</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">adata_refined</span><span class="p">,</span> <span class="n">ambient_profile</span><span class="p">,</span> <span class="n">cell_barcodes</span></div>
+
+
+<div class="viewcode-block" id="load_markers">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.load_markers">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">load_markers</span><span class="p">(</span><span class="n">marker_source</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load marker genes and prepare technical/non-technical gene lists</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    marker_source : str</span>
+<span class="sd">        Either &#39;human_markers&#39;, &#39;human_markers_hallmarks&#39;, &#39;mouse_markers&#39;, or a path to a custom JSON file</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    tuple</span>
+<span class="sd">        (cell_markers_nontechnical, cell_markers, nontechnical_genes)</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+    
+    <span class="c1"># Check if source is a reference or file</span>
+    <span class="k">if</span> <span class="n">marker_source</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;human_markers&#39;</span><span class="p">,</span> <span class="s1">&#39;human_markers_hallmarks&#39;</span><span class="p">,</span> <span class="s1">&#39;mouse_markers&#39;</span><span class="p">,</span> <span class="s1">&#39;drosophila_markers&#39;</span><span class="p">,</span> <span class="s1">&#39;arabidopsis_markers&#39;</span><span class="p">]:</span>
+        <span class="c1"># It&#39;s a reference, get it from the reference cache</span>
+        <span class="n">marker_file</span> <span class="o">=</span> <span class="n">get_reference_cache</span><span class="p">(</span><span class="n">marker_source</span> <span class="o">+</span> <span class="s2">&quot;_json&quot;</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">isfile</span><span class="p">(</span><span class="n">marker_source</span><span class="p">):</span>
+        <span class="c1"># It&#39;s a custom file</span>
+        <span class="n">marker_file</span> <span class="o">=</span> <span class="n">marker_source</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Marker source &#39;</span><span class="si">{</span><span class="n">marker_source</span><span class="si">}</span><span class="s2">&#39; is not a valid reference or file path&quot;</span><span class="p">)</span>
+    
+    <span class="c1"># Load markers without technical genes</span>
+    <span class="n">cell_markers_nontechnical</span> <span class="o">=</span> <span class="n">load_marker_genes</span><span class="p">(</span><span class="n">marker_file</span><span class="p">,</span> <span class="n">exclude_technical</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">nontechnical_genes</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">concatenate</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">cell_markers_nontechnical</span><span class="o">.</span><span class="n">values</span><span class="p">()))</span>
+    
+    <span class="c1"># Load all markers including technical</span>
+    <span class="n">cell_markers</span> <span class="o">=</span> <span class="n">load_marker_genes</span><span class="p">(</span><span class="n">marker_file</span><span class="p">,</span> <span class="n">exclude_technical</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">cell_markers_nontechnical</span><span class="p">,</span> <span class="n">cell_markers</span><span class="p">,</span> <span class="n">nontechnical_genes</span></div>
+
+
+<div class="viewcode-block" id="score_annotate">
+<a class="viewcode-back" href="../../api/malva.autoannotate.html#malva.autoannotate.score_annotate">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">score_annotate</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">cell_markers</span><span class="p">,</span> <span class="n">savefig</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Score cells for each cell type and annotate with top cell types</span>
+<span class="sd">    </span>
+<span class="sd">    Parameters:</span>
+<span class="sd">    -----------</span>
+<span class="sd">    adata : AnnData</span>
+<span class="sd">        Clustered AnnData object</span>
+<span class="sd">    cell_markers : dict</span>
+<span class="sd">        Dictionary mapping cell types to marker genes</span>
+<span class="sd">    savefig : str</span>
+<span class="sd">        Path where the plots will be saved. If None, then no plots are saved</span>
+<span class="sd">        </span>
+<span class="sd">    Returns:</span>
+<span class="sd">    --------</span>
+<span class="sd">    AnnData</span>
+<span class="sd">        AnnData with cell type scores and annotations</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Score cells for each cell type</span>
+    <span class="n">adata</span> <span class="o">=</span> <span class="n">score_cells_by_cell_type</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">cell_markers</span><span class="p">)</span>
+    
+    <span class="c1"># Get top cell types for each cell</span>
+    <span class="n">top_cell_types</span> <span class="o">=</span> <span class="n">get_top_cell_types</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">n_types</span><span class="o">=</span><span class="mi">3</span><span class="p">)</span>
+    
+    <span class="c1"># Add to AnnData object</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">concat</span><span class="p">([</span><span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">,</span> <span class="n">top_cell_types</span><span class="p">],</span> <span class="n">axis</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+    
+    <span class="c1"># Get detailed cluster annotations</span>
+    <span class="n">detailed_annotations</span> <span class="o">=</span> <span class="n">get_detailed_cluster_annotations</span><span class="p">(</span><span class="n">adata</span><span class="p">)</span>
+    
+    <span class="c1"># Map cluster names</span>
+    <span class="n">cluster_name_map</span> <span class="o">=</span> <span class="n">detailed_annotations</span><span class="o">.</span><span class="n">set_index</span><span class="p">(</span><span class="s1">&#39;cluster&#39;</span><span class="p">)[</span><span class="s1">&#39;cluster_name&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;cluster_name&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">obs</span><span class="p">[</span><span class="s1">&#39;leiden&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">map</span><span class="p">(</span><span class="n">cluster_name_map</span><span class="p">)</span>
+
+    
+    <span class="k">return</span> <span class="n">adata</span><span class="p">,</span> <span class="n">detailed_annotations</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_autoannotate</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">args</span><span class="o">.</span><span class="n">reference</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s1">&#39;human_markers&#39;</span><span class="p">,</span> <span class="s1">&#39;human_markers_hallmarks&#39;</span><span class="p">,</span> <span class="s1">&#39;mouse_markers&#39;</span><span class="p">,</span> <span class="s1">&#39;arabidopsis_markers&#39;</span><span class="p">,</span> <span class="s1">&#39;drosophila_markers&#39;</span><span class="p">]:</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="s2">&quot;The --reference has to be either &#39;human_markers&#39;, &#39;human_markers_hallmarks&#39;, or &#39;mouse_markers&#39;. Others are not supported yet.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">check_directory_exists</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">savefig</span><span class="p">,</span> <span class="n">except_when</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;The --savefig directory does not exist. Creating...&quot;</span><span class="p">)</span>
+        <span class="n">os</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">savefig</span><span class="p">)</span>
+    
+    <span class="c1"># File loading, thresholding and QC metrics</span>
+    <span class="n">adata</span> <span class="o">=</span> <span class="n">sc</span><span class="o">.</span><span class="n">read_h5ad</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">adata_in</span><span class="p">)</span>
+    <span class="n">sc</span><span class="o">.</span><span class="n">pp</span><span class="o">.</span><span class="n">calculate_qc_metrics</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">percent_top</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">inplace</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+    <span class="n">_</span><span class="p">,</span> <span class="n">threshold</span><span class="p">,</span> <span class="n">cells</span> <span class="o">=</span> <span class="n">umi_threshold_cell_calling</span><span class="p">(</span>
+        <span class="n">adata</span><span class="p">,</span> <span class="n">expected_cells</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">plot</span><span class="o">=</span><span class="kc">True</span>
+    <span class="p">)</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Cells called by the UMI cutoff: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">cells</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;UMI cutoff: </span><span class="si">{</span><span class="nb">int</span><span class="p">(</span><span class="n">threshold</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="c1"># Step 1: Load markers</span>
+    <span class="n">_</span><span class="p">,</span> <span class="n">cell_markers</span><span class="p">,</span> <span class="n">nontechnical_genes</span> <span class="o">=</span> <span class="n">load_markers</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">reference</span><span class="p">)</span>
+
+    <span class="c1"># Step 2: Prepare AnnData with non-technical gene marking</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">var</span><span class="p">[</span><span class="s1">&#39;non_technical&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">adata</span><span class="o">.</span><span class="n">var_names</span><span class="o">.</span><span class="n">isin</span><span class="p">(</span><span class="n">nontechnical_genes</span><span class="p">)</span>
+    <span class="n">adata</span> <span class="o">=</span> <span class="n">preprocess_adata</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">umi_cutoff</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">threshold</span><span class="p">))</span>
+    
+    <span class="c1"># Step 3: Run clustering pipeline</span>
+    <span class="n">adata</span> <span class="o">=</span> <span class="n">run_clustering</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">savefig</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">savefig</span><span class="p">)</span>
+    
+    <span class="c1"># Step 4: Score cell types</span>
+    <span class="n">adata</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">annotate_clusters</span><span class="p">(</span>
+        <span class="n">adata</span><span class="p">,</span> 
+        <span class="n">cell_markers</span><span class="p">,</span> 
+        <span class="n">cluster_key</span><span class="o">=</span><span class="s1">&#39;leiden&#39;</span><span class="p">,</span> 
+        <span class="n">threshold</span><span class="o">=</span><span class="mf">0.4</span><span class="p">,</span> <span class="c1"># TODO: we can make user-adjustable...</span>
+        <span class="n">min_markers</span><span class="o">=</span><span class="mi">3</span><span class="p">,</span>
+        <span class="n">savefig</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">savefig</span>
+    <span class="p">)</span>
+    
+    <span class="c1"># Step 5: Analyze technical genes</span>
+    <span class="n">adata</span> <span class="o">=</span> <span class="n">analyze_technical_genes</span><span class="p">(</span><span class="n">adata</span><span class="p">,</span> <span class="n">cell_markers</span><span class="p">,</span> <span class="n">args</span><span class="o">.</span><span class="n">savefig</span><span class="p">)</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Writing AnnData object with annotation was stored at </span><span class="si">{</span><span class="n">args</span><span class="o">.</span><span class="n">adata_out</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="n">adata</span><span class="o">.</span><span class="n">write_h5ad</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">adata_out</span><span class="p">)</span>
+
+    <span class="n">logging</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;SUCCESS!&quot;</span><span class="p">)</span>
+    
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_autoannotate_parser</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">get_autoannotate_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="n">_run_autoannotate</span><span class="p">()</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Malva Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    </body>
+</html>
