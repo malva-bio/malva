@@ -180,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -268,14 +268,161 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-datastore-module">
-<h1>malva.datastore module<a class="headerlink" href="#malva-datastore-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.datastore">
+<span id="malva-datastore-module"></span><h1>malva.datastore module<a class="headerlink" href="#module-malva.datastore" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.datastore.</span></span><span class="sig-name descname"><span class="pre">ChunkedStore</span></span><a class="headerlink" href="#malva.datastore.ChunkedStore" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.attrs">
+<span class="sig-name descname"><span class="pre">attrs</span></span><a class="headerlink" href="#malva.datastore.ChunkedStore.attrs" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.close" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.contains">
+<span class="sig-name descname"><span class="pre">contains</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">key</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.contains" title="Link to this definition">¶</a></dt>
+<dd><p>Check if dataset exists.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.copy_dataset">
+<span class="sig-name descname"><span class="pre">copy_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">source_name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dest_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.copy_dataset" title="Link to this definition">¶</a></dt>
+<dd><p>Copy a dataset within the store</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.create_dataset">
+<span class="sig-name descname"><span class="pre">create_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">dtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'float64'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">compression_enabled</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.create_dataset" title="Link to this definition">¶</a></dt>
+<dd><p>Create a new dataset with the specified shape and type, with optional Elias compression.</p>
+<section id="parameters">
+<h2>Parameters:<a class="headerlink" href="#parameters" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt>name<span class="classifier">str</span></dt><dd><p>Name of the dataset</p>
+</dd>
+<dt>shape<span class="classifier">tuple</span></dt><dd><p>Shape of the dataset (e.g., (100, 200) for 2D array)</p>
+</dd>
+<dt>dtype<span class="classifier">str or numpy.dtype</span></dt><dd><p>Data type of the dataset</p>
+</dd>
+<dt><a href="#id1"><span class="problematic" id="id2">**</span></a>kwargs<span class="classifier">dict</span></dt><dd><p>Additional arguments (for compatibility)</p>
+</dd>
+</dl>
+</section>
+<section id="returns">
+<h2>Returns:<a class="headerlink" href="#returns" title="Link to this heading">¶</a></h2>
+<p>:
+PageAlignedArray</p>
+<blockquote>
+<div><p>The newly created dataset</p>
+</div></blockquote>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.flush">
+<span class="sig-name descname"><span class="pre">flush</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.flush" title="Link to this definition">¶</a></dt>
+<dd><p>Flush all changes to disk and save metadata</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.get_chunk_indices">
+<span class="sig-name descname"><span class="pre">get_chunk_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">dataset_name</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.get_chunk_indices" title="Link to this definition">¶</a></dt>
+<dd><p>Generate chunk indices for efficient iteration over a dataset</p>
+<section id="id3">
+<h2>Parameters:<a class="headerlink" href="#id3" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt>dataset_name<span class="classifier">str</span></dt><dd><p>Name of the dataset</p>
+</dd>
+</dl>
+</section>
+<section id="yields">
+<h2>Yields:<a class="headerlink" href="#yields" title="Link to this heading">¶</a></h2>
+<dl class="simple">
+<dt>tuple</dt><dd><p>Slice objects for each dimension</p>
+</dd>
+</dl>
+</section>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.items">
+<span class="sig-name descname"><span class="pre">items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.items" title="Link to this definition">¶</a></dt>
+<dd><p>Return dataset items.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.keys">
+<span class="sig-name descname"><span class="pre">keys</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.keys" title="Link to this definition">¶</a></dt>
+<dd><p>Return dataset keys.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.resize_dataset">
+<span class="sig-name descname"><span class="pre">resize_dataset</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">name</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">new_shape</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.resize_dataset" title="Link to this definition">¶</a></dt>
+<dd><p>Resize a dataset to a new shape</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.ChunkedStore.values">
+<span class="sig-name descname"><span class="pre">values</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.ChunkedStore.values" title="Link to this definition">¶</a></dt>
+<dd><p>Return dataset values.</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.datastore.EliasPageCache">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.datastore.</span></span><span class="sig-name descname"><span class="pre">EliasPageCache</span></span><a class="headerlink" href="#malva.datastore.EliasPageCache" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.datastore.PageAlignedArray">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.datastore.</span></span><span class="sig-name descname"><span class="pre">PageAlignedArray</span></span><a class="headerlink" href="#malva.datastore.PageAlignedArray" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.PageAlignedArray.flush">
+<span class="sig-name descname"><span class="pre">flush</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.PageAlignedArray.flush" title="Link to this definition">¶</a></dt>
+<dd><p>Ensure all changes are written to disk</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.datastore.PageAlignedArray.get_shape">
+<span class="sig-name descname"><span class="pre">get_shape</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.PageAlignedArray.get_shape" title="Link to this definition">¶</a></dt>
+<dd><p>Public method to get the shape</p>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.datastore.PageAlignedArray.shape">
+<span class="sig-name descname"><span class="pre">shape</span></span><a class="headerlink" href="#malva.datastore.PageAlignedArray.shape" title="Link to this definition">¶</a></dt>
+<dd><p>Public property to access array shape</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.datastore.PageCache">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.datastore.</span></span><span class="sig-name descname"><span class="pre">PageCache</span></span><a class="headerlink" href="#malva.datastore.PageCache" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.datastore.convert_h5_to_chunked">
+<span class="sig-prename descclassname"><span class="pre">malva.datastore.</span></span><span class="sig-name descname"><span class="pre">convert_h5_to_chunked</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">h5_filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">output_base</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000000</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.datastore.convert_h5_to_chunked" title="Link to this definition">¶</a></dt>
+<dd><p>Convert HDF5 file to chunked store format with memory-efficient processing.</p>
+</dd></dl>
+
 </section>
 
         </article>
@@ -303,8 +450,49 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.datastore module</a><ul>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore"><code class="docutils literal notranslate"><span class="pre">ChunkedStore</span></code></a><ul>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.attrs"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.attrs</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.close"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.close()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.contains"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.contains()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.copy_dataset"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.copy_dataset()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.create_dataset"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.create_dataset()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.flush"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.flush()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.get_chunk_indices"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.get_chunk_indices()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.items"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.items()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.keys"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.keys()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.resize_dataset"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.resize_dataset()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.ChunkedStore.values"><code class="docutils literal notranslate"><span class="pre">ChunkedStore.values()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.datastore.EliasPageCache"><code class="docutils literal notranslate"><span class="pre">EliasPageCache</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.PageAlignedArray"><code class="docutils literal notranslate"><span class="pre">PageAlignedArray</span></code></a><ul>
+<li><a class="reference internal" href="#malva.datastore.PageAlignedArray.flush"><code class="docutils literal notranslate"><span class="pre">PageAlignedArray.flush()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.PageAlignedArray.get_shape"><code class="docutils literal notranslate"><span class="pre">PageAlignedArray.get_shape()</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.PageAlignedArray.shape"><code class="docutils literal notranslate"><span class="pre">PageAlignedArray.shape</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.datastore.PageCache"><code class="docutils literal notranslate"><span class="pre">PageCache</span></code></a></li>
+<li><a class="reference internal" href="#malva.datastore.convert_h5_to_chunked"><code class="docutils literal notranslate"><span class="pre">convert_h5_to_chunked()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

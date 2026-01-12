@@ -180,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -268,14 +268,40 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-quant-module">
-<h1>malva.quant module<a class="headerlink" href="#malva-quant-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.quant">
+<span id="malva-quant-module"></span><h1>malva.quant module<a class="headerlink" href="#module-malva.quant" title="Link to this heading">¶</a></h1>
+<dl class="py exception">
+<dt class="sig sig-object py" id="malva.quant.MalvaReferenceNotFound">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.quant.</span></span><span class="sig-name descname"><span class="pre">MalvaReferenceNotFound</span></span><a class="reference internal" href="../_modules/malva/quant.html#MalvaReferenceNotFound"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.quant.MalvaReferenceNotFound" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">Exception</span></code></p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.quant.write_mtx_header">
+<span class="sig-prename descclassname"><span class="pre">malva.quant.</span></span><span class="sig-name descname"><span class="pre">write_mtx_header</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">shape</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/quant.html#write_mtx_header"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.quant.write_mtx_header" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.quant.process_batch">
+<span class="sig-prename descclassname"><span class="pre">malva.quant.</span></span><span class="sig-name descname"><span class="pre">process_batch</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kmer_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seqs_batch</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">gene_names</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">mtx_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">feature_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">start_col</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pct_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.65</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_most</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_least</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">single_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_background_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/quant.html#process_batch"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.quant.process_batch" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.quant.resave_h5ad">
+<span class="sig-prename descclassname"><span class="pre">malva.quant.</span></span><span class="sig-name descname"><span class="pre">resave_h5ad</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">folder</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">kmer_index</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/quant.html#resave_h5ad"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.quant.resave_h5ad" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.quant.process_reference">
+<span class="sig-prename descclassname"><span class="pre">malva.quant.</span></span><span class="sig-name descname"><span class="pre">process_reference</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kmer_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">reference_file</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">folder_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_background_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pct_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.65</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_most</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_least</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">single_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">batch_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">500</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/quant.html#process_reference"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.quant.process_reference" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </section>
 
         </article>
@@ -303,8 +329,31 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.quant module</a><ul>
+<li><a class="reference internal" href="#malva.quant.MalvaReferenceNotFound"><code class="docutils literal notranslate"><span class="pre">MalvaReferenceNotFound</span></code></a></li>
+<li><a class="reference internal" href="#malva.quant.write_mtx_header"><code class="docutils literal notranslate"><span class="pre">write_mtx_header()</span></code></a></li>
+<li><a class="reference internal" href="#malva.quant.process_batch"><code class="docutils literal notranslate"><span class="pre">process_batch()</span></code></a></li>
+<li><a class="reference internal" href="#malva.quant.resave_h5ad"><code class="docutils literal notranslate"><span class="pre">resave_h5ad()</span></code></a></li>
+<li><a class="reference internal" href="#malva.quant.process_reference"><code class="docutils literal notranslate"><span class="pre">process_reference()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

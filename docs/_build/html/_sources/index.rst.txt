@@ -82,5 +82,5 @@ Features
    :caption: Links
 
    Malva Platform <https://malva.bio>
-   Malva Client <https://malva-bio.github.io/malva/client>
+   Malva Client <https://github.com/malva-bio/malva_client>
    GitHub Repository <https://github.com/malva-bio/malva>

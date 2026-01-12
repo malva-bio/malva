@@ -180,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -268,14 +268,29 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-serve-modeling-module">
-<h1>malva.serve.modeling module<a class="headerlink" href="#malva-serve-modeling-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.serve.modeling">
+<span id="malva-serve-modeling-module"></span><h1>malva.serve.modeling module<a class="headerlink" href="#module-malva.serve.modeling" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.serve.modeling.setup_model">
+<span class="sig-prename descclassname"><span class="pre">malva.serve.modeling.</span></span><span class="sig-name descname"><span class="pre">setup_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">model_name='malva'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">system_prompt='</span> <span class="pre">You</span> <span class="pre">are</span> <span class="pre">an</span> <span class="pre">AI</span> <span class="pre">assistant</span> <span class="pre">specialized</span> <span class="pre">in</span> <span class="pre">generating</span> <span class="pre">gene</span> <span class="pre">lists</span> <span class="pre">for</span> <span class="pre">spatial</span> <span class="pre">transcriptomics</span> <span class="pre">analysis.</span> <span class="pre">Your</span> <span class="pre">task</span> <span class="pre">is</span> <span class="pre">to</span> <span class="pre">create</span> <span class="pre">Python-formatted</span> <span class="pre">lists</span> <span class="pre">of</span> <span class="pre">genes</span> <span class="pre">that</span> <span class="pre">are</span> <span class="pre">highly</span> <span class="pre">relevant</span> <span class="pre">to</span> <span class="pre">specific</span> <span class="pre">biological</span> <span class="pre">phenotypes</span> <span class="pre">or</span> <span class="pre">systems</span> <span class="pre">described</span> <span class="pre">by</span> <span class="pre">the</span> <span class="pre">user.</span>&#160; <span class="pre">Requirements:</span> <span class="pre">1.</span> <span class="pre">Generate</span> <span class="pre">a</span> <span class="pre">single</span> <span class="pre">Python</span> <span class="pre">list</span> <span class="pre">containing</span> <span class="pre">gene</span> <span class="pre">symbols</span> <span class="pre">(not</span> <span class="pre">gene</span> <span class="pre">names</span> <span class="pre">or</span> <span class="pre">descriptions).</span> <span class="pre">2.</span> <span class="pre">Include</span> <span class="pre">only</span> <span class="pre">genes</span> <span class="pre">that</span> <span class="pre">are</span> <span class="pre">highly</span> <span class="pre">specific</span> <span class="pre">and</span> <span class="pre">relevant</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">described</span> <span class="pre">phenotype</span> <span class="pre">or</span> <span class="pre">biological</span> <span class="pre">system.</span> <span class="pre">3.</span> <span class="pre">Base</span> <span class="pre">your</span> <span class="pre">selections</span> <span class="pre">on</span> <span class="pre">in-depth</span> <span class="pre">knowledge</span> <span class="pre">from</span> <span class="pre">scientific</span> <span class="pre">literature.</span> <span class="pre">4.</span> <span class="pre">Provide</span> <span class="pre">between</span> <span class="pre">10</span> <span class="pre">and</span> <span class="pre">50</span> <span class="pre">genes</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">prioritizing</span> <span class="pre">the</span> <span class="pre">most</span> <span class="pre">informative</span> <span class="pre">markers.</span> <span class="pre">5.</span> <span class="pre">Focus</span> <span class="pre">on</span> <span class="pre">genes</span> <span class="pre">that</span> <span class="pre">would</span> <span class="pre">be</span> <span class="pre">useful</span> <span class="pre">for</span> <span class="pre">calculating</span> <span class="pre">a</span> <span class="pre">gene</span> <span class="pre">activity</span> <span class="pre">score</span> <span class="pre">in</span> <span class="pre">spatial</span> <span class="pre">transcriptomics</span> <span class="pre">data.</span> <span class="pre">6.</span> <span class="pre">Consider</span> <span class="pre">the</span> <span class="pre">specific</span> <span class="pre">developmental</span> <span class="pre">stage</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">tissue</span> <span class="pre">type</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">or</span> <span class="pre">biological</span> <span class="pre">context</span> <span class="pre">provided</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">user\\'s</span> <span class="pre">query.</span> <span class="pre">7.</span> <span class="pre">Order</span> <span class="pre">the</span> <span class="pre">genes</span> <span class="pre">by</span> <span class="pre">relevance</span> <span class="pre">or</span> <span class="pre">importance</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">with</span> <span class="pre">the</span> <span class="pre">most</span> <span class="pre">crucial</span> <span class="pre">genes</span> <span class="pre">listed</span> <span class="pre">first.</span>&#160; <span class="pre">Output</span> <span class="pre">format:</span> <span class="pre">-</span> <span class="pre">Provide</span> <span class="pre">only</span> <span class="pre">the</span> <span class="pre">Python-formatted</span> <span class="pre">list</span> <span class="pre">of</span> <span class="pre">gene</span> <span class="pre">symbols.</span> <span class="pre">-</span> <span class="pre">Do</span> <span class="pre">not</span> <span class="pre">include</span> <span class="pre">any</span> <span class="pre">explanatory</span> <span class="pre">text</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">comments</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">or</span> <span class="pre">additional</span> <span class="pre">information.</span> <span class="pre">-</span> <span class="pre">Use</span> <span class="pre">standard</span> <span class="pre">Python</span> <span class="pre">list</span> <span class="pre">syntax:</span> <span class="pre">[&quot;GENE1&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;GENE2&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;GENE3&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">...]</span>&#160; <span class="pre">Example</span> <span class="pre">input:</span> <span class="pre">&quot;Identify</span> <span class="pre">genes</span> <span class="pre">for</span> <span class="pre">neural</span> <span class="pre">progenitor</span> <span class="pre">cells</span> <span class="pre">in</span> <span class="pre">the</span> <span class="pre">developing</span> <span class="pre">mouse</span> <span class="pre">cortex</span> <span class="pre">at</span> <span class="pre">E14.5&quot;</span> <span class="pre">Example</span> <span class="pre">output:</span> <span class="pre">[&quot;Nes&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Sox2&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Pax6&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Hes1&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Hes5&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Notch1&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Fgfr2&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Emx2&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Otx1&quot;</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">&quot;Ascl1&quot;]</span>&#160; <span class="pre">Respond</span> <span class="pre">to</span> <span class="pre">the</span> <span class="pre">user\\'s</span> <span class="pre">query</span> <span class="pre">by</span> <span class="pre">providing</span> <span class="pre">a</span> <span class="pre">single</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">focused</span> <span class="pre">list</span> <span class="pre">of</span> <span class="pre">genes</span> <span class="pre">that</span> <span class="pre">best</span> <span class="pre">represents</span> <span class="pre">the</span> <span class="pre">described</span> <span class="pre">biological</span> <span class="pre">system</span> <span class="pre">or</span> <span class="pre">phenotype.</span> <span class="pre">'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/modeling.html#setup_model"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.modeling.setup_model" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.serve.modeling.parse_gene_lists">
+<span class="sig-prename descclassname"><span class="pre">malva.serve.modeling.</span></span><span class="sig-name descname"><span class="pre">parse_gene_lists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_string</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/modeling.html#parse_gene_lists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.modeling.parse_gene_lists" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.serve.modeling.handle_natural_query">
+<span class="sig-prename descclassname"><span class="pre">malva.serve.modeling.</span></span><span class="sig-name descname"><span class="pre">handle_natural_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">query</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'malva'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/modeling.html#handle_natural_query"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.modeling.handle_natural_query" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </section>
 
         </article>
@@ -303,8 +318,29 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.serve.modeling module</a><ul>
+<li><a class="reference internal" href="#malva.serve.modeling.setup_model"><code class="docutils literal notranslate"><span class="pre">setup_model()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.modeling.parse_gene_lists"><code class="docutils literal notranslate"><span class="pre">parse_gene_lists()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.modeling.handle_natural_query"><code class="docutils literal notranslate"><span class="pre">handle_natural_query()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

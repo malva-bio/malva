@@ -1,0 +1,870 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><link rel="author" title="About these documents" href="../../about.html" /><link rel="index" title="Index" href="../../genindex.html" /><link rel="search" title="Search" href="../../search.html" />
+        <link rel="prefetch" href="../../_static/malva_logo.svg" as="image" />
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
+        <title>malva.dbutils - Malva</title>
+      <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo.css?v=25af2a20" />
+    <link rel="stylesheet" type="text/css" href="../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../index.html"><div class="brand">Malva</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../../_static/malva_logo.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">Malva</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../about.html">About Malva Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../quickstart.html">Quick Start</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_index.html">index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_quant.html">quant</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_cellxmer.html">cellxmer</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_show.html">show</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../cmd_serve.html">serve</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.indexes.html">malva.indexes module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.dbutils.html">malva.dbutils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.spacemake.html">malva.spacemake module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Links</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for malva.dbutils</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pathlib</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pickle</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">requests</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">sqlite3</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">rich.progress</span><span class="w"> </span><span class="kn">import</span> <span class="n">track</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">malva.reader</span><span class="w"> </span><span class="kn">import</span> <span class="n">iterate_fasta</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">malva.utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">download_url_to_file</span>
+
+<span class="n">ENSEMBL_REST</span> <span class="o">=</span> <span class="s2">&quot;https://rest.ensembl.org&quot;</span>
+
+<span class="c1"># implement pre-download ensembl data</span>
+<span class="n">revcomp</span> <span class="o">=</span> <span class="nb">str</span><span class="o">.</span><span class="n">maketrans</span><span class="p">(</span><span class="s2">&quot;ACGTU&quot;</span><span class="p">,</span> <span class="s2">&quot;TGCAA&quot;</span><span class="p">)</span>
+
+<span class="c1"># ensembl fasta</span>
+<span class="n">ENSEMBL_FASTA</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;mus_musculus&quot;</span><span class="p">:</span> <span class="s2">&quot;Mus_musculus.GRCm39.cdna.all.fa.gz&quot;</span><span class="p">,</span>
+                 <span class="s2">&quot;homo_sapiens&quot;</span><span class="p">:</span> <span class="s2">&quot;Homo_sapiens.GRCh38.cdna.all.fa.gz&quot;</span><span class="p">}</span>
+
+<span class="n">SEQDB_LOCAL_DIR</span> <span class="o">=</span> <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="o">.</span><span class="n">home</span><span class="p">()</span><span class="o">.</span><span class="n">joinpath</span><span class="p">(</span><span class="s2">&quot;.malva&quot;</span><span class="p">,</span> <span class="s2">&quot;ensembl_data&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="EnsemblLocalDB">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">EnsemblLocalDB</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A class to manage local storage and retrieval of Ensembl cDNA sequences.</span>
+
+<span class="sd">    This class provides functionality to download, index, and query cDNA sequences</span>
+<span class="sd">    from Ensembl for specified species.</span>
+
+<span class="sd">    Attributes:</span>
+<span class="sd">        data_dir (str): Directory to store downloaded and indexed data.</span>
+<span class="sd">        index (dict): Dictionary mapping Ensembl IDs to sequences.</span>
+<span class="sd">        gene_to_ensembl (dict): Dictionary mapping gene names to Ensembl IDs.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="EnsemblLocalDB.__init__">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">data_dir</span><span class="o">=</span><span class="n">SEQDB_LOCAL_DIR</span><span class="p">,</span> <span class="n">species</span><span class="o">=</span><span class="s1">&#39;mus_musculus&#39;</span><span class="p">):</span>
+        <span class="sa">f</span><span class="s2">&quot;&quot;&quot;</span>
+<span class="s2">        Initialize the EnsemblLocalDB object.</span>
+
+<span class="s2">        Args:</span>
+<span class="s2">            data_dir (str, optional): Directory to store data. Defaults to &#39;</span><span class="si">{</span><span class="n">SEQDB_LOCAL_DIR</span><span class="si">}</span><span class="s2">&#39;.</span>
+<span class="s2">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">species</span> <span class="o">=</span> <span class="n">species</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">data_dir</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">db_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="s1">&#39;ensembl.db&#39;</span><span class="p">)</span>
+        <span class="n">pathlib</span><span class="o">.</span><span class="n">Path</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_create_tables</span><span class="p">()</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_create_tables</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Create the necessary tables in the SQLite database if they don&#39;t exist.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA journal_mode=WAL&quot;</span><span class="p">)</span>  <span class="c1"># Use Write-Ahead Logging</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA synchronous=NORMAL&quot;</span><span class="p">)</span>  <span class="c1"># Reduce synchronous IOPS</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA cache_size=1000000&quot;</span><span class="p">)</span>  <span class="c1"># Increase cache size (in pages)</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;PRAGMA mmap_size=30000000000&quot;</span><span class="p">)</span>  <span class="c1"># Memory-mapped I/O</span>
+
+            <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+
+            <span class="c1"># Single table for all data with a composite primary key</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">                CREATE TABLE IF NOT EXISTS gene_data (</span>
+<span class="s1">                    gene_name TEXT COLLATE NOCASE,</span>
+<span class="s1">                    ensembl_id TEXT,</span>
+<span class="s1">                    sequence TEXT,</span>
+<span class="s1">                    PRIMARY KEY (gene_name, ensembl_id)</span>
+<span class="s1">                ) WITHOUT ROWID</span>
+<span class="s1">            &#39;&#39;&#39;</span><span class="p">)</span>
+
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;CREATE INDEX IF NOT EXISTS idx_gene_name ON gene_data (gene_name COLLATE NOCASE)&#39;</span><span class="p">)</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;CREATE INDEX IF NOT EXISTS idx_ensembl_id ON gene_data (ensembl_id)&#39;</span><span class="p">)</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span>
+
+<div class="viewcode-block" id="EnsemblLocalDB.database_exists">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.database_exists">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">database_exists</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Check if the local database exists, is properly set up, and contains data.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the database exists, is set up, and contains data; False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db_path</span><span class="p">):</span>
+            <span class="k">return</span> <span class="kc">False</span>
+        
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+                <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+                
+                <span class="c1"># Check if the gene_data table exists</span>
+                <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT name FROM sqlite_master WHERE type=&#39;table&#39; AND name=&#39;gene_data&#39;&quot;</span><span class="p">)</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchone</span><span class="p">():</span>
+                    <span class="k">return</span> <span class="kc">False</span>
+                
+                <span class="c1"># Check if the gene_data table contains any rows</span>
+                <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s2">&quot;SELECT COUNT(*) FROM gene_data&quot;</span><span class="p">)</span>
+                <span class="n">count</span> <span class="o">=</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchone</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span>
+                
+                <span class="k">return</span> <span class="n">count</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="k">except</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">Error</span><span class="p">:</span>
+            <span class="c1"># If there&#39;s any database error, consider the database as not properly set up</span>
+            <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="EnsemblLocalDB.download_cdna_fasta">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.download_cdna_fasta">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">download_cdna_fasta</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Download the cDNA FASTA file for a given species from Ensembl.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            str: The local path to the downloaded file.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">base_url</span> <span class="o">=</span> <span class="s2">&quot;http://ftp.ensembl.org/pub/current_fasta&quot;</span>
+        <span class="n">filename</span> <span class="o">=</span> <span class="n">ENSEMBL_FASTA</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="p">]</span>
+        <span class="n">url</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">base_url</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">species</span><span class="si">}</span><span class="s2">/cdna/</span><span class="si">{</span><span class="n">filename</span><span class="si">}</span><span class="s2">&quot;</span>
+        <span class="n">local_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="n">filename</span><span class="p">)</span>
+
+        <span class="nb">print</span><span class="p">(</span><span class="n">url</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">local_path</span><span class="p">):</span>
+            <span class="n">download_url_to_file</span><span class="p">(</span><span class="n">url</span><span class="p">,</span> <span class="n">local_path</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">local_path</span></div>
+
+
+<div class="viewcode-block" id="EnsemblLocalDB.index_fasta">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.index_fasta">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index_fasta</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fasta_file</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parse the FASTA file and store the data in the SQLite database efficiently.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            fasta_file (str): Path to the FASTA file to be indexed.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Indexing </span><span class="si">{</span><span class="n">fasta_file</span><span class="si">}</span><span class="s2">...&quot;</span><span class="p">)</span>
+        <span class="n">data_to_insert</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">track</span><span class="p">(</span><span class="n">iterate_fasta</span><span class="p">(</span><span class="n">fasta_file</span><span class="p">),</span> <span class="s2">&quot;Indexing EnsemblLocalDB&quot;</span><span class="p">):</span>
+            <span class="n">ensembl_id</span> <span class="o">=</span> <span class="n">record</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;.&#39;</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">sequence</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">record</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">gene_name</span> <span class="o">=</span> <span class="n">record</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;gene_symbol:&#39;</span><span class="p">)[</span><span class="mi">1</span><span class="p">]</span><span class="o">.</span><span class="n">split</span><span class="p">()[</span><span class="mi">0</span><span class="p">]</span> <span class="k">if</span> <span class="s1">&#39;gene_symbol:&#39;</span> <span class="ow">in</span> <span class="n">record</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">else</span> <span class="kc">None</span>
+            
+            <span class="k">if</span> <span class="n">gene_name</span><span class="p">:</span>
+                <span class="n">data_to_insert</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">gene_name</span><span class="p">,</span> <span class="n">ensembl_id</span><span class="p">,</span> <span class="n">sequence</span><span class="p">))</span>
+        
+        <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+            <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">executemany</span><span class="p">(</span><span class="s1">&#39;INSERT OR REPLACE INTO gene_data (gene_name, ensembl_id, sequence) VALUES (?, ?, ?)&#39;</span><span class="p">,</span> <span class="n">data_to_insert</span><span class="p">)</span>
+            <span class="n">conn</span><span class="o">.</span><span class="n">commit</span><span class="p">()</span></div>
+
+
+
+<div class="viewcode-block" id="EnsemblLocalDB.save_index">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.save_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Save the indexed data to disk using pickle.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="s1">&#39;index.pkl&#39;</span><span class="p">),</span> <span class="s1">&#39;wb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">pickle</span><span class="o">.</span><span class="n">dump</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gene_to_ensembl</span><span class="p">),</span> <span class="n">f</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="EnsemblLocalDB.load_index">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.load_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">load_index</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Load the indexed data from disk.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            bool: True if the index was successfully loaded, False otherwise.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">index_path</span> <span class="o">=</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">data_dir</span><span class="p">,</span> <span class="s1">&#39;index.pkl&#39;</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">exists</span><span class="p">(</span><span class="n">index_path</span><span class="p">):</span>
+            <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">index_path</span><span class="p">,</span> <span class="s1">&#39;rb&#39;</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">index</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">gene_to_ensembl</span> <span class="o">=</span> <span class="n">pickle</span><span class="o">.</span><span class="n">load</span><span class="p">(</span><span class="n">f</span><span class="p">)</span>
+            <span class="k">return</span> <span class="kc">True</span>
+        <span class="k">return</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="EnsemblLocalDB.get_from_gene">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.get_from_gene">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_from_gene</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">gene_id</span><span class="p">,</span> <span class="n">seq_type</span><span class="o">=</span><span class="s1">&#39;cdna&#39;</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Retrieve cDNA sequences for a given gene ID or Ensembl ID.</span>
+
+<span class="sd">        This method first checks if the database exists. If not, it sets up the database</span>
+<span class="sd">        by downloading and indexing the necessary files. The search is case-insensitive.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            gene_id (str): The gene ID or Ensembl ID to query.</span>
+<span class="sd">            seq_type (str, optional): The type of sequence to retrieve. Currently only &#39;cdna&#39; is supported. Defaults to &#39;cdna&#39;.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            list: A list of cDNA sequences associated with the given gene ID.</span>
+
+<span class="sd">        Raises:</span>
+<span class="sd">            ValueError: If seq_type is not &#39;cdna&#39;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">seq_type</span> <span class="o">!=</span> <span class="s1">&#39;cdna&#39;</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Only &#39;cdna&#39; sequence type is currently supported&quot;</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">database_exists</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Local database not found. Setting up the database...&quot;</span><span class="p">)</span>
+            <span class="n">fasta_file</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">download_cdna_fasta</span><span class="p">()</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">index_fasta</span><span class="p">(</span><span class="n">fasta_file</span><span class="p">)</span>
+
+        <span class="k">with</span> <span class="n">sqlite3</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">db_path</span><span class="p">)</span> <span class="k">as</span> <span class="n">conn</span><span class="p">:</span>
+            <span class="n">cursor</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">cursor</span><span class="p">()</span>
+            
+            <span class="c1"># Use a single query to fetch all relevant sequences</span>
+            <span class="n">cursor</span><span class="o">.</span><span class="n">execute</span><span class="p">(</span><span class="s1">&#39;&#39;&#39;</span>
+<span class="s1">                SELECT sequence FROM gene_data</span>
+<span class="s1">                WHERE gene_name = ? COLLATE NOCASE OR ensembl_id = ? COLLATE NOCASE</span>
+<span class="s1">            &#39;&#39;&#39;</span><span class="p">,</span> <span class="p">(</span><span class="n">gene_id</span><span class="p">,</span> <span class="n">gene_id</span><span class="p">))</span>
+            
+            <span class="n">sequences</span> <span class="o">=</span> <span class="p">[</span><span class="n">row</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="k">for</span> <span class="n">row</span> <span class="ow">in</span> <span class="n">cursor</span><span class="o">.</span><span class="n">fetchall</span><span class="p">()]</span>
+
+        <span class="k">return</span> <span class="n">sequences</span></div>
+</div>
+
+
+<span class="c1"># the databases that have been loaded into memory</span>
+<span class="n">_localdbs</span> <span class="o">=</span> <span class="p">{}</span>
+
+<div class="viewcode-block" id="process_dna_string">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.process_dna_string">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_dna_string</span><span class="p">(</span><span class="n">sequence</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Validates and parses a DNA sequence or a FASTA-like format sequence.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        sequence (str): The input DNA sequence or FASTA-like format sequence.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: A single line DNA sequence with only ATCG characters, other nucleotides replaced by A, and U replaced by T.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sequence</span> <span class="o">=</span> <span class="n">sequence</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">sequence</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">):</span>
+        <span class="c1"># Remove the header line</span>
+        <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;sequence&quot;</span><span class="p">:</span> <span class="n">parse_multifasta</span><span class="p">(</span><span class="n">sequence</span><span class="p">)}</span>
+
+    <span class="n">sequence</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">sequence</span><span class="p">)</span>
+    <span class="n">valid_dna_chars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="s2">&quot;ATCG&quot;</span><span class="p">)</span>
+    <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">sequence</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span>
+        <span class="k">if</span> <span class="n">char</span> <span class="o">==</span> <span class="s2">&quot;U&quot;</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">valid_dna_chars</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;A&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;sequence&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="p">)}</span></div>
+
+
+<div class="viewcode-block" id="parse_multifasta">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.parse_multifasta">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">parse_multifasta</span><span class="p">(</span><span class="n">fasta_string</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Validates and parses a FASTA-formatted string.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        fasta_string (str): FASTA-formatted sequence.</span>
+<span class="sd">    Returns:</span>
+<span class="sd">        list: A list of single line DNA sequences with only ATCG characters, other nucleotides replaced by A, and U replaced by T.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sequences</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="k">for</span> <span class="n">fasta_entry</span> <span class="ow">in</span> <span class="n">fasta_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">)[</span><span class="mi">1</span><span class="p">:]:</span>
+        <span class="n">lines</span> <span class="o">=</span> <span class="n">fasta_entry</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="n">dna_sequence</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span>
+        <span class="n">dna_sequence</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">sub</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;\s+&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">,</span> <span class="n">dna_sequence</span><span class="p">)</span>
+        <span class="n">valid_dna_chars</span> <span class="o">=</span> <span class="nb">set</span><span class="p">(</span><span class="s2">&quot;ATCG&quot;</span><span class="p">)</span>
+        <span class="n">result</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">dna_sequence</span><span class="o">.</span><span class="n">upper</span><span class="p">():</span>
+            <span class="k">if</span> <span class="n">char</span> <span class="o">==</span> <span class="s2">&quot;U&quot;</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;T&quot;</span><span class="p">)</span>
+            <span class="k">elif</span> <span class="n">char</span> <span class="ow">in</span> <span class="n">valid_dna_chars</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">char</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">result</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;A&quot;</span><span class="p">)</span>
+        <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+
+    <span class="k">return</span> <span class="n">sequences</span></div>
+
+
+
+<div class="viewcode-block" id="handle_sequence">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.handle_sequence">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">handle_sequence</span><span class="p">(</span><span class="n">input_string</span><span class="p">,</span> <span class="n">recursion</span><span class="o">=</span><span class="kc">True</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Checks the input string for specific conditions and routes it accordingly.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input_string (str): The input string to check and handle.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: the parsed DNA sequence for the input_string feature</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">input_string</span> <span class="o">=</span> <span class="n">input_string</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+    <span class="n">seq_out</span> <span class="o">=</span> <span class="s2">&quot;&quot;</span>
+
+    <span class="k">if</span> <span class="n">input_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;gene:&quot;</span><span class="p">):</span>
+        <span class="n">_input</span> <span class="o">=</span> <span class="n">process_gene_string</span><span class="p">(</span><span class="n">input_string</span><span class="p">)</span>
+        <span class="n">_seq_out</span> <span class="o">=</span> <span class="n">get_from_gene</span><span class="p">(</span><span class="n">_input</span><span class="p">[</span><span class="s2">&quot;gene_id&quot;</span><span class="p">],</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;species&quot;</span><span class="p">],</span> <span class="n">seqtype</span><span class="o">=</span><span class="n">_input</span><span class="p">[</span><span class="s2">&quot;seqtype&quot;</span><span class="p">])</span>
+
+        <span class="n">seq_out</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_seq_out</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">revcomp</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span>
+
+            <span class="n">seq_out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">seq_out</span>
+
+    <span class="k">elif</span> <span class="n">input_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;ensembl:&quot;</span><span class="p">):</span>
+        <span class="n">_input</span> <span class="o">=</span> <span class="n">process_ensembl_string</span><span class="p">(</span><span class="n">input_string</span><span class="p">)</span>
+        <span class="n">_seq_out</span> <span class="o">=</span> <span class="n">get_from_ensembl</span><span class="p">(</span><span class="n">_input</span><span class="p">[</span><span class="s2">&quot;ensembl_id&quot;</span><span class="p">],</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;seqtype&quot;</span><span class="p">])</span>
+
+        <span class="n">seq_out</span> <span class="o">=</span> <span class="p">[]</span>
+
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">_seq_out</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">translate</span><span class="p">(</span><span class="n">revcomp</span><span class="p">)[::</span><span class="o">-</span><span class="mi">1</span><span class="p">][</span><span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span> <span class="p">:</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]]</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">s</span> <span class="o">=</span> <span class="n">s</span><span class="p">[</span><span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">]</span> <span class="p">:</span> <span class="n">_input</span><span class="p">[</span><span class="s2">&quot;split&quot;</span><span class="p">][</span><span class="mi">1</span><span class="p">]]</span>
+
+            <span class="n">seq_out</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">s</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">seq_out</span>
+
+    <span class="k">elif</span> <span class="n">input_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;&gt;&quot;</span><span class="p">):</span>
+        <span class="n">seq_out</span> <span class="o">=</span> <span class="n">parse_multifasta</span><span class="p">(</span><span class="n">input_string</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">seq_out</span><span class="p">[</span><span class="s2">&quot;sequence&quot;</span><span class="p">]</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">input_string</span> <span class="o">=</span> <span class="n">validate_and_infer_query</span><span class="p">(</span><span class="n">input_string</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">recursion</span><span class="p">:</span>
+            <span class="n">seq_out</span> <span class="o">=</span> <span class="n">handle_sequence</span><span class="p">(</span><span class="n">input_string</span><span class="p">,</span> <span class="n">recursion</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">seq_out</span> <span class="o">=</span> <span class="n">process_dna_string</span><span class="p">(</span><span class="n">input_string</span><span class="p">)[</span><span class="s2">&quot;sequence&quot;</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">seq_out</span> <span class="o">==</span> <span class="s2">&quot;&quot;</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;DNA sequence not valid or not found&quot;</span><span class="p">)</span>
+
+    <span class="c1"># we apply again in case ensembl is parsed as fasta</span>
+    <span class="k">return</span> <span class="n">process_dna_string</span><span class="p">(</span><span class="n">seq_out</span><span class="p">)[</span><span class="s2">&quot;sequence&quot;</span><span class="p">]</span></div>
+
+
+
+<div class="viewcode-block" id="process_gene_string">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.process_gene_string">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_gene_string</span><span class="p">(</span><span class="n">gene_string</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Processes a string that starts with &#39;gene:&#39; and extracts the gene ID, species, and split parameter.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        gene_string (str): The input string starting with &#39;gene:&#39;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A dictionary with keys &#39;gene_id&#39;, &#39;species&#39;, and &#39;split&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">gene_info</span> <span class="o">=</span> <span class="n">gene_string</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">gene_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;gene:&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input string must start with &#39;gene:&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">species</span> <span class="o">=</span> <span class="s2">&quot;homo_sapiens&quot;</span>
+    <span class="n">split</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">seqtype</span> <span class="o">=</span> <span class="s2">&quot;genomic&quot;</span>
+
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">gene_info</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span>
+
+    <span class="n">gene_id</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;species:&quot;</span><span class="p">):</span>
+            <span class="n">species</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;species:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;type:&quot;</span><span class="p">):</span>
+            <span class="n">seqtype</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;type:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;split:&quot;</span><span class="p">):</span>
+            <span class="n">split_str</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;split:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">split</span> <span class="o">=</span> <span class="n">split_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">split</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The &#39;split&#39; parameter must have exactly two elements&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">split</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">split</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both elements of the &#39;split&#39; parameter must be integers&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;gene:&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">gene_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multiple gene IDs found in input string&quot;</span><span class="p">)</span>
+            <span class="n">gene_id</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;gene:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">gene_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Gene ID is missing in the input string&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;gene_id&quot;</span><span class="p">:</span> <span class="n">gene_id</span><span class="p">,</span> <span class="s2">&quot;species&quot;</span><span class="p">:</span> <span class="n">species</span><span class="p">,</span> <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span> <span class="s2">&quot;seqtype&quot;</span><span class="p">:</span> <span class="n">seqtype</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="process_ensembl_string">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.process_ensembl_string">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">process_ensembl_string</span><span class="p">(</span><span class="n">ensembl_string</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Processes a string that starts with &#39;ensembl:&#39; and extracts the Ensembl ID.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        ensembl_string (str): The input string starting with &#39;ensembl:&#39;.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        dict: A dictionary with the key &#39;ensembl_id&#39;.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">ensembl_string</span> <span class="o">=</span> <span class="n">ensembl_string</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">ensembl_string</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;ensembl:&quot;</span><span class="p">):</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Input string must start with &#39;ensembl:&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">split</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="kc">None</span><span class="p">]</span>
+    <span class="n">seqtype</span> <span class="o">=</span> <span class="s2">&quot;genomic&quot;</span>
+
+    <span class="n">parts</span> <span class="o">=</span> <span class="n">ensembl_string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;;&quot;</span><span class="p">)</span>
+
+    <span class="n">ensembl_id</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;type:&quot;</span><span class="p">):</span>
+            <span class="n">seqtype</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;type:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">elif</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;split:&quot;</span><span class="p">):</span>
+            <span class="n">split_str</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;split:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="n">split</span> <span class="o">=</span> <span class="n">split_str</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;,&quot;</span><span class="p">)</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">split</span><span class="p">)</span> <span class="o">!=</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;The &#39;split&#39; parameter must have exactly two elements&quot;</span><span class="p">)</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">split</span> <span class="o">=</span> <span class="p">[</span><span class="nb">int</span><span class="p">(</span><span class="n">s</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">split</span><span class="p">]</span>
+            <span class="k">except</span> <span class="ne">ValueError</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Both elements of the &#39;split&#39; parameter must be integers&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">part</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;ensembl:&quot;</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">ensembl_id</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Multiple ensembl IDs found in input string&quot;</span><span class="p">)</span>
+            <span class="n">ensembl_id</span> <span class="o">=</span> <span class="n">part</span><span class="p">[</span><span class="nb">len</span><span class="p">(</span><span class="s2">&quot;ensembl:&quot;</span><span class="p">)</span> <span class="p">:]</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="n">ensembl_id</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;Ensembl ID is missing in the input string&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="p">{</span><span class="s2">&quot;ensembl_id&quot;</span><span class="p">:</span> <span class="n">ensembl_id</span><span class="p">,</span> <span class="s2">&quot;split&quot;</span><span class="p">:</span> <span class="n">split</span><span class="p">,</span> <span class="s2">&quot;seqtype&quot;</span><span class="p">:</span> <span class="n">seqtype</span><span class="p">}</span></div>
+
+
+
+<div class="viewcode-block" id="get_from_gene">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.get_from_gene">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_from_gene</span><span class="p">(</span><span class="n">gene_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">species</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;homo_sapiens&quot;</span><span class="p">,</span> <span class="n">seqtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;genomic&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">species</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">_localdbs</span><span class="p">:</span>
+        <span class="n">_localdbs</span><span class="p">[</span><span class="n">species</span><span class="p">]</span> <span class="o">=</span> <span class="n">EnsemblLocalDB</span><span class="p">(</span><span class="n">species</span><span class="o">=</span><span class="n">species</span><span class="p">)</span>
+    
+    <span class="n">_localdb</span> <span class="o">=</span> <span class="n">_localdbs</span><span class="p">[</span><span class="n">species</span><span class="p">]</span>
+
+    <span class="k">if</span> <span class="n">_localdb</span><span class="o">.</span><span class="n">database_exists</span><span class="p">():</span>
+        <span class="k">return</span> <span class="n">_localdb</span><span class="o">.</span><span class="n">get_from_gene</span><span class="p">(</span><span class="n">gene_id</span><span class="p">,</span> <span class="n">seqtype</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">seqtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;genomic&quot;</span><span class="p">,</span> <span class="s2">&quot;cdna&quot;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;type&#39; must be &#39;genomic&#39; or &#39;cdna&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">ext</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/xrefs/symbol/</span><span class="si">{</span><span class="n">species</span><span class="si">}</span><span class="s2">/</span><span class="si">{</span><span class="n">gene_id</span><span class="si">}</span><span class="s2">?content-type=text/plain&quot;</span>
+    <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ENSEMBL_REST</span> <span class="o">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;application/json&quot;</span><span class="p">})</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+    <span class="n">decoded</span> <span class="o">=</span> <span class="n">r</span><span class="o">.</span><span class="n">json</span><span class="p">()</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">decoded</span><span class="p">)</span> <span class="o">&lt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Gene &#39;</span><span class="si">{</span><span class="n">gene_id</span><span class="si">}</span><span class="s2">&#39; for species &#39;</span><span class="si">{</span><span class="n">species</span><span class="si">}</span><span class="s2">&#39; was not found&quot;</span><span class="p">)</span>
+
+    <span class="n">ensembl_id</span> <span class="o">=</span> <span class="n">decoded</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="s2">&quot;id&quot;</span><span class="p">]</span>
+
+    <span class="k">return</span> <span class="n">get_from_ensembl</span><span class="p">(</span><span class="n">ensembl_id</span><span class="o">=</span><span class="n">ensembl_id</span><span class="p">,</span> <span class="n">seqtype</span><span class="o">=</span><span class="n">seqtype</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="get_from_ensembl">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.get_from_ensembl">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">get_from_ensembl</span><span class="p">(</span><span class="n">ensembl_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">seqtype</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;genomic&quot;</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">seqtype</span> <span class="ow">not</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;genomic&quot;</span><span class="p">,</span> <span class="s2">&quot;cdna&quot;</span><span class="p">,</span> <span class="s2">&quot;transcript&quot;</span><span class="p">]:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;&#39;type&#39; must be &#39;genomic&#39; or &#39;cdna&#39;&quot;</span><span class="p">)</span>
+
+    <span class="n">ext</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/sequence/id/</span><span class="si">{</span><span class="n">ensembl_id</span><span class="si">}</span><span class="s2">?type=</span><span class="si">{</span><span class="n">seqtype</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">if</span> <span class="n">seqtype</span> <span class="o">==</span> <span class="s2">&quot;transcript&quot;</span><span class="p">:</span>
+        <span class="n">ext</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/sequence/id/</span><span class="si">{</span><span class="n">ensembl_id</span><span class="si">}</span><span class="s2">&quot;</span>
+    <span class="k">elif</span> <span class="n">seqtype</span> <span class="o">==</span> <span class="s2">&quot;cdna&quot;</span><span class="p">:</span>
+        <span class="n">ext</span> <span class="o">+=</span> <span class="s2">&quot;;multiple_sequences=1&quot;</span>
+
+    <span class="n">r</span> <span class="o">=</span> <span class="n">requests</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">ENSEMBL_REST</span> <span class="o">+</span> <span class="n">ext</span><span class="p">,</span> <span class="n">headers</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">:</span> <span class="s2">&quot;text/x-fasta&quot;</span><span class="p">})</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">r</span><span class="o">.</span><span class="n">ok</span><span class="p">:</span>
+        <span class="n">r</span><span class="o">.</span><span class="n">raise_for_status</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="n">parse_multifasta</span><span class="p">(</span><span class="n">r</span><span class="o">.</span><span class="n">text</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="validate_and_infer_query">
+<a class="viewcode-back" href="../../api/malva.dbutils.html#malva.dbutils.validate_and_infer_query">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">validate_and_infer_query</span><span class="p">(</span><span class="n">input_string</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Validate and infer whether the input is gene IDs or DNA sequences.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        input_string (str): The user input string.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str: Corrected query string or raises an exception if validation fails.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Split the input into lines and remove empty lines</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span> <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">input_string</span><span class="o">.</span><span class="n">splitlines</span><span class="p">()</span> <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()]</span>
+    <span class="n">lines</span> <span class="o">=</span> <span class="n">lines</span><span class="p">[:</span><span class="mi">1</span><span class="p">]</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_dna_sequence</span><span class="p">(</span><span class="n">seq</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[ACGTNacgtn]+&quot;</span><span class="p">,</span> <span class="n">seq</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_gene_id</span><span class="p">(</span><span class="n">gene</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;[a-zA-Z0-9._-]+&quot;</span><span class="p">,</span> <span class="n">gene</span><span class="p">))</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">is_ensembl_id</span><span class="p">(</span><span class="n">gene</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">bool</span><span class="p">(</span><span class="n">re</span><span class="o">.</span><span class="n">fullmatch</span><span class="p">(</span><span class="sa">r</span><span class="s2">&quot;ENS[GTPE][a-zA-Z0-9._-]+&quot;</span><span class="p">,</span> <span class="n">gene</span><span class="p">,</span> <span class="n">re</span><span class="o">.</span><span class="n">IGNORECASE</span><span class="p">))</span>
+
+    <span class="n">inferred_genes</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">inferred_sequences</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="n">inferred_ensembl</span> <span class="o">=</span> <span class="p">[]</span>
+
+    <span class="n">input_types</span> <span class="o">=</span> <span class="nb">set</span><span class="p">()</span>
+
+    <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">lines</span><span class="p">:</span>
+        <span class="k">if</span> <span class="n">is_dna_sequence</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+            <span class="n">inferred_sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            <span class="n">input_types</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;sequence&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">is_gene_id</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+            <span class="n">inferred_genes</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            <span class="n">input_types</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;gene&quot;</span><span class="p">)</span>
+        <span class="k">elif</span> <span class="n">is_ensembl_id</span><span class="p">(</span><span class="n">line</span><span class="p">):</span>
+            <span class="n">inferred_ensembl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            <span class="n">input_types</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="s2">&quot;ensembl&quot;</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid input: &#39;</span><span class="si">{</span><span class="n">line</span><span class="si">}</span><span class="s2">&#39;. Please enter valid gene IDs or DNA sequences.&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">input_types</span><span class="p">)</span> <span class="o">&gt;</span> <span class="mi">1</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span>
+            <span class="s2">&quot;Mixed input detected: Please provide either gene IDs, Ensembl IDs, or DNA sequences, not multiple types.&quot;</span>
+        <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">inferred_genes</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;gene:&quot;</span> <span class="o">+</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inferred_genes</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">inferred_ensembl</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;ensembl:&quot;</span> <span class="o">+</span> <span class="s2">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inferred_ensembl</span><span class="p">)</span>
+    <span class="k">elif</span> <span class="n">inferred_sequences</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">inferred_sequences</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s2">&quot;No valid gene IDs, Ensembl IDs, or DNA sequences detected. Please check your input.&quot;</span><span class="p">)</span></div>
+
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Malva Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../_static/copybutton.js?v=f281be69"></script>
+    </body>
+</html>

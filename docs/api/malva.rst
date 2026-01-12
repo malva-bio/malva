@@ -15,6 +15,7 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   malva.autoannotate
    malva.cellxmer
    malva.cli
    malva.combine
@@ -31,6 +32,7 @@ Submodules
    malva.kmer_processing
    malva.quant
    malva.reader
+   malva.search
    malva.show
    malva.spacemake
    malva.utils

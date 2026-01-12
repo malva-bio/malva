@@ -180,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -268,14 +268,34 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-combine-module">
-<h1>malva.combine module<a class="headerlink" href="#malva-combine-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.combine">
+<span id="malva-combine-module"></span><h1>malva.combine module<a class="headerlink" href="#module-malva.combine" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.combine.combine_indices">
+<span class="sig-prename descclassname"><span class="pre">malva.combine.</span></span><span class="sig-name descname"><span class="pre">combine_indices</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">combine_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_uuids</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_id_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/combine.html#combine_indices"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.combine.combine_indices" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.combine.process_merge_chunks">
+<span class="sig-prename descclassname"><span class="pre">malva.combine.</span></span><span class="sig-name descname"><span class="pre">process_merge_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merge_projects</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/combine.html#process_merge_chunks"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.combine.process_merge_chunks" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.combine.process_group">
+<span class="sig-prename descclassname"><span class="pre">malva.combine.</span></span><span class="sig-name descname"><span class="pre">process_group</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">group_idx</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">base_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_uuids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merge_chunks</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merge_projects</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_id_offset</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/combine.html#process_group"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.combine.process_group" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.combine.hierarchical_combine">
+<span class="sig-prename descclassname"><span class="pre">malva.combine.</span></span><span class="sig-name descname"><span class="pre">hierarchical_combine</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">base_dir</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">project_uuids</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merge_chunks</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merge_projects</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">group_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/combine.html#hierarchical_combine"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.combine.hierarchical_combine" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
 </section>
 
         </article>
@@ -303,8 +323,30 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.combine module</a><ul>
+<li><a class="reference internal" href="#malva.combine.combine_indices"><code class="docutils literal notranslate"><span class="pre">combine_indices()</span></code></a></li>
+<li><a class="reference internal" href="#malva.combine.process_merge_chunks"><code class="docutils literal notranslate"><span class="pre">process_merge_chunks()</span></code></a></li>
+<li><a class="reference internal" href="#malva.combine.process_group"><code class="docutils literal notranslate"><span class="pre">process_group()</span></code></a></li>
+<li><a class="reference internal" href="#malva.combine.hierarchical_combine"><code class="docutils literal notranslate"><span class="pre">hierarchical_combine()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

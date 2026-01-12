@@ -180,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -268,14 +268,26 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-cellxmer-module">
-<h1>malva.cellxmer module<a class="headerlink" href="#malva-cellxmer-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.cellxmer">
+<span id="malva-cellxmer-module"></span><h1>malva.cellxmer module<a class="headerlink" href="#module-malva.cellxmer" title="Link to this heading">¶</a></h1>
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.cellxmer.malva_to_cellxmer">
+<span class="sig-prename descclassname"><span class="pre">malva.cellxmer.</span></span><span class="sig-name descname"><span class="pre">malva_to_cellxmer</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kmer_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_most</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_least</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/cellxmer.html#malva_to_cellxmer"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.cellxmer.malva_to_cellxmer" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.cellxmer.malva_to_filtered_cellxmer_chunked">
+<span class="sig-prename descclassname"><span class="pre">malva.cellxmer.</span></span><span class="sig-name descname"><span class="pre">malva_to_filtered_cellxmer_chunked</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kmer_index</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_most</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_least</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">w_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">16</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">num_buckets</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">temp_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">verbose</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/cellxmer.html#malva_to_filtered_cellxmer_chunked"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.cellxmer.malva_to_filtered_cellxmer_chunked" title="Link to this definition">¶</a></dt>
+<dd><p>Process a malva index to create a filtered cell-by-bucket matrix in chunks
+following the same approach as the original implementation but with chunked processing.</p>
+</dd></dl>
+
 </section>
 
         </article>
@@ -303,8 +315,28 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.cellxmer module</a><ul>
+<li><a class="reference internal" href="#malva.cellxmer.malva_to_cellxmer"><code class="docutils literal notranslate"><span class="pre">malva_to_cellxmer()</span></code></a></li>
+<li><a class="reference internal" href="#malva.cellxmer.malva_to_filtered_cellxmer_chunked"><code class="docutils literal notranslate"><span class="pre">malva_to_filtered_cellxmer_chunked()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

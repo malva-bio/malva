@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -278,9 +278,109 @@
 <h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h1>
 <div class="toctree-wrapper compound">
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="malva.indexes.html">malva.indexes module</a></li>
-<li class="toctree-l1"><a class="reference internal" href="malva.fastq_processing.html">malva.fastq_processing module</a></li>
-<li class="toctree-l1"><a class="reference internal" href="malva.dbutils.html">malva.dbutils module</a></li>
+<li class="toctree-l1"><a class="reference internal" href="malva.indexes.html">malva.indexes module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel"><code class="docutils literal notranslate"><span class="pre">BackgroundModel</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.total_mers"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.total_mers</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.kmer_size"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.kmer_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.verbose"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.create_from_reference"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.create_from_reference()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.export_fasta"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.export_fasta()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.import_jellyfish_fasta"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.import_jellyfish_fasta()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.is_mer_above_cutoff"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.is_mer_above_cutoff()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.load"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.load()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.BackgroundModel.save"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.save()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex"><code class="docutils literal notranslate"><span class="pre">MalvaIndex</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.index_dir"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_dir</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.kmer_size"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.kmer_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.verbose"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.n_chunks"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.n_chunks</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.add_reads"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.add_reads()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.close"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.close()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.coord_lims"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.coord_lims</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.data_lengths"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.data_lengths</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.get_cell_id"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_cell_id()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.get_project_id"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_project_id()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.get_whole_sliding_sequence"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_whole_sliding_sequence()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.get_whole_sliding_sequence_chunk"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_whole_sliding_sequence_chunk()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#id0"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_dir</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.index_exists"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.index_file"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_file</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.initialize"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.initialize()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.initialize_kmer_index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.initialize_kmer_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.jump_amount"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.jump_amount</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#id1"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.kmer_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.load_index_to_memory"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.load_index_to_memory()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.merge_chunks"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.merge_chunks()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#id2"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.n_chunks</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.n_spatial"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.n_spatial</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.open"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.open()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.project_mapping"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.project_mapping</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.set_background_model"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_background_model()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.set_barcode_index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_barcode_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.set_spatial_coords"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_spatial_coords()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.set_spatial_index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_spatial_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.spatial_coord"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.spatial_coord</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#id3"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.verbose</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.where"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.where()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.MalvaIndex.write"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.write()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="malva.indexes.html#malva.indexes.SpatialIndex"><code class="docutils literal notranslate"><span class="pre">SpatialIndex</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.SpatialIndex.get_coords"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.get_coords()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.SpatialIndex.get_coords_stomics"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.get_coords_stomics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.SpatialIndex.load_binary"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.load_binary()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.SpatialIndex.load_binary_stomics"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.load_binary_stomics()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.SpatialIndex.num_items"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.num_items()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.indexes.html#malva.indexes.SpatialIndex.save_binary"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.save_binary()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="malva.indexes.html#malva.indexes.create_singlecell_index"><code class="docutils literal notranslate"><span class="pre">create_singlecell_index()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.indexes.html#malva.indexes.create_spatial_index"><code class="docutils literal notranslate"><span class="pre">create_spatial_index()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="malva.fastq_processing.html">malva.fastq_processing module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="malva.fastq_processing.html#malva.fastq_processing.FastKmerProcessor"><code class="docutils literal notranslate"><span class="pre">FastKmerProcessor</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="malva.fastq_processing.html#malva.fastq_processing.FastKmerProcessor.kmer_size"><code class="docutils literal notranslate"><span class="pre">FastKmerProcessor.kmer_size</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.fastq_processing.html#malva.fastq_processing.FastKmerProcessor.overlapping"><code class="docutils literal notranslate"><span class="pre">FastKmerProcessor.overlapping</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="malva.fastq_processing.html#malva.fastq_processing.KmerFastqParser"><code class="docutils literal notranslate"><span class="pre">KmerFastqParser</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="malva.fastq_processing.html#malva.fastq_processing.KmerFastqParser.number_of_records"><code class="docutils literal notranslate"><span class="pre">KmerFastqParser.number_of_records</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="malva.fastq_processing.html#malva.fastq_processing.SequenceFastqParser"><code class="docutils literal notranslate"><span class="pre">SequenceFastqParser</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="malva.fastq_processing.html#malva.fastq_processing.SequenceFastqParser.number_of_records"><code class="docutils literal notranslate"><span class="pre">SequenceFastqParser.number_of_records</span></code></a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="malva.dbutils.html">malva.dbutils module</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB</span></code></a><ul>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.data_dir"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.data_dir</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.index"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.index</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.gene_to_ensembl"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.gene_to_ensembl</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.__init__"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.__init__()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.database_exists"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.database_exists()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.download_cdna_fasta"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.download_cdna_fasta()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.index_fasta"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.index_fasta()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.save_index"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.save_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.load_index"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.load_index()</span></code></a></li>
+<li class="toctree-l3"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.EnsemblLocalDB.get_from_gene"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.get_from_gene()</span></code></a></li>
+</ul>
+</li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.process_dna_string"><code class="docutils literal notranslate"><span class="pre">process_dna_string()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.parse_multifasta"><code class="docutils literal notranslate"><span class="pre">parse_multifasta()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.handle_sequence"><code class="docutils literal notranslate"><span class="pre">handle_sequence()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.process_gene_string"><code class="docutils literal notranslate"><span class="pre">process_gene_string()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.process_ensembl_string"><code class="docutils literal notranslate"><span class="pre">process_ensembl_string()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.get_from_gene"><code class="docutils literal notranslate"><span class="pre">get_from_gene()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.get_from_ensembl"><code class="docutils literal notranslate"><span class="pre">get_from_ensembl()</span></code></a></li>
+<li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html#malva.dbutils.validate_and_infer_query"><code class="docutils literal notranslate"><span class="pre">validate_and_infer_query()</span></code></a></li>
+</ul>
+</li>
 <li class="toctree-l1"><a class="reference internal" href="malva.spacemake.html">malva.spacemake module</a><ul>
 <li class="toctree-l2"><a class="reference internal" href="malva.spacemake.html#malva.spacemake.nonsingular"><code class="docutils literal notranslate"><span class="pre">nonsingular()</span></code></a></li>
 <li class="toctree-l2"><a class="reference internal" href="malva.spacemake.html#malva.spacemake.create_mesh"><code class="docutils literal notranslate"><span class="pre">create_mesh()</span></code></a></li>

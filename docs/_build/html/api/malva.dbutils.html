@@ -180,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -268,14 +268,257 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-dbutils-module">
-<h1>malva.dbutils module<a class="headerlink" href="#malva-dbutils-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.dbutils">
+<span id="malva-dbutils-module"></span><h1>malva.dbutils module<a class="headerlink" href="#module-malva.dbutils" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">EnsemblLocalDB</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">PosixPath('/home/dleonpe/.malva/ensembl_data')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mus_musculus'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A class to manage local storage and retrieval of Ensembl cDNA sequences.</p>
+<p>This class provides functionality to download, index, and query cDNA sequences
+from Ensembl for specified species.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.data_dir">
+<span class="sig-name descname"><span class="pre">data_dir</span></span><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.data_dir" title="Link to this definition">¶</a></dt>
+<dd><p>Directory to store downloaded and indexed data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.index">
+<span class="sig-name descname"><span class="pre">index</span></span><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.index" title="Link to this definition">¶</a></dt>
+<dd><p>Dictionary mapping Ensembl IDs to sequences.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.gene_to_ensembl">
+<span class="sig-name descname"><span class="pre">gene_to_ensembl</span></span><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.gene_to_ensembl" title="Link to this definition">¶</a></dt>
+<dd><p>Dictionary mapping gene names to Ensembl IDs.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">data_dir</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">PosixPath('/home/dleonpe/.malva/ensembl_data')</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'mus_musculus'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.database_exists">
+<span class="sig-name descname"><span class="pre">database_exists</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB.database_exists"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.database_exists" title="Link to this definition">¶</a></dt>
+<dd><p>Check if the local database exists, is properly set up, and contains data.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if the database exists, is set up, and contains data; False otherwise.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.download_cdna_fasta">
+<span class="sig-name descname"><span class="pre">download_cdna_fasta</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB.download_cdna_fasta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.download_cdna_fasta" title="Link to this definition">¶</a></dt>
+<dd><p>Download the cDNA FASTA file for a given species from Ensembl.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>The local path to the downloaded file.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.index_fasta">
+<span class="sig-name descname"><span class="pre">index_fasta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fasta_file</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB.index_fasta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.index_fasta" title="Link to this definition">¶</a></dt>
+<dd><p>Parse the FASTA file and store the data in the SQLite database efficiently.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fasta_file</strong> (<em>str</em>) – Path to the FASTA file to be indexed.</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.save_index">
+<span class="sig-name descname"><span class="pre">save_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB.save_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.save_index" title="Link to this definition">¶</a></dt>
+<dd><p>Save the indexed data to disk using pickle.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.load_index">
+<span class="sig-name descname"><span class="pre">load_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB.load_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.load_index" title="Link to this definition">¶</a></dt>
+<dd><p>Load the indexed data from disk.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Returns<span class="colon">:</span></dt>
+<dd class="field-odd"><p>True if the index was successfully loaded, False otherwise.</p>
+</dd>
+<dt class="field-even">Return type<span class="colon">:</span></dt>
+<dd class="field-even"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.dbutils.EnsemblLocalDB.get_from_gene">
+<span class="sig-name descname"><span class="pre">get_from_gene</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gene_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seq_type</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'cdna'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#EnsemblLocalDB.get_from_gene"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.EnsemblLocalDB.get_from_gene" title="Link to this definition">¶</a></dt>
+<dd><p>Retrieve cDNA sequences for a given gene ID or Ensembl ID.</p>
+<p>This method first checks if the database exists. If not, it sets up the database
+by downloading and indexing the necessary files. The search is case-insensitive.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>gene_id</strong> (<em>str</em>) – The gene ID or Ensembl ID to query.</p></li>
+<li><p><strong>seq_type</strong> (<em>str</em><em>, </em><em>optional</em>) – The type of sequence to retrieve. Currently only ‘cdna’ is supported. Defaults to ‘cdna’.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of cDNA sequences associated with the given gene ID.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+<dt class="field-even">Raises<span class="colon">:</span></dt>
+<dd class="field-even"><p><strong>ValueError</strong> – If seq_type is not ‘cdna’.</p>
+</dd>
+</dl>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.process_dna_string">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">process_dna_string</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#process_dna_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.process_dna_string" title="Link to this definition">¶</a></dt>
+<dd><p>Validates and parses a DNA sequence or a FASTA-like format sequence.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>sequence</strong> (<em>str</em>) – The input DNA sequence or FASTA-like format sequence.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A single line DNA sequence with only ATCG characters, other nucleotides replaced by A, and U replaced by T.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.parse_multifasta">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">parse_multifasta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">fasta_string</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#parse_multifasta"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.parse_multifasta" title="Link to this definition">¶</a></dt>
+<dd><p>Validates and parses a FASTA-formatted string.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>fasta_string</strong> (<em>str</em>) – FASTA-formatted sequence.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A list of single line DNA sequences with only ATCG characters, other nucleotides replaced by A, and U replaced by T.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>list</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.handle_sequence">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">handle_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_string</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">recursion</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#handle_sequence"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.handle_sequence" title="Link to this definition">¶</a></dt>
+<dd><p>Checks the input string for specific conditions and routes it accordingly.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_string</strong> (<em>str</em>) – The input string to check and handle.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>the parsed DNA sequence for the input_string feature</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.process_gene_string">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">process_gene_string</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gene_string</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#process_gene_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.process_gene_string" title="Link to this definition">¶</a></dt>
+<dd><p>Processes a string that starts with ‘gene:’ and extracts the gene ID, species, and split parameter.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>gene_string</strong> (<em>str</em>) – The input string starting with ‘gene:’.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary with keys ‘gene_id’, ‘species’, and ‘split’.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.process_ensembl_string">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">process_ensembl_string</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensembl_string</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#process_ensembl_string"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.process_ensembl_string" title="Link to this definition">¶</a></dt>
+<dd><p>Processes a string that starts with ‘ensembl:’ and extracts the Ensembl ID.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>ensembl_string</strong> (<em>str</em>) – The input string starting with ‘ensembl:’.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>A dictionary with the key ‘ensembl_id’.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>dict</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.get_from_gene">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">get_from_gene</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">gene_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">species</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'homo_sapiens'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seqtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'genomic'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#get_from_gene"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.get_from_gene" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.get_from_ensembl">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">get_from_ensembl</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">ensembl_id</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">seqtype</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'genomic'</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#get_from_ensembl"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.get_from_ensembl" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.dbutils.validate_and_infer_query">
+<span class="sig-prename descclassname"><span class="pre">malva.dbutils.</span></span><span class="sig-name descname"><span class="pre">validate_and_infer_query</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">input_string</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/dbutils.html#validate_and_infer_query"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.dbutils.validate_and_infer_query" title="Link to this definition">¶</a></dt>
+<dd><p>Validate and infer whether the input is gene IDs or DNA sequences.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>input_string</strong> (<em>str</em>) – The user input string.</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Corrected query string or raises an exception if validation fails.</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
 </section>
 
         </article>
@@ -321,8 +564,47 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.dbutils module</a><ul>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB</span></code></a><ul>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.data_dir"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.data_dir</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.index"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.index</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.gene_to_ensembl"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.gene_to_ensembl</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.__init__"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.__init__()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.database_exists"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.database_exists()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.download_cdna_fasta"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.download_cdna_fasta()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.index_fasta"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.index_fasta()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.save_index"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.save_index()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.load_index"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.load_index()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.EnsemblLocalDB.get_from_gene"><code class="docutils literal notranslate"><span class="pre">EnsemblLocalDB.get_from_gene()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.dbutils.process_dna_string"><code class="docutils literal notranslate"><span class="pre">process_dna_string()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.parse_multifasta"><code class="docutils literal notranslate"><span class="pre">parse_multifasta()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.handle_sequence"><code class="docutils literal notranslate"><span class="pre">handle_sequence()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.process_gene_string"><code class="docutils literal notranslate"><span class="pre">process_gene_string()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.process_ensembl_string"><code class="docutils literal notranslate"><span class="pre">process_ensembl_string()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.get_from_gene"><code class="docutils literal notranslate"><span class="pre">get_from_gene()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.get_from_ensembl"><code class="docutils literal notranslate"><span class="pre">get_from_ensembl()</span></code></a></li>
+<li><a class="reference internal" href="#malva.dbutils.validate_and_infer_query"><code class="docutils literal notranslate"><span class="pre">validate_and_infer_query()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

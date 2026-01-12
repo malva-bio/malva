@@ -180,7 +180,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -228,7 +228,7 @@
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://malva-bio.github.io/malva/client">Malva Client</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
@@ -268,14 +268,414 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-indexes-module">
-<h1>malva.indexes module<a class="headerlink" href="#malva-indexes-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.indexes">
+<span id="malva-indexes-module"></span><h1>malva.indexes module<a class="headerlink" href="#module-malva.indexes" title="Link to this heading">¶</a></h1>
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.indexes.</span></span><span class="sig-name descname"><span class="pre">BackgroundModel</span></span><a class="headerlink" href="#malva.indexes.BackgroundModel" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Models background k-mer frequencies for filtering common sequences.</p>
+<p>Maintains counts of k-mer occurrences in reference sequences to identify
+and filter out highly abundant or common k-mers during searches.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.total_mers">
+<span class="sig-name descname"><span class="pre">total_mers</span></span><a class="headerlink" href="#malva.indexes.BackgroundModel.total_mers" title="Link to this definition">¶</a></dt>
+<dd><p>Total number of k-mers processed</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.kmer_size">
+<span class="sig-name descname"><span class="pre">kmer_size</span></span><a class="headerlink" href="#malva.indexes.BackgroundModel.kmer_size" title="Link to this definition">¶</a></dt>
+<dd><p>Length of k-mers being counted</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.verbose">
+<span class="sig-name descname"><span class="pre">verbose</span></span><a class="headerlink" href="#malva.indexes.BackgroundModel.verbose" title="Link to this definition">¶</a></dt>
+<dd><p>Whether to print detailed logging information</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.create_from_reference">
+<span class="sig-name descname"><span class="pre">create_from_reference</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">consecutive_genes</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.BackgroundModel.create_from_reference" title="Link to this definition">¶</a></dt>
+<dd><p>Build background model from a reference sequence file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>filename</strong> (<em>str</em>) – Path to reference sequence file</p></li>
+<li><p><strong>consecutive_genes</strong> (<em>bool</em>) – Whether to group consecutive genes</p></li>
+</ul>
+</dd>
+</dl>
+<p>Processes reference sequences to count k-mer frequencies,
+optionally combining counts for consecutive genes with same name.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.export_fasta">
+<span class="sig-name descname"><span class="pre">export_fasta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.BackgroundModel.export_fasta" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.import_jellyfish_fasta">
+<span class="sig-name descname"><span class="pre">import_jellyfish_fasta</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.BackgroundModel.import_jellyfish_fasta" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.is_mer_above_cutoff">
+<span class="sig-name descname"><span class="pre">is_mer_above_cutoff</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kmer</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cutoff</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.BackgroundModel.is_mer_above_cutoff" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.load">
+<span class="sig-name descname"><span class="pre">load</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.BackgroundModel.load" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.BackgroundModel.save">
+<span class="sig-name descname"><span class="pre">save</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.BackgroundModel.save" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.indexes.</span></span><span class="sig-name descname"><span class="pre">MalvaIndex</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>A spatial indexing system for k-mer sequences.</p>
+<p>Manages creation, storage, and querying of k-mer indices with associated spatial coordinates.
+Supports both memory-efficient and performance-optimized indexing strategies.</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.index_dir">
+<span class="sig-name descname"><span class="pre">index_dir</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.index_dir" title="Link to this definition">¶</a></dt>
+<dd><p>Directory where index files are stored</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>str</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.kmer_size">
+<span class="sig-name descname"><span class="pre">kmer_size</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.kmer_size" title="Link to this definition">¶</a></dt>
+<dd><p>Length of k-mers used in the index</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.verbose">
+<span class="sig-name descname"><span class="pre">verbose</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.verbose" title="Link to this definition">¶</a></dt>
+<dd><p>Whether to print detailed logging information</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>bool</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.n_chunks">
+<span class="sig-name descname"><span class="pre">n_chunks</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.n_chunks" title="Link to this definition">¶</a></dt>
+<dd><p>Number of chunks the index is split into</p>
+<dl class="field-list simple">
+<dt class="field-odd">Type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>int</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.add_reads">
+<span class="sig-name descname"><span class="pre">add_reads</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">reads_in</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bam_tags</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'CB:{cell}'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">cell</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'r1[2:27]'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">n_report</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunksize</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">threads</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">1</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.add_reads" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.close">
+<span class="sig-name descname"><span class="pre">close</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.close" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.coord_lims">
+<span class="sig-name descname"><span class="pre">coord_lims</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.coord_lims" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.data_lengths">
+<span class="sig-name descname"><span class="pre">data_lengths</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.data_lengths" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.get_cell_id">
+<span class="sig-name descname"><span class="pre">get_cell_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.get_cell_id" title="Link to this definition">¶</a></dt>
+<dd><p>Extract cell ID without project ID.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.get_project_id">
+<span class="sig-name descname"><span class="pre">get_project_id</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">cell_id</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.get_project_id" title="Link to this definition">¶</a></dt>
+<dd><p>Extract project ID from a cell ID.</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.get_whole_sliding_sequence">
+<span class="sig-name descname"><span class="pre">get_whole_sliding_sequence</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">string</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">k</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.get_whole_sliding_sequence" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.get_whole_sliding_sequence_chunk">
+<span class="sig-name descname"><span class="pre">get_whole_sliding_sequence_chunk</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">string</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_size</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.get_whole_sliding_sequence_chunk" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.index">
+<span class="sig-name descname"><span class="pre">index</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.index" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id0">
+<span class="sig-name descname"><span class="pre">index_dir</span></span><a class="headerlink" href="#id0" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.index_exists">
+<em class="property"><span class="k"><span class="pre">static</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">index_exists</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">self</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.index_exists" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.index_file">
+<span class="sig-name descname"><span class="pre">index_file</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.index_file" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">kmer_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">8</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.initialize" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.initialize_kmer_index">
+<span class="sig-name descname"><span class="pre">initialize_kmer_index</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.initialize_kmer_index" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.jump_amount">
+<span class="sig-name descname"><span class="pre">jump_amount</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.jump_amount" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id1">
+<span class="sig-name descname"><span class="pre">kmer_size</span></span><a class="headerlink" href="#id1" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.load_index_to_memory">
+<span class="sig-name descname"><span class="pre">load_index_to_memory</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">chunk_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">50000000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_mem</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_most</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_least</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.load_index_to_memory" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.merge_chunks">
+<span class="sig-name descname"><span class="pre">merge_chunks</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">file_out</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">merge_projects</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sample_percentage</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.05</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.merge_chunks" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id2">
+<span class="sig-name descname"><span class="pre">n_chunks</span></span><a class="headerlink" href="#id2" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.n_spatial">
+<span class="sig-name descname"><span class="pre">n_spatial</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.n_spatial" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.open">
+<span class="sig-name descname"><span class="pre">open</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">mode</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'r+'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">blosc_load_to_memory</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.open" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.project_mapping">
+<span class="sig-name descname"><span class="pre">project_mapping</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.project_mapping" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.set_background_model">
+<span class="sig-name descname"><span class="pre">set_background_model</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">background_model</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.set_background_model" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.set_barcode_index">
+<span class="sig-name descname"><span class="pre">set_barcode_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sindex</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.set_barcode_index" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.set_spatial_coords">
+<span class="sig-name descname"><span class="pre">set_spatial_coords</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coords</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.set_spatial_coords" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.set_spatial_index">
+<span class="sig-name descname"><span class="pre">set_spatial_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sindex</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.set_spatial_index" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.spatial_coord">
+<span class="sig-name descname"><span class="pre">spatial_coord</span></span><a class="headerlink" href="#malva.indexes.MalvaIndex.spatial_coord" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="id3">
+<span class="sig-name descname"><span class="pre">verbose</span></span><a class="headerlink" href="#id3" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.where">
+<span class="sig-name descname"><span class="pre">where</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pct_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.65</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_most</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">count_at_least</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">chunk_id</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">single_count</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_mem</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">'1M'</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">force_reload</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_background_model</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">use_batched</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">False</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">*</span></span><span class="n"><span class="pre">args</span></span></em>, <em class="sig-param"><span class="o"><span class="pre">**</span></span><span class="n"><span class="pre">kwargs</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.where" title="Link to this definition">¶</a></dt>
+<dd><p>Locate spatial positions where a sequence or set of sequences appear.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><ul class="simple">
+<li><p><strong>sequence</strong> (<em>Union</em><em>[</em><em>str</em><em>, </em><em>List</em><em>[</em><em>str</em><em>]</em><em>, </em><em>List</em><em>[</em><em>List</em><em>[</em><em>str</em><em>]</em><em>]</em><em>]</em>) – Query sequence(s) to search for.
+If List[List[str]], each sublist represents isoforms
+of the same gene that should be quantified together.</p></li>
+<li><p><strong>sliding_size</strong> (<em>int</em>) – Size of sliding window for k-mer generation.
+When &lt; 0, will not use sliding windows but the whole sequence, and should be set to -(read_length)</p></li>
+<li><p><strong>pct_threshold</strong> (<em>float</em>) – Minimum percentage of matching k-mers required</p></li>
+<li><p><strong>count_at_most</strong> (<em>int</em>) – Maximum count threshold for k-mer consideration</p></li>
+<li><p><strong>count_at_least</strong> (<em>int</em>) – Minimum count threshold for k-mer consideration</p></li>
+<li><p><strong>chunk_id</strong> (<em>int</em>) – Index chunk to search in</p></li>
+<li><p><strong>single_count</strong> (<em>bool</em>) – Whether to count each match only once</p></li>
+<li><p><strong>max_mem</strong> (<em>str</em>) – Maximum memory constraint</p></li>
+<li><p><strong>force_reload</strong> (<em>bool</em>) – Force index reload</p></li>
+<li><p><strong>use_background_model</strong> (<em>bool</em>) – Use background model for filtering</p></li>
+<li><p><strong>use_batched</strong> (<em>bool</em>) – For lazy loading, whether to use batching. When False, it detects automatically. When True, it forces to batched.</p></li>
+</ul>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p><dl class="simple">
+<dt>List of tuples, one per group (or single tuple if input is str/List[str]), each containing:</dt><dd><ul class="simple">
+<li><p>np.ndarray: Spatial locations where sequences were found</p></li>
+<li><p>np.ndarray: Count of occurrences at each location</p></li>
+<li><p>List: Matching details for sequence positions</p></li>
+</ul>
+</dd>
+</dl>
+</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p>List[Tuple]</p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.MalvaIndex.write">
+<span class="sig-name descname"><span class="pre">write</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.MalvaIndex.write" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.indexes.SpatialIndex">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.indexes.</span></span><span class="sig-name descname"><span class="pre">SpatialIndex</span></span><a class="headerlink" href="#malva.indexes.SpatialIndex" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Manages spatial coordinates and their associated cell barcodes.</p>
+<p>Provides efficient lookup and storage of spatial positions indexed by cell barcodes.
+Supports both standard spatial transcriptomics and STOmics data formats.</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.SpatialIndex.get_coords">
+<span class="sig-name descname"><span class="pre">get_coords</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.SpatialIndex.get_coords" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.SpatialIndex.get_coords_stomics">
+<span class="sig-name descname"><span class="pre">get_coords_stomics</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.SpatialIndex.get_coords_stomics" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.SpatialIndex.load_binary">
+<span class="sig-name descname"><span class="pre">load_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.SpatialIndex.load_binary" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.SpatialIndex.load_binary_stomics">
+<span class="sig-name descname"><span class="pre">load_binary_stomics</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">barcode_length</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">25</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.SpatialIndex.load_binary_stomics" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.SpatialIndex.num_items">
+<span class="sig-name descname"><span class="pre">num_items</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.SpatialIndex.num_items" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.indexes.SpatialIndex.save_binary">
+<span class="sig-name descname"><span class="pre">save_binary</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">filename</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.SpatialIndex.save_binary" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.indexes.create_singlecell_index">
+<span class="sig-prename descclassname"><span class="pre">malva.indexes.</span></span><span class="sig-name descname"><span class="pre">create_singlecell_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">whitelist_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.create_singlecell_index" title="Link to this definition">¶</a></dt>
+<dd><p>Create an index from a single-cell barcode whitelist.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>whitelist_file</strong> (<em>str</em>) – Path to file containing valid cell barcodes</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Index containing valid cell barcodes</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#malva.indexes.SpatialIndex" title="malva.indexes.SpatialIndex">SpatialIndex</a></p>
+</dd>
+</dl>
+<p>Processes a whitelist file containing one barcode per line to create
+a lookup structure for valid cell identifiers.</p>
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.indexes.create_spatial_index">
+<span class="sig-prename descclassname"><span class="pre">malva.indexes.</span></span><span class="sig-name descname"><span class="pre">create_spatial_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">spatial_barcode_file</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.indexes.create_spatial_index" title="Link to this definition">¶</a></dt>
+<dd><p>Create a spatial index from a barcode coordinate file.</p>
+<dl class="field-list simple">
+<dt class="field-odd">Parameters<span class="colon">:</span></dt>
+<dd class="field-odd"><p><strong>spatial_barcode_file</strong> (<em>str</em>) – Path to file containing barcode coordinates</p>
+</dd>
+<dt class="field-even">Returns<span class="colon">:</span></dt>
+<dd class="field-even"><p>Index mapping barcodes to spatial coordinates</p>
+</dd>
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><a class="reference internal" href="#malva.indexes.SpatialIndex" title="malva.indexes.SpatialIndex">SpatialIndex</a></p>
+</dd>
+</dl>
+<p>Processes a CSV/TSV file containing cell barcodes and their x,y coordinates
+to build an efficient lookup structure.</p>
+</dd></dl>
+
 </section>
 
         </article>
@@ -321,8 +721,86 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.indexes module</a><ul>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel"><code class="docutils literal notranslate"><span class="pre">BackgroundModel</span></code></a><ul>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.total_mers"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.total_mers</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.kmer_size"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.kmer_size</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.verbose"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.verbose</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.create_from_reference"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.create_from_reference()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.export_fasta"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.export_fasta()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.import_jellyfish_fasta"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.import_jellyfish_fasta()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.is_mer_above_cutoff"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.is_mer_above_cutoff()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.load"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.load()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.BackgroundModel.save"><code class="docutils literal notranslate"><span class="pre">BackgroundModel.save()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex"><code class="docutils literal notranslate"><span class="pre">MalvaIndex</span></code></a><ul>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.index_dir"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_dir</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.kmer_size"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.kmer_size</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.verbose"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.verbose</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.n_chunks"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.n_chunks</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.add_reads"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.add_reads()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.close"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.close()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.coord_lims"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.coord_lims</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.data_lengths"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.data_lengths</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.get_cell_id"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_cell_id()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.get_project_id"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_project_id()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.get_whole_sliding_sequence"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_whole_sliding_sequence()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.get_whole_sliding_sequence_chunk"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.get_whole_sliding_sequence_chunk()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index</span></code></a></li>
+<li><a class="reference internal" href="#id0"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_dir</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.index_exists"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_exists()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.index_file"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.index_file</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.initialize"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.initialize()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.initialize_kmer_index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.initialize_kmer_index()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.jump_amount"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.jump_amount</span></code></a></li>
+<li><a class="reference internal" href="#id1"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.kmer_size</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.load_index_to_memory"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.load_index_to_memory()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.merge_chunks"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.merge_chunks()</span></code></a></li>
+<li><a class="reference internal" href="#id2"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.n_chunks</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.n_spatial"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.n_spatial</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.open"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.open()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.project_mapping"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.project_mapping</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.set_background_model"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_background_model()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.set_barcode_index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_barcode_index()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.set_spatial_coords"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_spatial_coords()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.set_spatial_index"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.set_spatial_index()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.spatial_coord"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.spatial_coord</span></code></a></li>
+<li><a class="reference internal" href="#id3"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.verbose</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.where"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.where()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.MalvaIndex.write"><code class="docutils literal notranslate"><span class="pre">MalvaIndex.write()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.indexes.SpatialIndex"><code class="docutils literal notranslate"><span class="pre">SpatialIndex</span></code></a><ul>
+<li><a class="reference internal" href="#malva.indexes.SpatialIndex.get_coords"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.get_coords()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.SpatialIndex.get_coords_stomics"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.get_coords_stomics()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.SpatialIndex.load_binary"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.load_binary()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.SpatialIndex.load_binary_stomics"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.load_binary_stomics()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.SpatialIndex.num_items"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.num_items()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.SpatialIndex.save_binary"><code class="docutils literal notranslate"><span class="pre">SpatialIndex.save_binary()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.indexes.create_singlecell_index"><code class="docutils literal notranslate"><span class="pre">create_singlecell_index()</span></code></a></li>
+<li><a class="reference internal" href="#malva.indexes.create_spatial_index"><code class="docutils literal notranslate"><span class="pre">create_spatial_index()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>
