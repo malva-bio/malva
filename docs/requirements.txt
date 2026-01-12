@@ -15,3 +15,5 @@ myst-parser>=2.0
 # and you want autodoc to resolve type hints
 pandas
 numpy
+
+sphinx-argparse>=0.5.2
