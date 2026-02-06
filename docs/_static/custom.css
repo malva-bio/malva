@@ -1,8 +1,8 @@
-/* Furo theme logo sizing - comprehensive selectors */
+/* Furo theme logo sizing */
 .sidebar-logo,
 .sidebar-logo-container,
 .sidebar-brand-text {
-    max-height: 40px !important;
+    max-height: 36px !important;
 }
 
 .sidebar-logo img,
@@ -19,17 +19,18 @@ aside.sidebar-drawer img {
     object-fit: contain !important;
 }
 
-/* Target the logo wrapper - ensure proper spacing */
+/* Logo wrapper - left justified with compact spacing */
 .sidebar-brand {
     display: flex;
     align-items: center;
+    justify-content: flex-start !important;
     gap: 0.5rem;
-    padding: 0.5rem 0;
-    margin-bottom: 0.5rem;
-    min-height: 40px;
+    padding: 0.25rem 0;
+    margin-bottom: 0.25rem;
+    text-align: left !important;
 }
 
-/* Ensure SVG logos are also constrained */
+/* Ensure SVG logos are constrained */
 .sidebar-logo svg,
 .sidebar-brand svg,
 img[src$=".svg"] {
@@ -38,21 +39,25 @@ img[src$=".svg"] {
     width: auto !important;
 }
 
-/* Fix sidebar search bar spacing */
+/* Search bar - compact spacing */
 .sidebar-search-container,
 .sidebar-search {
-    margin-top: 0.75rem !important;
-    margin-bottom: 0.75rem !important;
-    position: relative !important;
+    margin-top: 0.25rem !important;
+    margin-bottom: 0.25rem !important;
 }
 
-/* Ensure sidebar elements don't overlap */
-.sidebar-scroll {
-    padding-top: 0 !important;
-}
-
+/* Sidebar tree - compact spacing */
 .sidebar-tree {
-    margin-top: 0.5rem !important;
+    margin-top: 0.25rem !important;
+}
+
+/* Left-align sidebar text */
+.sidebar-tree,
+.sidebar-tree .toctree-l1,
+.sidebar-tree .toctree-l2,
+.sidebar-tree a,
+.sidebar-brand-text {
+    text-align: left !important;
 }
 
 /* Mobile sidebar logo */
@@ -62,7 +67,7 @@ img[src$=".svg"] {
     height: 24px !important;
 }
 
-/* Other existing styles */
+/* Other styles */
 .highlight {
     border-radius: 0.25rem;
     margin: 1rem 0;
