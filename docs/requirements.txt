@@ -8,6 +8,7 @@ furo>=2024.0
 sphinx-autodoc-typehints>=1.25
 sphinx-click>=5.0
 sphinx-copybutton>=0.5
+sphinx-design>=0.5  # For grid cards
 myst-parser>=2.0
 nbsphinx>=0.9
 pypandoc_binary  # Bundles pandoc binary

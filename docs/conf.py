@@ -25,6 +25,7 @@ extensions = [
     'myst_parser',
     'sphinx_click',
     'sphinx_copybutton',
+    'sphinx_design',
     'nbsphinx',
 ]
 

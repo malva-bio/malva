@@ -1,27 +1,85 @@
 Malva Tools
-=========================
+===========
 
-Build and query Malva indices on your own single-cell and spatial transcriptomics data, locally.
+**Build and query sequence indices on your own single-cell and spatial transcriptomics data, locally.**
 
-Availability
+Malva Tools bring the power of the `Malva Platform <https://malva.bio>`_ to your private datasets. Process raw sequencing reads into searchable k-mer indices and perform sequence-level queries without uploading data to external servers.
+
+.. note::
+
+   Malva Tools are provided **free of charge** for academic non-profit research.
+   See :doc:`installation` for download instructions.
+
+----
+
+Getting Started
+---------------
+
+.. grid:: 2
+
+    .. grid-item-card:: Installation
+        :link: installation
+        :link-type: doc
+
+        Download and set up Malva Tools on your system.
+
+    .. grid-item-card:: Quick Start: Single-Cell
+        :link: quickstart
+        :link-type: doc
+
+        Index and analyze 10x Genomics scRNA-seq data.
+
+    .. grid-item-card:: Quick Start: Spatial
+        :link: quickstart_spatial
+        :link-type: doc
+
+        Work with Open-ST, Visium, and other spatial platforms.
+
+    .. grid-item-card:: Examples
+        :link: examples/index
+        :link-type: doc
+
+        Jupyter notebooks with complete analysis workflows.
+
+----
+
+Core Commands
+-------------
+
+.. list-table::
+   :widths: 20 80
+   :header-rows: 0
+
+   * - ``malva index``
+     - Build a searchable k-mer index from FASTQ files
+   * - ``malva quant``
+     - Pseudoquantify gene expression against a reference transcriptome
+   * - ``malva show``
+     - Generate spatial visualizations of query sequences
+   * - ``malva serve``
+     - Launch an interactive web interface for exploration
+
+----
+
+Key Features
 ------------
 
-Malva Tools are provided free of charge for academic non-profit research.
+.. list-table::
+   :widths: 30 70
+   :header-rows: 0
 
-To request access, contact the Malva team.
+   * - **Fast**
+     - Process 100M reads in under 2 minutes
+   * - **Reference-free**
+     - Query any sequence without realignment
+   * - **Flexible**
+     - Single-cell and spatial transcriptomics support
+   * - **Compatible**
+     - Output works with scanpy and standard tools
+   * - **Lightweight**
+     - Low memory footprint, runs on laptops or HPC
 
-Overview
---------
-
-Malva Tools allow you to process your private datasets locally using the same algorithm that powers the public Malva Index. Build searchable indices from raw sequencing reads and perform sequence-level queries without uploading data to external servers.
-
-**Core Commands**
-
-- ``malva index``: Build a searchable k-mer index from FASTQ files
-- ``malva quant``: Pseudoquantify gene expression against a reference
-- ``malva show``: Generate spatial visualizations of query sequences
-- ``malva serve``: Launch an interactive web interface for exploration
-
+----
 
 Quick Example
 -------------
@@ -42,18 +100,14 @@ Quick Example
        --folder-out output \
        --h5ad
 
-Features
---------
+----
 
-- Process 100M reads in under 2 minutes
-- Reference-free analysis: query any sequence without realignment
-- Single-cell and spatial transcriptomics support
-- Output compatible with scanpy and other standard tools
-- Low memory footprint, suitable for laptop or HPC
+Documentation
+-------------
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Getting Started
+   :maxdepth: 1
+   :caption: Guides
 
    about
    installation
@@ -61,27 +115,28 @@ Features
    quickstart_spatial
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Subcommands & API
+   :maxdepth: 1
+   :caption: Command Reference
 
    cmd_index
-   cmd_combine
    cmd_quant
-   cmd_cellxmer
    cmd_show
    cmd_serve
-   api/modules
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Examples
-
-   examples/index
+   cmd_combine
+   cmd_cellxmer
 
 .. toctree::
    :maxdepth: 1
-   :caption: Links
+   :caption: Examples & API
 
-   Malva Platform <https://malva.bio>
-   Malva Client <https://github.com/malva-bio/malva_client>
-   GitHub Repository <https://github.com/malva-bio/malva>
+   examples/index
+   api/modules
+
+----
+
+Links
+-----
+
+- `Malva Platform <https://malva.bio>`_ - Search the public Malva Index
+- `Malva Client <https://github.com/malva-bio/malva_client>`_ - Python client for the Malva API
+- `GitHub Repository <https://github.com/malva-bio/malva>`_ - Source code and issues
