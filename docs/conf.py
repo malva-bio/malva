@@ -2,6 +2,14 @@ import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
 
+# Set up pandoc from pypandoc_binary if available
+try:
+    import pypandoc
+    # This ensures pypandoc uses its bundled pandoc
+    pypandoc.get_pandoc_path()
+except (ImportError, OSError):
+    print("Warning: pypandoc/pandoc not found. Install with: conda install -c conda-forge pandoc")
+
 project = 'Malva'
 copyright = '2025, Malva Team'
 author = 'Malva Team'
