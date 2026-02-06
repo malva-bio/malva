@@ -1,17 +1,11 @@
+.sidebar-logo {
+    max-height: 20px;
+}
+
 .sidebar-logo img {
-    max-height: 32px;  /* Reduced from 40px */
+    max-height: 20px;
     width: auto;
     max-width: 100%;
-}
-
-/* Alternative: if you want even smaller */
-.sidebar-logo {
-    max-height: 28px;
-}
-
-.sidebar-logo img {
-    max-height: 28px;
-    width: auto;
 }
 
 /* Ensure logo doesn't break sidebar layout */
