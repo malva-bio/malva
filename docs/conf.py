@@ -40,10 +40,19 @@ html_logo = "_static/malva_logo.svg"
 html_theme_options = {
     "sidebar_hide_name": False,
     "navigation_with_keys": True,
-    "source_repository": "https://github.com/malva_bio/malva/",
+    "source_repository": "https://github.com/malva-bio/malva/",
     "source_branch": "main",
     "source_directory": "docs/",
+    # Uncomment below if using Algolia DocSearch (apply at https://docsearch.algolia.com/)
+    # "announcement": None,
 }
+
+# Algolia DocSearch configuration (uncomment after approval)
+# html_theme_options["algolia"] = {
+#     "appId": "YOUR_APP_ID",
+#     "apiKey": "YOUR_SEARCH_API_KEY",
+#     "indexName": "malva",
+# }
 
 # Static files
 html_static_path = ['_static']
@@ -63,3 +72,10 @@ napoleon_google_docstring = True
 napoleon_numpy_docstring = True
 source_suffix = {'.rst': None, '.md': 'myst_parser'}
 master_doc = 'index'
+
+# Improve built-in search
+html_search_language = 'en'
+html_search_options = {
+    'type': 'default',
+    'tokenizer_lang': 'en',
+}

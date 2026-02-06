@@ -1,23 +1,48 @@
-/* Furo theme logo sizing */
+/* Furo theme logo sizing - comprehensive selectors */
 .sidebar-logo,
-.sidebar-logo-container {
-    max-height: 32px !important;
+.sidebar-logo-container,
+.sidebar-brand,
+.sidebar-brand-text {
+    max-height: 40px !important;
 }
 
 .sidebar-logo img,
 .sidebar-brand img,
-img.logo {
-    max-height: 32px !important;
-    height: 32px !important;
+.sidebar-logo-container img,
+img.logo,
+a.sidebar-brand img,
+.sidebar-container img,
+nav.sidebar-drawer img,
+aside.sidebar-drawer img {
+    max-height: 28px !important;
+    height: 28px !important;
     width: auto !important;
+    object-fit: contain !important;
 }
 
-/* Ensure logo doesn't break sidebar layout */
+/* Target the logo wrapper */
 .sidebar-brand {
     display: flex;
     align-items: center;
     gap: 0.5rem;
     padding: 0.5rem 0;
+    max-height: 50px !important;
+}
+
+/* Mobile sidebar logo */
+.mobile-header img,
+.nav-overlay-icon img {
+    max-height: 24px !important;
+    height: 24px !important;
+}
+
+/* Ensure SVG logos are also constrained */
+.sidebar-logo svg,
+.sidebar-brand svg,
+img[src$=".svg"] {
+    max-height: 28px !important;
+    height: 28px !important;
+    width: auto !important;
 }
 
 /* Other existing styles */
