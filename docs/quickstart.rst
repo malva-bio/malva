@@ -8,8 +8,7 @@ The full example with notebooks is available in the `examples/malva_tools <https
 Prerequisites
 -------------
 
-- Malva Tools installed (see :doc:`installation`)
-- Apptainer available on your system
+- Malva Tools installed via Python wheel or Apptainer (see :doc:`installation`)
 - ~20 GB disk space for this example
 
 Step 1: Prepare the Data
@@ -133,9 +132,36 @@ Search for any sequence in your indexed data:
 
 This returns the cells containing k-mers from your query sequence, along with pseudocount values.
 
+Troubleshooting
+---------------
+
+**Apptainer cannot find files on HPC**
+
+If you get ``FileNotFoundError`` for files that exist when using the Apptainer container, it may not have access to the required paths. Edit the ``malva`` wrapper script to bind additional paths:
+
+.. code-block:: bash
+
+   #!/bin/bash
+   DIST="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   exec apptainer exec \
+       --bind "$(pwd):$(pwd)" \
+       --bind "/data:/data" \
+       --bind "$DIST:$DIST" \
+       --env PYTHONPATH="$DIST/site-packages" \
+       --pwd "$(pwd)" \
+       "$DIST/python.sif" \
+       python -m malva "$@"
+
+Replace ``/data`` with the path to your data directory (e.g., ``/scratch``, ``/home``, or your institution's storage path).
+
+**Symlinks not resolved**
+
+Apptainer may not follow symlinks outside bound paths. Use the actual file paths (``readlink -f <symlink>``) or ensure the symlink target is also bound.
+
 Next Steps
 ----------
 
+- See :doc:`quickstart_spatial` for spatial transcriptomics workflows
 - See the `examples folder <https://github.com/malva-bio/malva/tree/main/examples/malva_tools>`_ for complete Jupyter notebooks
 - Check the command reference for all available options
 - Try querying viral sequences, circular RNAs, or custom transcripts
