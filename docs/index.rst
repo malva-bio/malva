@@ -58,6 +58,7 @@ Features
    about
    installation
    quickstart
+   quickstart_spatial
 
 .. toctree::
    :maxdepth: 2
