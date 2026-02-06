@@ -84,7 +84,7 @@ If not available, ask your system administrator or install following the `offici
 
 .. code-block:: bash
 
-   wget https://bimsbstatic.mdc-berlin.de/rajewsky/malva/releases/malva_dist.tar.gz
+   # get malva_dist.tar.gz upon request
    tar -xzvf malva_dist.tar.gz
    cd malva_dist
 
