@@ -100,22 +100,29 @@ Step 4: Query Custom Sequences
 
 Search for any sequence in your indexed data using the Python API.
 
-**Basic sequence search:**
+``mindex.where()`` always returns a **list of result tuples**, one per
+query.  Each tuple contains three elements:
+
+- **locations** (``np.ndarray[uint32]``): cell indices where the sequence was found
+- **intensities** (``np.ndarray[uint32]``): pseudocount at each location
+- **control** (``list``): matching details for sequence positions
+
+Single sequence
+^^^^^^^^^^^^^^^
+
+For a single query, index into the result list with ``[0]``:
 
 .. code-block:: python
 
    from malva.index import MalvaIndex
    import pandas as pd
 
-   # Open the index
    mindex = MalvaIndex("indices/pbmc_1k_v3")
    mindex.open()
 
-   # Query a sequence directly (e.g., a transcript isoform or viral sequence)
    sequence = "ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG..."
 
-   # Search returns: cell indices, pseudocounts, and additional info
-   locations, intensities, info = mindex.where(
+   results = mindex.where(
        sequence,
        sliding_size=64,        # window size for k-mer matching
        pct_threshold=0.65,     # minimum fraction of matching k-mers
@@ -123,15 +130,18 @@ Search for any sequence in your indexed data using the Python API.
        count_at_least=0,       # lower count threshold
    )
 
+   # Unpack the first (and only) result
+   locations, intensities, _ = results[0]
+
    mindex.close()
 
-   # Convert to dataframe
-   df_results = pd.DataFrame({
-       "cell": locations,
-       "expression": intensities
-   })
+   df = pd.DataFrame({"cell": locations, "expression": intensities})
 
-**Query multiple sequences from a FASTA file:**
+Multiple sequences
+^^^^^^^^^^^^^^^^^^
+
+Pass a list of sequences to search them all in one call.  The returned
+list has one tuple per input sequence, in the same order:
 
 .. code-block:: python
 
@@ -140,19 +150,26 @@ Search for any sequence in your indexed data using the Python API.
    mindex = MalvaIndex("indices/pbmc_1k_v3")
    mindex.open()
 
-   # Load sequences from FASTA
+   # Collect sequences from a FASTA file
+   sequences = []
+   names = []
    with dnaio.open("sequences.fa") as fasta:
        for record in fasta:
-           locations, intensities, _ = mindex.where(
-               record.sequence,
-               sliding_size=64,
-               pct_threshold=0.65,
-           )
-           print(f"{record.name}: found in {len(locations)} cells")
+           sequences.append(record.sequence)
+           names.append(record.name)
+
+   # Single call for all sequences
+   results = mindex.where(
+       sequences,
+       sliding_size=64,
+       pct_threshold=0.65,
+   )
 
    mindex.close()
 
-This returns the cells containing k-mers from your query sequence, along with pseudocount values.
+   # Iterate over results
+   for name, (locations, intensities, _) in zip(names, results):
+       print(f"{name}: found in {len(locations)} cells")
 
 Troubleshooting
 ---------------
