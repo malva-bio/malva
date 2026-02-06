@@ -1,63 +1,143 @@
 About Malva Tools
 =================
 
-Overview
---------
-
 Malva Tools are utilities for building and querying sequence indices from single-cell and spatial transcriptomics data. They enable reference-free analysis at nucleotide resolution on your own private datasets.
 
-While the public Malva Index provides access to a large corpus of pre-indexed data, Malva Tools let you apply the same technology to your own experiments without uploading data to external servers.
+While the public `Malva Index <https://malva.bio>`_ provides access to a large corpus of pre-indexed data, Malva Tools let you apply the same technology to your own experiments without uploading data to external servers.
+
+----
 
 What Malva Tools Can Do
 -----------------------
 
-**Build Indices**
-    Create searchable k-mer indices from raw FASTQ files. Indices preserve cell barcode or spatial coordinate information for single-cell resolution queries.
+.. grid:: 2
+    :gutter: 3
 
-**Quantify Expression**
-    Pseudoquantify gene expression by matching index k-mers against reference sequences. Output is compatible with scanpy and standard single-cell workflows.
+    .. grid-item-card:: :octicon:`database;1.5em` Build Indices
+        :class-card: sd-border-0 sd-shadow-sm
 
-**Query Sequences**
-    Search for any nucleotide sequence across your indexed data. Find transcript isoforms, viral sequences, circular RNAs, splice junctions, or mutations.
+        Create searchable k-mer indices from raw FASTQ files. Indices preserve cell barcode or spatial coordinate information for single-cell resolution queries.
 
-**Visualize Results**
-    Generate spatial visualizations showing where query sequences are expressed. Supports both static images and interactive exploration.
+    .. grid-item-card:: :octicon:`graph;1.5em` Quantify Expression
+        :class-card: sd-border-0 sd-shadow-sm
+
+        Pseudoquantify gene expression by matching index k-mers against reference sequences. Output is compatible with scanpy and standard single-cell workflows.
+
+    .. grid-item-card:: :octicon:`search;1.5em` Query Sequences
+        :class-card: sd-border-0 sd-shadow-sm
+
+        Search for any nucleotide sequence across your indexed data. Find transcript isoforms, viral sequences, circular RNAs, splice junctions, or mutations.
+
+    .. grid-item-card:: :octicon:`paintbrush;1.5em` Visualize Results
+        :class-card: sd-border-0 sd-shadow-sm
+
+        Generate spatial visualizations showing where query sequences are expressed. Supports both static images and interactive exploration.
+
+----
 
 Use Cases
 ---------
 
-- Analyze proprietary or unpublished datasets locally
-- Detect sequences not in standard references (novel isoforms, pathogens, vectors)
-- Validate findings from the public Malva Index in your own data
-- Process spatial transcriptomics data with coordinate-level resolution
-- Build custom indices for specific experimental designs
+.. grid:: 3
+    :gutter: 2
 
-Supported Data Types
---------------------
+    .. grid-item-card:: :octicon:`lock;1em` Private Analysis
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
 
-Malva Tools support common single-cell and spatial transcriptomics platforms:
+        Analyze proprietary or unpublished datasets locally
 
-- 10x Genomics Chromium (v1, v2, v3)
-- 10x Genomics Visium
-- Slide-seq / Curio Seeker
-- Stereo-seq
-- Open-ST
-- Other technologies with barcode-based cell identification
+    .. grid-item-card:: :octicon:`bug;1em` Novel Detection
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Detect sequences not in standard references (pathogens, vectors)
+
+    .. grid-item-card:: :octicon:`verified;1em` Validation
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Validate findings from the public Malva Index in your data
+
+    .. grid-item-card:: :octicon:`image;1em` Spatial Analysis
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Process spatial data with coordinate-level resolution
+
+    .. grid-item-card:: :octicon:`tools;1em` Custom Indices
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Build indices for specific experimental designs
+
+    .. grid-item-card:: :octicon:`beaker;1em` Discovery
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Find novel isoforms, circular RNAs, and splice junctions
+
+----
+
+Supported Platforms
+-------------------
+
+.. grid:: 3
+    :gutter: 2
+
+    .. grid-item-card:: 10x Genomics
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Chromium (v1, v2, v3) and Visium
+
+    .. grid-item-card:: Spatial Technologies
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Open-ST, Stereo-seq, Slide-seq
+
+    .. grid-item-card:: Other Platforms
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Any barcode-based technology
+
+----
 
 Performance
 -----------
 
-Malva Tools are designed for efficiency:
+.. grid:: 4
+    :gutter: 2
 
-- Index 100 million reads in under 2 minutes
-- Query sequences across millions of cells in seconds
-- Low memory footprint suitable for standard workstations
-- Scales to large datasets on HPC systems
+    .. grid-item-card:: :octicon:`zap;1.5em`
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        **< 2 min**
+
+        Index 100M reads
+
+    .. grid-item-card:: :octicon:`stopwatch;1.5em`
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        **Seconds**
+
+        Query millions of cells
+
+    .. grid-item-card:: :octicon:`cpu;1.5em`
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        **Low Memory**
+
+        Runs on workstations
+
+    .. grid-item-card:: :octicon:`server;1.5em`
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        **Scalable**
+
+        Works on HPC clusters
+
+----
 
 Availability
 ------------
 
-Malva Tools are provided free of charge for academic non-profit research.
+.. note::
+
+   Malva Tools are provided **free of charge** for academic non-profit research.
 
 **To request access:**
 
@@ -65,9 +145,13 @@ Malva Tools are provided free of charge for academic non-profit research.
 2. Include your name, institution, and intended use case
 3. You will receive download instructions and a license agreement
 
+----
+
 Citation
 --------
 
 If you use Malva Tools in your research, please cite:
 
-    [Citation to be added upon publication]
+.. code-block:: text
+
+   [Citation to be added upon publication]
