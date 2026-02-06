@@ -373,19 +373,25 @@ wget<span class="w"> </span>https://bimsbstatic.mdc-berlin.de/rajewsky/malva/exa
 <section id="step-4-query-custom-sequences">
 <h2>Step 4: Query Custom Sequences<a class="headerlink" href="#step-4-query-custom-sequences" title="Link to this heading">¶</a></h2>
 <p>Search for any sequence in your indexed data using the Python API.</p>
-<p><strong>Basic sequence search:</strong></p>
+<p><code class="docutils literal notranslate"><span class="pre">mindex.where()</span></code> always returns a <strong>list of result tuples</strong>, one per
+query.  Each tuple contains three elements:</p>
+<ul class="simple">
+<li><p><strong>locations</strong> (<code class="docutils literal notranslate"><span class="pre">np.ndarray[uint32]</span></code>): cell indices where the sequence was found</p></li>
+<li><p><strong>intensities</strong> (<code class="docutils literal notranslate"><span class="pre">np.ndarray[uint32]</span></code>): pseudocount at each location</p></li>
+<li><p><strong>control</strong> (<code class="docutils literal notranslate"><span class="pre">list</span></code>): matching details for sequence positions</p></li>
+</ul>
+<section id="single-sequence">
+<h3>Single sequence<a class="headerlink" href="#single-sequence" title="Link to this heading">¶</a></h3>
+<p>For a single query, index into the result list with <code class="docutils literal notranslate"><span class="pre">[0]</span></code>:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">malva.index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MalvaIndex</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
 
-<span class="c1"># Open the index</span>
 <span class="n">mindex</span> <span class="o">=</span> <span class="n">MalvaIndex</span><span class="p">(</span><span class="s2">&quot;indices/pbmc_1k_v3&quot;</span><span class="p">)</span>
 <span class="n">mindex</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
 
-<span class="c1"># Query a sequence directly (e.g., a transcript isoform or viral sequence)</span>
 <span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG...&quot;</span>
 
-<span class="c1"># Search returns: cell indices, pseudocounts, and additional info</span>
-<span class="n">locations</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">mindex</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">mindex</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
     <span class="n">sequence</span><span class="p">,</span>
     <span class="n">sliding_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>        <span class="c1"># window size for k-mer matching</span>
     <span class="n">pct_threshold</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span>     <span class="c1"># minimum fraction of matching k-mers</span>
@@ -393,35 +399,47 @@ wget<span class="w"> </span>https://bimsbstatic.mdc-berlin.de/rajewsky/malva/exa
     <span class="n">count_at_least</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>       <span class="c1"># lower count threshold</span>
 <span class="p">)</span>
 
+<span class="c1"># Unpack the first (and only) result</span>
+<span class="n">locations</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+
 <span class="n">mindex</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
-<span class="c1"># Convert to dataframe</span>
-<span class="n">df_results</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="n">locations</span><span class="p">,</span>
-    <span class="s2">&quot;expression&quot;</span><span class="p">:</span> <span class="n">intensities</span>
-<span class="p">})</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="n">locations</span><span class="p">,</span> <span class="s2">&quot;expression&quot;</span><span class="p">:</span> <span class="n">intensities</span><span class="p">})</span>
 </pre></div>
 </div>
-<p><strong>Query multiple sequences from a FASTA file:</strong></p>
+</section>
+<section id="multiple-sequences">
+<h3>Multiple sequences<a class="headerlink" href="#multiple-sequences" title="Link to this heading">¶</a></h3>
+<p>Pass a list of sequences to search them all in one call.  The returned
+list has one tuple per input sequence, in the same order:</p>
 <div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dnaio</span>
 
 <span class="n">mindex</span> <span class="o">=</span> <span class="n">MalvaIndex</span><span class="p">(</span><span class="s2">&quot;indices/pbmc_1k_v3&quot;</span><span class="p">)</span>
 <span class="n">mindex</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
 
-<span class="c1"># Load sequences from FASTA</span>
+<span class="c1"># Collect sequences from a FASTA file</span>
+<span class="n">sequences</span> <span class="o">=</span> <span class="p">[]</span>
+<span class="n">names</span> <span class="o">=</span> <span class="p">[]</span>
 <span class="k">with</span> <span class="n">dnaio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;sequences.fa&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fasta</span><span class="p">:</span>
     <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">fasta</span><span class="p">:</span>
-        <span class="n">locations</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">mindex</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-            <span class="n">record</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span>
-            <span class="n">sliding_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
-            <span class="n">pct_threshold</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span>
-        <span class="p">)</span>
-        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: found in </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span><span class="si">}</span><span class="s2"> cells&quot;</span><span class="p">)</span>
+        <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">sequence</span><span class="p">)</span>
+        <span class="n">names</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
+
+<span class="c1"># Single call for all sequences</span>
+<span class="n">results</span> <span class="o">=</span> <span class="n">mindex</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+    <span class="n">sequences</span><span class="p">,</span>
+    <span class="n">sliding_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+    <span class="n">pct_threshold</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span>
+<span class="p">)</span>
 
 <span class="n">mindex</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
+
+<span class="c1"># Iterate over results</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="n">locations</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">_</span><span class="p">)</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">names</span><span class="p">,</span> <span class="n">results</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: found in </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span><span class="si">}</span><span class="s2"> cells&quot;</span><span class="p">)</span>
 </pre></div>
 </div>
-<p>This returns the cells containing k-mers from your query sequence, along with pseudocount values.</p>
+</section>
 </section>
 <section id="troubleshooting">
 <h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
@@ -514,7 +532,11 @@ wget<span class="w"> </span>https://bimsbstatic.mdc-berlin.de/rajewsky/malva/exa
 <li><a class="reference internal" href="#step-1-prepare-the-data">Step 1: Prepare the Data</a></li>
 <li><a class="reference internal" href="#step-2-build-the-index">Step 2: Build the Index</a></li>
 <li><a class="reference internal" href="#step-3-quantify-gene-expression">Step 3: Quantify Gene Expression</a></li>
-<li><a class="reference internal" href="#step-4-query-custom-sequences">Step 4: Query Custom Sequences</a></li>
+<li><a class="reference internal" href="#step-4-query-custom-sequences">Step 4: Query Custom Sequences</a><ul>
+<li><a class="reference internal" href="#single-sequence">Single sequence</a></li>
+<li><a class="reference internal" href="#multiple-sequences">Multiple sequences</a></li>
+</ul>
+</li>
 <li><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
 <li><a class="reference internal" href="#next-steps">Next Steps</a></li>
 </ul>

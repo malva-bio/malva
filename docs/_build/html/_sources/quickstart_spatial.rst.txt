@@ -98,24 +98,32 @@ Other available flavors include: ``visium``, ``stereoseq``, ``slideseq``.
 Step 3: Query Sequences (Python API)
 ------------------------------------
 
-Search for sequences of interest (e.g., bacterial 16S rRNA) using the Python API.
+Search for sequences of interest (e.g., bacterial 16S rRNA) using the
+Python API.
 
-**Basic sequence search:**
+``mindex.where()`` always returns a **list of result tuples**, one per
+query.  Each tuple contains three elements:
+
+- **locations** (``np.ndarray[uint32]``): spatial indices where the sequence was found
+- **intensities** (``np.ndarray[uint32]``): pseudocount at each location
+- **control** (``list``): matching details for sequence positions
+
+Single sequence
+^^^^^^^^^^^^^^^
+
+For a single query, index into the result list with ``[0]``:
 
 .. code-block:: python
 
    from malva.index import MalvaIndex
    import pandas as pd
 
-   # Open the spatial index
    mindex = MalvaIndex("my_spatial_index")
    mindex.open()
 
-   # Query a sequence directly
    sequence = "ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG..."
 
-   # Search returns: spatial locations, pseudocounts, and additional info
-   locations, intensities, info = mindex.where(
+   results = mindex.where(
        sequence,
        sliding_size=64,        # window size for k-mer matching
        pct_threshold=0.65,     # minimum fraction of matching k-mers
@@ -123,15 +131,17 @@ Search for sequences of interest (e.g., bacterial 16S rRNA) using the Python API
        count_at_least=0,       # lower count threshold
    )
 
+   locations, intensities, _ = results[0]
+
    mindex.close()
 
-   # Convert to dataframe
-   df_results = pd.DataFrame({
-       "location": locations,
-       "expression": intensities
-   })
+   df = pd.DataFrame({"location": locations, "expression": intensities})
 
-**Query multiple sequences from a FASTA file:**
+Multiple sequences
+^^^^^^^^^^^^^^^^^^
+
+Pass a list of sequences to search them all in one call.  The returned
+list has one tuple per input sequence, in the same order:
 
 .. code-block:: python
 
@@ -140,18 +150,26 @@ Search for sequences of interest (e.g., bacterial 16S rRNA) using the Python API
    mindex = MalvaIndex("my_spatial_index")
    mindex.open()
 
-   results = {}
+   # Collect sequences from a FASTA file
+   sequences = []
+   names = []
    with dnaio.open("bacteria_16S.fa") as fasta:
        for record in fasta:
-           locations, intensities, _ = mindex.where(
-               record.sequence,
-               sliding_size=64,
-               pct_threshold=0.65,
-           )
-           results[record.name] = (locations, intensities)
-           print(f"{record.name}: found in {len(locations)} spatial locations")
+           sequences.append(record.sequence)
+           names.append(record.name)
+
+   # Single call for all sequences
+   results = mindex.where(
+       sequences,
+       sliding_size=64,
+       pct_threshold=0.65,
+   )
 
    mindex.close()
+
+   # Iterate over results
+   for name, (locations, intensities, _) in zip(names, results):
+       print(f"{name}: found in {len(locations)} spatial locations")
 
 Step 4: Visualize Spatial Distribution
 --------------------------------------
@@ -171,7 +189,9 @@ This generates TIFF images for each query sequence in the output folder.
 
 **Python API visualization with MalvaPlot:**
 
-For programmatic control over visualization, use the ``MalvaPlot`` class:
+For programmatic control over visualization, use the ``MalvaPlot`` class.
+Pass the ``locations`` and ``intensities`` arrays from a single result
+tuple to ``plotter.image()``:
 
 .. code-block:: python
 
@@ -179,17 +199,17 @@ For programmatic control over visualization, use the ``MalvaPlot`` class:
    from malva.show import MalvaPlot
    import matplotlib.pyplot as plt
 
-   # Open the index and create a plotter
    mindex = MalvaIndex("my_spatial_index")
    plotter = MalvaPlot(mindex)
 
-   # Query a sequence
+   # Query a single sequence
    mindex.open()
-   locations, intensities, _ = mindex.where(
+   results = mindex.where(
        "ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG...",
        sliding_size=64,
        pct_threshold=0.65,
    )
+   locations, intensities, _ = results[0]
    mindex.close()
 
    # Generate a spatial image
@@ -209,6 +229,42 @@ For programmatic control over visualization, use the ``MalvaPlot`` class:
    plt.colorbar(label="Expression")
    plt.savefig("spatial_plot.png", dpi=150, bbox_inches="tight")
    plt.show()
+
+**Visualize multiple sequences:**
+
+When querying several sequences at once, iterate over the result list and
+generate one image per sequence:
+
+.. code-block:: python
+
+   import dnaio
+
+   mindex = MalvaIndex("my_spatial_index")
+   plotter = MalvaPlot(mindex)
+   mindex.open()
+
+   sequences = []
+   names = []
+   with dnaio.open("bacteria_16S.fa") as fasta:
+       for record in fasta:
+           sequences.append(record.sequence)
+           names.append(record.name)
+
+   results = mindex.where(sequences, sliding_size=64, pct_threshold=0.65)
+   mindex.close()
+
+   fig, axes = plt.subplots(1, len(results), figsize=(8 * len(results), 8))
+   if len(results) == 1:
+       axes = [axes]
+
+   for ax, name, (locations, intensities, _) in zip(axes, names, results):
+       image = plotter.image(locations, intensities, normalize=True)
+       ax.imshow(image, cmap="viridis")
+       ax.set_title(name)
+       ax.axis("off")
+
+   plt.tight_layout()
+   plt.savefig("batch_spatial.png", dpi=150, bbox_inches="tight")
 
 **Save as TIFF for downstream analysis:**
 
