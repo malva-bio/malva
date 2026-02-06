@@ -16,68 +16,101 @@ Getting Started
 ---------------
 
 .. grid:: 2
+    :gutter: 3
 
-    .. grid-item-card:: Installation
+    .. grid-item-card:: :octicon:`download;1em` Installation
         :link: installation
         :link-type: doc
+        :class-card: sd-border-0 sd-shadow-sm
 
-        Download and set up Malva Tools on your system.
+        Download and set up Malva Tools on your system via Python wheel or Apptainer container.
 
-    .. grid-item-card:: Quick Start: Single-Cell
+    .. grid-item-card:: :octicon:`rocket;1em` Quick Start: Single-Cell
         :link: quickstart
         :link-type: doc
+        :class-card: sd-border-0 sd-shadow-sm
 
-        Index and analyze 10x Genomics scRNA-seq data.
+        Build your first index from 10x Genomics scRNA-seq data and quantify gene expression.
 
-    .. grid-item-card:: Quick Start: Spatial
+    .. grid-item-card:: :octicon:`image;1em` Quick Start: Spatial
         :link: quickstart_spatial
         :link-type: doc
+        :class-card: sd-border-0 sd-shadow-sm
 
-        Work with Open-ST, Visium, and other spatial platforms.
+        Work with Open-ST, Visium, Stereo-seq, and other spatial transcriptomics platforms.
 
-    .. grid-item-card:: Examples
+    .. grid-item-card:: :octicon:`code;1em` Examples
         :link: examples/index
         :link-type: doc
+        :class-card: sd-border-0 sd-shadow-sm
 
-        Jupyter notebooks with complete analysis workflows.
+        Jupyter notebooks with complete analysis workflows including clustering and visualization.
 
 ----
 
 Core Commands
 -------------
 
-.. list-table::
-   :widths: 20 80
-   :header-rows: 0
+.. grid:: 2
+    :gutter: 2
 
-   * - ``malva index``
-     - Build a searchable k-mer index from FASTQ files
-   * - ``malva quant``
-     - Pseudoquantify gene expression against a reference transcriptome
-   * - ``malva show``
-     - Generate spatial visualizations of query sequences
-   * - ``malva serve``
-     - Launch an interactive web interface for exploration
+    .. grid-item-card:: :octicon:`database;1em` malva index
+        :class-card: sd-border-0 sd-shadow-sm
+
+        Build a searchable k-mer index from FASTQ files
+
+    .. grid-item-card:: :octicon:`graph;1em` malva quant
+        :class-card: sd-border-0 sd-shadow-sm
+
+        Pseudoquantify gene expression against a reference transcriptome
+
+    .. grid-item-card:: :octicon:`paintbrush;1em` malva show
+        :class-card: sd-border-0 sd-shadow-sm
+
+        Generate spatial visualizations of query sequences
+
+    .. grid-item-card:: :octicon:`browser;1em` malva serve
+        :class-card: sd-border-0 sd-shadow-sm
+
+        Launch an interactive web interface for exploration
 
 ----
 
 Key Features
 ------------
 
-.. list-table::
-   :widths: 30 70
-   :header-rows: 0
+.. grid:: 3
+    :gutter: 2
 
-   * - **Fast**
-     - Process 100M reads in under 2 minutes
-   * - **Reference-free**
-     - Query any sequence without realignment
-   * - **Flexible**
-     - Single-cell and spatial transcriptomics support
-   * - **Compatible**
-     - Output works with scanpy and standard tools
-   * - **Lightweight**
-     - Low memory footprint, runs on laptops or HPC
+    .. grid-item-card:: :octicon:`zap;1em` Fast
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Process 100M reads in under 2 minutes
+
+    .. grid-item-card:: :octicon:`search;1em` Reference-free
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Query any sequence without realignment
+
+    .. grid-item-card:: :octicon:`git-branch;1em` Flexible
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Single-cell and spatial transcriptomics
+
+    .. grid-item-card:: :octicon:`package;1em` Compatible
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Works with scanpy and standard tools
+
+    .. grid-item-card:: :octicon:`cpu;1em` Lightweight
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Runs on laptops or HPC clusters
+
+    .. grid-item-card:: :octicon:`lock;1em` Private
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
+
+        Your data stays on your machine
 
 ----
 
@@ -132,11 +165,10 @@ Documentation
    examples/index
    api/modules
 
-----
+.. toctree::
+   :maxdepth: 1
+   :caption: Links
 
-Links
------
-
-- `Malva Platform <https://malva.bio>`_ - Search the public Malva Index
-- `Malva Client <https://github.com/malva-bio/malva_client>`_ - Python client for the Malva API
-- `GitHub Repository <https://github.com/malva-bio/malva>`_ - Source code and issues
+   Malva Platform <https://malva.bio>
+   GitHub <https://github.com/malva-bio/malva>
+   Malva Client <https://github.com/malva-bio/malva_client>
