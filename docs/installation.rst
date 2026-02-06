@@ -6,7 +6,15 @@ Malva Tools are distributed as pre-built binaries with an Apptainer container fo
 Availability
 ------------
 
-Malva Tools are provided free of charge for academic non-profit research. To request access, contact daniel.leonperinan@mdc-berlin.de with your name, institution, and intended use case.
+Malva Tools are provided free of charge for academic non-profit research.
+
+**Download**
+
+Pre-built binaries are available upon request.
+
+**Access Request**
+
+For access, contact daniel.leonperinan@mdc-berlin.de with your name, institution, and intended use case.
 
 System Requirements
 -------------------
@@ -69,3 +77,31 @@ Setup
 
    ./malva --version
    ./malva --help
+
+Additional Configuration
+-----------------
+
+You may need to configure Apptainer to access data directories outside the default bind paths.
+
+**Binding additional paths**
+
+If Malva cannot find your data files (``FileNotFoundError``), edit the ``malva`` wrapper script to bind your data directories:
+
+.. code-block:: bash
+
+   #!/bin/bash
+   DIST="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+   exec apptainer exec \
+       --bind "$(pwd):$(pwd)" \
+       --bind "/data:/data" \
+       --bind "$DIST:$DIST" \
+       --env PYTHONPATH="$DIST/site-packages" \
+       --pwd "$(pwd)" \
+       "$DIST/python.sif" \
+       python -m malva "$@"
+
+Replace ``/data:/data`` with your institution's data path (e.g., ``/scratch:/scratch`` or ``/home:/home``).
+
+**Symlinks**
+
+If your input files are symlinks, ensure the symlink target directory is also bound. Alternatively, use the resolved path (``readlink -f <symlink>``).
