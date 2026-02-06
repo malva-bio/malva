@@ -26,7 +26,13 @@
 *.tgz
 
 *notebooks/
+
+# Ignore notebooks by default
 *.ipynb
+
+# But include example notebooks
+!examples/*.ipynb
+!docs/examples/*.ipynb
 
 # notebook tests
 notebooks/test*
@@ -192,6 +198,3 @@ cython_debug/
 #.idea/
 
 !docs/_build/
-
-# Ignore excluding example notebooks
-~examples/*.ipynb
