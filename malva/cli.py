@@ -655,6 +655,23 @@ def cmdline_args():
 
     return parent_parser, parsed_args
 
+def cmdline_parser():
+    parent_parser = argparse.ArgumentParser(
+        allow_abbrev=False,
+        description="malva: fast indexing and querying of genomic sequences from spatial transcriptomics data",
+    )
+
+    parent_parser_subparsers = parent_parser.add_subparsers(title="commands", dest="subcommand")
+    parent_parser.add_argument("--version", action="store_true")
+
+    setup_index_parser(parent_parser_subparsers)
+    setup_show_parser(parent_parser_subparsers)
+    setup_serve_parser(parent_parser_subparsers)
+    setup_quant_parser(parent_parser_subparsers)
+    setup_cellxmer_parser(parent_parser_subparsers)
+    setup_combine_parser(parent_parser_subparsers)
+
+    return parent_parser
 
 def cmdline_main():
     import importlib.metadata
