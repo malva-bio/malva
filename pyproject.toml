@@ -62,6 +62,7 @@ ollama = ">=0.3.1"
 blosc = ">=1.11.2"
 tqdm = ">=4.66.6"
 pyfastpfor = ">=1.4.0"
+flask_cors = ">=6.0.2"
 
 [tool.poetry.dev-dependencies]
 Cython = "^0.29.21,<3.0.11"
