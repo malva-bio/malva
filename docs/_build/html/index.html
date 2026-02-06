@@ -11,7 +11,9 @@
       <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=25af2a20" />
     <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
     <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=f72d6988" />
     
     
 
@@ -202,22 +204,30 @@
   <input type="hidden" name="area" value="default">
 </form>
 <div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
-  <p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+  <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="about.html">About Malva Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart_spatial.html">Quick Start: Spatial Data</a></li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
+<p class="caption" role="heading"><span class="caption-text">Command Reference</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="cmd_index.html">index</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cmd_combine.html">combine</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cmd_quant.html">quant</a></li>
-<li class="toctree-l1"><a class="reference internal" href="cmd_cellxmer.html">cellxmer</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cmd_show.html">show</a></li>
 <li class="toctree-l1"><a class="reference internal" href="cmd_serve.html">serve</a></li>
-<li class="toctree-l1 has-children"><a class="reference internal" href="api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l1"><a class="reference internal" href="cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_cellxmer.html">cellxmer</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples &amp; API</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">Examples</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Examples</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/2_simple_analysis.html">Single-Cell Analysis of Malva Quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
+</ul>
+</li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.indexes.html">malva.indexes module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
@@ -226,19 +236,11 @@
 </ul>
 </li>
 </ul>
-<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
-<ul>
-<li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">Examples</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of Examples</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
-<li class="toctree-l2"><a class="reference internal" href="examples/2_simple_analysis.html">Single-Cell Analysis of Malva Quantification</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
-</ul>
-</li>
-</ul>
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 
 </div>
@@ -285,23 +287,164 @@
         <article role="main" id="furo-main-content">
           <section id="malva-tools">
 <h1>Malva Tools<a class="headerlink" href="#malva-tools" title="Link to this heading">¶</a></h1>
-<p>Build and query Malva indices on your own single-cell and spatial transcriptomics data, locally.</p>
-<section id="availability">
-<h2>Availability<a class="headerlink" href="#availability" title="Link to this heading">¶</a></h2>
-<p>Malva Tools are provided free of charge for academic non-profit research.</p>
-<p>To request access, contact the Malva team.</p>
+<p><strong>Build and query sequence indices on your own single-cell and spatial transcriptomics data, locally.</strong></p>
+<p>Malva Tools bring the power of the <a class="reference external" href="https://malva.bio">Malva Platform</a> to your private datasets. Process raw sequencing reads into searchable k-mer indices and perform sequence-level queries without uploading data to external servers.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>Malva Tools are provided <strong>free of charge</strong> for academic non-profit research.
+See <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a> for download instructions.</p>
+</div>
+<hr class="docutils" />
+<section id="getting-started">
+<h2>Getting Started<a class="headerlink" href="#getting-started" title="Link to this heading">¶</a></h2>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-3 sd-g-xs-3 sd-g-sm-3 sd-g-md-3 sd-g-lg-3 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-download" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"></path><path d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.749.749 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06l1.97 1.969Z"></path></svg> Installation</div>
+<p class="sd-card-text">Download and set up Malva Tools on your system via Python wheel or Apptainer container.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="installation.html"><span class="doc">Installation</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-rocket" viewBox="0 0 16 16" aria-hidden="true"><path d="M14.064 0h.186C15.216 0 16 .784 16 1.75v.186a8.752 8.752 0 0 1-2.564 6.186l-.458.459c-.314.314-.641.616-.979.904v3.207c0 .608-.315 1.172-.833 1.49l-2.774 1.707a.749.749 0 0 1-1.11-.418l-.954-3.102a1.214 1.214 0 0 1-.145-.125L3.754 9.816a1.218 1.218 0 0 1-.124-.145L.528 8.717a.749.749 0 0 1-.418-1.11l1.71-2.774A1.748 1.748 0 0 1 3.31 4h3.204c.288-.338.59-.665.904-.979l.459-.458A8.749 8.749 0 0 1 14.064 0ZM8.938 3.623h-.002l-.458.458c-.76.76-1.437 1.598-2.02 2.5l-1.5 2.317 2.143 2.143 2.317-1.5c.902-.583 1.74-1.26 2.499-2.02l.459-.458a7.25 7.25 0 0 0 2.123-5.127V1.75a.25.25 0 0 0-.25-.25h-.186a7.249 7.249 0 0 0-5.125 2.123ZM3.56 14.56c-.732.732-2.334 1.045-3.005 1.148a.234.234 0 0 1-.201-.064.234.234 0 0 1-.064-.201c.103-.671.416-2.273 1.15-3.003a1.502 1.502 0 1 1 2.12 2.12Zm6.94-3.935c-.088.06-.177.118-.266.175l-2.35 1.521.548 1.783 1.949-1.2a.25.25 0 0 0 .119-.213ZM3.678 8.116 5.2 5.766c.058-.09.117-.178.176-.266H3.309a.25.25 0 0 0-.213.119l-1.2 1.95ZM12 5a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg> Quick Start: Single-Cell</div>
+<p class="sd-card-text">Build your first index from 10x Genomics scRNA-seq data and quantify gene expression.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="quickstart.html"><span class="doc">Quick Start</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-image" viewBox="0 0 16 16" aria-hidden="true"><path d="M16 13.25A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h.94l.03-.03 6.077-6.078a1.75 1.75 0 0 1 2.412-.06L14.5 10.31V2.75a.25.25 0 0 0-.25-.25Zm12.5 11a.25.25 0 0 0 .25-.25v-.917l-4.298-3.889a.25.25 0 0 0-.344.009L4.81 13.5ZM7 6a2 2 0 1 1-3.999.001A2 2 0 0 1 7 6ZM5.5 6a.5.5 0 1 0-1 0 .5.5 0 0 0 1 0Z"></path></svg> Quick Start: Spatial</div>
+<p class="sd-card-text">Work with Open-ST, Visium, Stereo-seq, and other spatial transcriptomics platforms.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="quickstart_spatial.html"><span class="doc">Quick Start: Spatial Data</span></a></div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-card-hover sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-code" viewBox="0 0 16 16" aria-hidden="true"><path d="m11.28 3.22 4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.749.749 0 0 1-1.275-.326.749.749 0 0 1 .215-.734L13.94 8l-3.72-3.72a.749.749 0 0 1 .326-1.275.749.749 0 0 1 .734.215Zm-6.56 0a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042L2.06 8l3.72 3.72a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215L.47 8.53a.75.75 0 0 1 0-1.06Z"></path></svg> Examples</div>
+<p class="sd-card-text">Jupyter notebooks with complete analysis workflows including clustering and visualization.</p>
+</div>
+<a class="sd-stretched-link sd-hide-link-text reference internal" href="examples/index.html"><span class="doc">Examples</span></a></div>
+</div>
+</div>
+</div>
 </section>
-<section id="overview">
-<h2>Overview<a class="headerlink" href="#overview" title="Link to this heading">¶</a></h2>
-<p>Malva Tools allow you to process your private datasets locally using the same algorithm that powers the public Malva Index. Build searchable indices from raw sequencing reads and perform sequence-level queries without uploading data to external servers.</p>
-<p><strong>Core Commands</strong></p>
-<ul class="simple">
-<li><p><code class="docutils literal notranslate"><span class="pre">malva</span> <span class="pre">index</span></code>: Build a searchable k-mer index from FASTQ files</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">malva</span> <span class="pre">quant</span></code>: Pseudoquantify gene expression against a reference</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">malva</span> <span class="pre">show</span></code>: Generate spatial visualizations of query sequences</p></li>
-<li><p><code class="docutils literal notranslate"><span class="pre">malva</span> <span class="pre">serve</span></code>: Launch an interactive web interface for exploration</p></li>
-</ul>
+<hr class="docutils" />
+<section id="core-commands">
+<h2>Core Commands<a class="headerlink" href="#core-commands" title="Link to this heading">¶</a></h2>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-2 sd-row-cols-xs-2 sd-row-cols-sm-2 sd-row-cols-md-2 sd-row-cols-lg-2 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-database" viewBox="0 0 16 16" aria-hidden="true"><path d="M1 3.5c0-.626.292-1.165.7-1.59.406-.422.956-.767 1.579-1.041C4.525.32 6.195 0 8 0c1.805 0 3.475.32 4.722.869.622.274 1.172.62 1.578 1.04.408.426.7.965.7 1.591v9c0 .626-.292 1.165-.7 1.59-.406.422-.956.767-1.579 1.041C11.476 15.68 9.806 16 8 16c-1.805 0-3.475-.32-4.721-.869-.623-.274-1.173-.62-1.579-1.04-.408-.426-.7-.965-.7-1.591Zm1.5 0c0 .133.058.318.282.551.227.237.591.483 1.101.707C4.898 5.205 6.353 5.5 8 5.5c1.646 0 3.101-.295 4.118-.742.508-.224.873-.471 1.1-.708.224-.232.282-.417.282-.55 0-.133-.058-.318-.282-.551-.227-.237-.591-.483-1.101-.707C11.102 1.795 9.647 1.5 8 1.5c-1.646 0-3.101.295-4.118.742-.508.224-.873.471-1.1.708-.224.232-.282.417-.282.55Zm0 4.5c0 .133.058.318.282.551.227.237.591.483 1.101.707C4.898 9.705 6.353 10 8 10c1.646 0 3.101-.295 4.118-.742.508-.224.873-.471 1.1-.708.224-.232.282-.417.282-.55V5.724c-.241.15-.503.286-.778.407C11.475 6.68 9.805 7 8 7c-1.805 0-3.475-.32-4.721-.869a6.15 6.15 0 0 1-.779-.407Zm0 2.225V12.5c0 .133.058.318.282.55.227.237.592.484 1.1.708 1.016.447 2.471.742 4.118.742 1.647 0 3.102-.295 4.117-.742.51-.224.874-.47 1.101-.707.224-.233.282-.418.282-.551v-2.275c-.241.15-.503.285-.778.406-1.247.549-2.917.869-4.722.869-1.805 0-3.475-.32-4.721-.869a6.327 6.327 0 0 1-.779-.406Z"></path></svg> malva index</div>
+<p class="sd-card-text">Build a searchable k-mer index from FASTQ files</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-graph" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0Zm14.28 2.53-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06 4.28 9.78a.751.751 0 0 1-1.042-.018.751.751 0 0 1-.018-1.042l3.25-3.25a.75.75 0 0 1 1.06 0L10 7.94l4.72-4.72a.751.751 0 0 1 1.042.018.751.751 0 0 1 .018 1.042Z"></path></svg> malva quant</div>
+<p class="sd-card-text">Pseudoquantify gene expression against a reference transcriptome</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-paintbrush" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.134 1.535c.7-.509 1.416-.942 2.076-1.155.649-.21 1.463-.267 2.069.34.603.601.568 1.411.368 2.07-.202.668-.624 1.39-1.125 2.096-1.011 1.424-2.496 2.987-3.775 4.249-1.098 1.084-2.132 1.839-3.04 2.3a3.744 3.744 0 0 1-1.055 3.217c-.431.431-1.065.691-1.657.861-.614.177-1.294.287-1.914.357A21.151 21.151 0 0 1 .797 16H.743l.007-.75H.749L.742 16a.75.75 0 0 1-.743-.742l.743-.008-.742.007v-.054a21.25 21.25 0 0 1 .13-2.284c.067-.647.187-1.287.358-1.914.17-.591.43-1.226.86-1.657a3.746 3.746 0 0 1 3.227-1.054c.466-.893 1.225-1.907 2.314-2.982 1.271-1.255 2.833-2.75 4.245-3.777ZM1.62 13.089c-.051.464-.086.929-.104 1.395.466-.018.932-.053 1.396-.104a10.511 10.511 0 0 0 1.668-.309c.526-.151.856-.325 1.011-.48a2.25 2.25 0 1 0-3.182-3.182c-.155.155-.329.485-.48 1.01a10.515 10.515 0 0 0-.309 1.67Zm10.396-10.34c-1.224.89-2.605 2.189-3.822 3.384l1.718 1.718c1.21-1.205 2.51-2.597 3.387-3.833.47-.662.78-1.227.912-1.662.134-.444.032-.551.009-.575h-.001V1.78c-.014-.014-.113-.113-.548.027-.432.14-.995.462-1.655.942Zm-4.832 7.266-.001.001a9.859 9.859 0 0 0 1.63-1.142L7.155 7.216a9.7 9.7 0 0 0-1.161 1.607c.482.302.889.71 1.19 1.192Z"></path></svg> malva show</div>
+<p class="sd-card-text">Generate spatial visualizations of query sequences</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-browser" viewBox="0 0 16 16" aria-hidden="true"><path d="M0 2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75v10.5A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25ZM14.5 6h-13v7.25c0 .138.112.25.25.25h12.5a.25.25 0 0 0 .25-.25Zm-6-3.5v2h6V2.75a.25.25 0 0 0-.25-.25ZM5 2.5v2h2v-2Zm-3.25 0a.25.25 0 0 0-.25.25V4.5h2v-2Z"></path></svg> malva serve</div>
+<p class="sd-card-text">Launch an interactive web interface for exploration</p>
+</div>
+</div>
+</div>
+</div>
+</div>
 </section>
+<hr class="docutils" />
+<section id="key-features">
+<h2>Key Features<a class="headerlink" href="#key-features" title="Link to this heading">¶</a></h2>
+<div class="sd-container-fluid sd-sphinx-override sd-mb-4 docutils">
+<div class="sd-row sd-row-cols-3 sd-row-cols-xs-3 sd-row-cols-sm-3 sd-row-cols-md-3 sd-row-cols-lg-3 sd-g-2 sd-g-xs-2 sd-g-sm-2 sd-g-md-2 sd-g-lg-2 docutils">
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 sd-text-center docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-zap" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.504.43a1.516 1.516 0 0 1 2.437 1.713L10.415 5.5h2.123c1.57 0 2.346 1.909 1.22 3.004l-7.34 7.142a1.249 1.249 0 0 1-.871.354h-.302a1.25 1.25 0 0 1-1.157-1.723L5.633 10.5H3.462c-1.57 0-2.346-1.909-1.22-3.004L9.503.429Zm1.047 1.074L3.286 8.571A.25.25 0 0 0 3.462 9H6.75a.75.75 0 0 1 .694 1.034l-1.713 4.188 6.982-6.793A.25.25 0 0 0 12.538 7H9.25a.75.75 0 0 1-.683-1.06l2.008-4.418.003-.006a.036.036 0 0 0-.004-.009l-.006-.006-.008-.001c-.003 0-.006.002-.009.004Z"></path></svg> Fast</div>
+<p class="sd-card-text">Process 100M reads in under 2 minutes</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 sd-text-center docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-search" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.68 11.74a6 6 0 0 1-7.922-8.982 6 6 0 0 1 8.982 7.922l3.04 3.04a.749.749 0 0 1-.326 1.275.749.749 0 0 1-.734-.215ZM11.5 7a4.499 4.499 0 1 0-8.997 0A4.499 4.499 0 0 0 11.5 7Z"></path></svg> Reference-free</div>
+<p class="sd-card-text">Query any sequence without realignment</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 sd-text-center docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-git-branch" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 3.25a2.25 2.25 0 1 1 3 2.122V6A2.5 2.5 0 0 1 10 8.5H6a1 1 0 0 0-1 1v1.128a2.251 2.251 0 1 1-1.5 0V5.372a2.25 2.25 0 1 1 1.5 0v1.836A2.493 2.493 0 0 1 6 7h4a1 1 0 0 0 1-1v-.628A2.25 2.25 0 0 1 9.5 3.25Zm-6 0a.75.75 0 1 0 1.5 0 .75.75 0 0 0-1.5 0Zm8.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5ZM4.25 12a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5Z"></path></svg> Flexible</div>
+<p class="sd-card-text">Single-cell and spatial transcriptomics</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 sd-text-center docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-package" viewBox="0 0 16 16" aria-hidden="true"><path d="m8.878.392 5.25 3.045c.54.314.872.89.872 1.514v6.098a1.75 1.75 0 0 1-.872 1.514l-5.25 3.045a1.75 1.75 0 0 1-1.756 0l-5.25-3.045A1.75 1.75 0 0 1 1 11.049V4.951c0-.624.332-1.201.872-1.514L7.122.392a1.75 1.75 0 0 1 1.756 0ZM7.875 1.69l-4.63 2.685L8 7.133l4.755-2.758-4.63-2.685a.248.248 0 0 0-.25 0ZM2.5 5.677v5.372c0 .09.047.171.125.216l4.625 2.683V8.432Zm6.25 8.271 4.625-2.683a.25.25 0 0 0 .125-.216V5.677L8.75 8.432Z"></path></svg> Compatible</div>
+<p class="sd-card-text">Works with scanpy and standard tools</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 sd-text-center docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-cpu" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5.75V2h3V.75a.75.75 0 0 1 1.5 0V2h1.25c.966 0 1.75.784 1.75 1.75V5h1.25a.75.75 0 0 1 0 1.5H14v3h1.25a.75.75 0 0 1 0 1.5H14v1.25A1.75 1.75 0 0 1 12.25 14H11v1.25a.75.75 0 0 1-1.5 0V14h-3v1.25a.75.75 0 0 1-1.5 0V14H3.75A1.75 1.75 0 0 1 2 12.25V11H.75a.75.75 0 0 1 0-1.5H2v-3H.75a.75.75 0 0 1 0-1.5H2V3.75C2 2.784 2.784 2 3.75 2H5V.75a.75.75 0 0 1 1.5 0Zm5.75 11.75a.25.25 0 0 0 .25-.25v-8.5a.25.25 0 0 0-.25-.25h-8.5a.25.25 0 0 0-.25.25v8.5c0 .138.112.25.25.25ZM5.75 5h4.5a.75.75 0 0 1 .75.75v4.5a.75.75 0 0 1-.75.75h-4.5a.75.75 0 0 1-.75-.75v-4.5A.75.75 0 0 1 5.75 5Zm.75 4.5h3v-3h-3Z"></path></svg> Lightweight</div>
+<p class="sd-card-text">Runs on laptops or HPC clusters</p>
+</div>
+</div>
+</div>
+<div class="sd-col sd-d-flex-row docutils">
+<div class="sd-card sd-sphinx-override sd-w-100 sd-shadow-sm sd-border-0 sd-text-center docutils">
+<div class="sd-card-body docutils">
+<div class="sd-card-title sd-font-weight-bold docutils">
+<svg version="1.1" width="1.0em" height="1.0em" class="sd-octicon sd-octicon-lock" viewBox="0 0 16 16" aria-hidden="true"><path d="M4 4a4 4 0 0 1 8 0v2h.25c.966 0 1.75.784 1.75 1.75v5.5A1.75 1.75 0 0 1 12.25 15h-8.5A1.75 1.75 0 0 1 2 13.25v-5.5C2 6.784 2.784 6 3.75 6H4Zm8.25 3.5h-8.5a.25.25 0 0 0-.25.25v5.5c0 .138.112.25.25.25h8.5a.25.25 0 0 0 .25-.25v-5.5a.25.25 0 0 0-.25-.25ZM10.5 6V4a2.5 2.5 0 1 0-5 0v2Z"></path></svg> Private</div>
+<p class="sd-card-text">Your data stays on your machine</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<hr class="docutils" />
 <section id="quick-example">
 <h2>Quick Example<a class="headerlink" href="#quick-example" title="Link to this heading">¶</a></h2>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># Build an index from 10x Genomics data</span>
@@ -320,112 +463,42 @@ malva<span class="w"> </span>quant<span class="w"> </span><span class="se">\</sp
 </pre></div>
 </div>
 </section>
-<section id="features">
-<h2>Features<a class="headerlink" href="#features" title="Link to this heading">¶</a></h2>
-<ul class="simple">
-<li><p>Process 100M reads in under 2 minutes</p></li>
-<li><p>Reference-free analysis: query any sequence without realignment</p></li>
-<li><p>Single-cell and spatial transcriptomics support</p></li>
-<li><p>Output compatible with scanpy and other standard tools</p></li>
-<li><p>Low memory footprint, suitable for laptop or HPC</p></li>
-</ul>
+<hr class="docutils" />
+<section id="documentation">
+<h2>Documentation<a class="headerlink" href="#documentation" title="Link to this heading">¶</a></h2>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Getting Started</span></p>
+<p class="caption" role="heading"><span class="caption-text">Guides</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="about.html">About Malva Tools</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="about.html#overview">Overview</a></li>
-<li class="toctree-l2"><a class="reference internal" href="about.html#what-malva-tools-can-do">What Malva Tools Can Do</a></li>
-<li class="toctree-l2"><a class="reference internal" href="about.html#use-cases">Use Cases</a></li>
-<li class="toctree-l2"><a class="reference internal" href="about.html#supported-data-types">Supported Data Types</a></li>
-<li class="toctree-l2"><a class="reference internal" href="about.html#performance">Performance</a></li>
-<li class="toctree-l2"><a class="reference internal" href="about.html#availability">Availability</a></li>
-<li class="toctree-l2"><a class="reference internal" href="about.html#citation">Citation</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#availability">Availability</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#system-requirements">System Requirements</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#option-1-python-wheel-recommended">Option 1: Python Wheel (Recommended)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#option-2-apptainer-container">Option 2: Apptainer Container</a></li>
-<li class="toctree-l2"><a class="reference internal" href="installation.html#hpc-configuration">HPC Configuration</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-1-prepare-the-data">Step 1: Prepare the Data</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-2-build-the-index">Step 2: Build the Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-3-quantify-gene-expression">Step 3: Quantify Gene Expression</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#step-4-query-custom-sequences">Step 4: Query Custom Sequences</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#troubleshooting">Troubleshooting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart.html#next-steps">Next Steps</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="quickstart_spatial.html">Quick Start: Spatial Data</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="quickstart_spatial.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart_spatial.html#step-1-prepare-spatial-barcodes">Step 1: Prepare Spatial Barcodes</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart_spatial.html#step-2-build-the-index">Step 2: Build the Index</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart_spatial.html#step-3-query-sequences-python-api">Step 3: Query Sequences (Python API)</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart_spatial.html#step-4-visualize-spatial-distribution">Step 4: Visualize Spatial Distribution</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart_spatial.html#troubleshooting">Troubleshooting</a></li>
-<li class="toctree-l2"><a class="reference internal" href="quickstart_spatial.html#next-steps">Next Steps</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About Malva Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_spatial.html">Quick Start: Spatial Data</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
+<p class="caption" role="heading"><span class="caption-text">Command Reference</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="cmd_index.html">index</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cmd_index.html#cmdline_parser-named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="cmd_combine.html">combine</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cmd_combine.html#cmdline_parser-named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="cmd_quant.html">quant</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cmd_quant.html#cmdline_parser-named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="cmd_cellxmer.html">cellxmer</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cmd_cellxmer.html#cmdline_parser-named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="cmd_show.html">show</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cmd_show.html#cmdline_parser-named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="cmd_serve.html">serve</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="cmd_serve.html#cmdline_parser-named-arguments">Named Arguments</a></li>
-</ul>
-</li>
-<li class="toctree-l1"><a class="reference internal" href="api/modules.html">API Reference</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="api/malva.indexes.html">malva.indexes module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/malva.spacemake.html">malva.spacemake module</a></li>
-<li class="toctree-l2"><a class="reference internal" href="api/malva.utils.html">malva.utils module</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_index.html">index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_quant.html">quant</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_show.html">show</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_serve.html">serve</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_cellxmer.html">cellxmer</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
-<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<p class="caption" role="heading"><span class="caption-text">Examples &amp; API</span></p>
 <ul>
-<li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a><ul>
-<li class="toctree-l2"><a class="reference internal" href="examples/index.html#prerequisites">Prerequisites</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/index.html#tutorial-structure">Tutorial Structure</a></li>
-<li class="toctree-l2"><a class="reference internal" href="examples/index.html#step-1-build-index-and-quantify">Step 1: Build Index and Quantify</a></li>
-</ul>
-</li>
+<li class="toctree-l1"><a class="reference internal" href="examples/index.html">Examples</a></li>
+<li class="toctree-l1"><a class="reference internal" href="api/modules.html">API Reference</a></li>
 </ul>
 </div>
 <div class="toctree-wrapper compound">
 <p class="caption" role="heading"><span class="caption-text">Links</span></p>
 <ul>
 <li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub</a></li>
 <li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
-<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub Repository</a></li>
 </ul>
 </div>
 </section>
@@ -477,10 +550,11 @@ malva<span class="w"> </span>quant<span class="w"> </span><span class="se">\</sp
           <div class="toc-tree">
             <ul>
 <li><a class="reference internal" href="#">Malva Tools</a><ul>
-<li><a class="reference internal" href="#availability">Availability</a></li>
-<li><a class="reference internal" href="#overview">Overview</a></li>
+<li><a class="reference internal" href="#getting-started">Getting Started</a></li>
+<li><a class="reference internal" href="#core-commands">Core Commands</a></li>
+<li><a class="reference internal" href="#key-features">Key Features</a></li>
 <li><a class="reference internal" href="#quick-example">Quick Example</a></li>
-<li><a class="reference internal" href="#features">Features</a><ul>
+<li><a class="reference internal" href="#documentation">Documentation</a><ul>
 </ul>
 </li>
 </ul>
@@ -500,6 +574,7 @@ malva<span class="w"> </span>quant<span class="w"> </span><span class="se">\</sp
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
     <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     </body>
 </html>

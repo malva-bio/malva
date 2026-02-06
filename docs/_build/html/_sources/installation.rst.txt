@@ -1,90 +1,114 @@
 Installation
 ============
 
-Malva Tools are distributed in two formats:
+Malva Tools are distributed in two formats. Choose the one that fits your use case, or install both.
 
-- **Python wheel**: For using Malva as a Python library in notebooks and scripts
-- **Apptainer container**: For running CLI commands on HPC systems
+.. grid:: 2
+    :gutter: 3
 
-Choose the installation method that fits your use case, or install both.
+    .. grid-item-card:: :octicon:`package;1.5em` Python Wheel
+        :class-card: sd-border-0 sd-shadow-sm
+
+        **Recommended for most users**
+
+        Use Malva in notebooks and Python scripts. Full API access for programmatic queries.
+
+    .. grid-item-card:: :octicon:`container;1.5em` Apptainer Container
+        :class-card: sd-border-0 sd-shadow-sm
+
+        **Best for HPC systems**
+
+        Run CLI commands without managing Python environments. Works on shared clusters.
+
+----
 
 Availability
 ------------
 
-Malva Tools are provided free of charge for academic non-profit research.
+.. note::
 
-**Download**
+   Malva Tools are provided **free of charge** for academic non-profit research.
 
-Pre-built binaries are available upon request.
+   Pre-built binaries (wheel + container) are available upon request.
 
-The distribution includes both the Python wheel and the Apptainer container.
+**To request access:** Contact daniel.leonperinan@mdc-berlin.de with your name, institution, and intended use case.
 
-**Access Request**
-
-For access, contact daniel.leonperinan@mdc-berlin.de with your name, institution, and intended use case.
+----
 
 System Requirements
 -------------------
 
-**Supported Platform**
-    Linux (Ubuntu 22.04+, CentOS 7+, or similar)
+.. grid:: 3
+    :gutter: 2
 
-**Python Version**
-    Python 3.11 (for wheel installation)
+    .. grid-item-card:: :octicon:`device-desktop;1em` Platform
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
 
-**Hardware**
-    - Minimum: 2 GB RAM, 1 CPU core
-    - Recommended: 8 GB RAM, 2+ CPU cores for large datasets
-    - Storage: Sufficient space for raw data and indices
+        Linux (Ubuntu 22.04+, CentOS 7+)
 
-Option 1: Python Wheel (Recommended)
-------------------------------------
+    .. grid-item-card:: :octicon:`code;1em` Python
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
 
-Install the Python wheel to use Malva in notebooks and Python scripts. This is the recommended method for most users.
+        Python 3.11 (for wheel)
 
-1. Download the wheel file (upon request)
+    .. grid-item-card:: :octicon:`cpu;1em` Hardware
+        :class-card: sd-border-0 sd-shadow-sm sd-text-center
 
-2. Install with pip:
+        Min: 2 GB RAM, 1 CPU
+
+----
+
+Option 1: Python Wheel
+----------------------
+
+.. tip::
+
+   This is the **recommended** method for most users. It enables full Python API access.
+
+**Step 1: Download the wheel file** (provided upon request)
+
+**Step 2: Install with pip**
 
 .. code-block:: bash
 
    pip install malva-0.2.0-cp311-cp311-linux_x86_64.whl
 
-3. Verify the installation:
+**Step 3: Verify the installation**
 
 .. code-block:: python
 
    import malva
-   from malva.indexes import MalvaIndex
+   from malva.index import MalvaIndex
 
-This method enables:
+**What you can do:**
 
-- Importing Malva in Python scripts and Jupyter notebooks
-- Using the Python API for programmatic queries
-- Running CLI commands via ``malva``
+- Import Malva in Python scripts and Jupyter notebooks
+- Use the Python API for programmatic queries
+- Run CLI commands via ``malva`` or ``python -m malva``
+
+----
 
 Option 2: Apptainer Container
 -----------------------------
 
-Use the Apptainer container for running CLI commands, especially on HPC systems where you may not have control over the Python environment.
+Use this option on HPC systems where you may not have control over the Python environment.
 
 **Prerequisites**
 
-Apptainer (formerly Singularity) must be available. Check with:
+Apptainer (formerly Singularity) must be available:
 
 .. code-block:: bash
 
    apptainer --version
 
-If not available, ask your system administrator or install following the `official guide <https://apptainer.org/docs/admin/main/installation.html>`_.
+If not available, ask your system administrator or see the `Apptainer installation guide <https://apptainer.org/docs/admin/main/installation.html>`_.
 
 **Setup**
 
-1. Download and extract the distribution:
+1. Download and extract the distribution (provided upon request):
 
 .. code-block:: bash
 
-   # get malva_dist.tar.gz upon request
    tar -xzvf malva_dist.tar.gz
    cd malva_dist
 
@@ -95,7 +119,7 @@ If not available, ask your system administrator or install following the `offici
    ./malva --version
    ./malva --help
 
-**Distribution Contents**
+**Distribution contents:**
 
 .. code-block:: text
 
@@ -105,14 +129,18 @@ If not available, ask your system administrator or install following the `offici
    ├── malva             # CLI wrapper script
    └── malva_runner.py   # Helper for Python/Jupyter integration
 
+----
+
 HPC Configuration
 -----------------
 
-On HPC systems, you may need to configure Apptainer to access data directories outside the default bind paths.
+.. warning::
+
+   On HPC systems, Apptainer may not have access to all data directories by default.
 
 **Binding additional paths**
 
-If Malva cannot find your data files (``FileNotFoundError``), edit the ``malva`` wrapper script to bind your data directories:
+If you get ``FileNotFoundError`` for files that exist, edit the ``malva`` wrapper script to bind your data directories:
 
 .. code-block:: bash
 
@@ -127,8 +155,12 @@ If Malva cannot find your data files (``FileNotFoundError``), edit the ``malva``
        "$DIST/python.sif" \
        python -m malva "$@"
 
-Replace ``/data:/data`` with your institution's data path (e.g., ``/scratch:/scratch`` or ``/home:/home``).
+Replace ``/data:/data`` with your institution's data path (e.g., ``/scratch:/scratch``).
 
 **Symlinks**
 
-If your input files are symlinks, ensure the symlink target directory is also bound. Alternatively, use the resolved path (``readlink -f <symlink>``).
+If your input files are symlinks, ensure the symlink target directory is also bound, or use the resolved path:
+
+.. code-block:: bash
+
+   readlink -f /path/to/symlink
