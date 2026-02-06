@@ -95,54 +95,139 @@ Index your spatial data using the ``openst`` flavor:
 
 Other available flavors include: ``visium``, ``stereoseq``, ``slideseq``.
 
-Step 3: Query Sequences
------------------------
+Step 3: Query Sequences (Python API)
+------------------------------------
 
-Search for sequences of interest (e.g., bacterial 16S rRNA) in your indexed data:
+Search for sequences of interest (e.g., bacterial 16S rRNA) using the Python API.
+
+**Basic sequence search:**
 
 .. code-block:: python
 
-   from malva.indexes import MalvaIndex
+   from malva.index import MalvaIndex
    import pandas as pd
-   import dnaio
 
-   # Load query sequences (e.g., 16S from bacteria of interest)
-   query = []
-   with dnaio.open("bacteria_16S.fa") as fasta:
-       for record in fasta:
-           query.append([record.sequence])
-
-   # Search the index
+   # Open the spatial index
    mindex = MalvaIndex("my_spatial_index")
    mindex.open()
-   results = mindex.where(
-       sequence=query,
-       sliding_size=64,
-       pct_threshold=0.65,
-       count_at_most=100000,
-       count_at_least=0,
+
+   # Query a sequence directly
+   sequence = "ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG..."
+
+   # Search returns: spatial locations, pseudocounts, and additional info
+   locations, intensities, info = mindex.where(
+       sequence,
+       sliding_size=64,        # window size for k-mer matching
+       pct_threshold=0.65,     # minimum fraction of matching k-mers
+       count_at_most=100000,   # upper count threshold
+       count_at_least=0,       # lower count threshold
    )
+
    mindex.close()
 
-   # Convert to dataframe with spatial information
+   # Convert to dataframe
    df_results = pd.DataFrame({
-       "barcode": results[0][0],
-       "expression": results[0][1]
+       "location": locations,
+       "expression": intensities
    })
+
+**Query multiple sequences from a FASTA file:**
+
+.. code-block:: python
+
+   import dnaio
+
+   mindex = MalvaIndex("my_spatial_index")
+   mindex.open()
+
+   results = {}
+   with dnaio.open("bacteria_16S.fa") as fasta:
+       for record in fasta:
+           locations, intensities, _ = mindex.where(
+               record.sequence,
+               sliding_size=64,
+               pct_threshold=0.65,
+           )
+           results[record.name] = (locations, intensities)
+           print(f"{record.name}: found in {len(locations)} spatial locations")
+
+   mindex.close()
 
 Step 4: Visualize Spatial Distribution
 --------------------------------------
 
-Use ``malva show`` to generate spatial plots directly from the command line:
+**Command-line visualization:**
+
+Use ``malva show`` to generate spatial plots directly:
 
 .. code-block:: bash
 
    malva show \
        --index-in my_spatial_index \
        --query bacteria_16S.fa \
-       --output bacteria_spatial.png
+       --image-out output_images/
 
-For interactive exploration, use the web interface:
+This generates TIFF images for each query sequence in the output folder.
+
+**Python API visualization with MalvaPlot:**
+
+For programmatic control over visualization, use the ``MalvaPlot`` class:
+
+.. code-block:: python
+
+   from malva.index import MalvaIndex
+   from malva.show import MalvaPlot
+   import matplotlib.pyplot as plt
+
+   # Open the index and create a plotter
+   mindex = MalvaIndex("my_spatial_index")
+   plotter = MalvaPlot(mindex)
+
+   # Query a sequence
+   mindex.open()
+   locations, intensities, _ = mindex.where(
+       "ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG...",
+       sliding_size=64,
+       pct_threshold=0.65,
+   )
+   mindex.close()
+
+   # Generate a spatial image
+   image = plotter.image(
+       locations,
+       intensities,
+       render_scale=1,           # scale factor for output resolution
+       render_smoothing=1.5,     # Gaussian smoothing sigma
+       normalize=True            # normalize to 0-255 for display
+   )
+
+   # Display with matplotlib
+   plt.figure(figsize=(10, 10))
+   plt.imshow(image, cmap="viridis")
+   plt.axis("off")
+   plt.title("Spatial distribution of query sequence")
+   plt.colorbar(label="Expression")
+   plt.savefig("spatial_plot.png", dpi=150, bbox_inches="tight")
+   plt.show()
+
+**Save as TIFF for downstream analysis:**
+
+.. code-block:: python
+
+   import tifffile
+
+   # Generate image without normalization for quantitative analysis
+   image = plotter.image(locations, intensities, normalize=False)
+
+   # Save as ImageJ-compatible TIFF
+   tifffile.imwrite(
+       "spatial_expression.tif",
+       image,
+       metadata={"axes": "YX"},
+       imagej=True
+   )
+
+**Interactive exploration with malva serve:**
 
 .. code-block:: bash
 

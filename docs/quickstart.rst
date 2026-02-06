@@ -95,40 +95,62 @@ Runtime: 10-60 minutes for this dataset (on 1 CPU core, depending on IO throughp
 Output: ``quant/pbmc_1k_v3/pseudoquant.h5ad``
 
 
-Step 4: Query Custom Sequences Interactively
+Step 4: Query Custom Sequences
 ------------------------------
 
-Search for any sequence in your indexed data:
+Search for any sequence in your indexed data using the Python API.
+
+**Basic sequence search:**
 
 .. code-block:: python
 
-   from malva.indexes import MalvaIndex
+   from malva.index import MalvaIndex
    import pandas as pd
-   import dnaio
 
-   # Load a query sequence (e.g., a transcript isoform)
-   query = []
-   with dnaio.open("sequence.fa") as fasta:
-       for record in fasta:
-           query.append([record.sequence])
-
-   # Search the index
+   # Open the index
    mindex = MalvaIndex("indices/pbmc_1k_v3")
    mindex.open()
-   results = mindex.where(
-       sequence=query,
-       sliding_size=64,
-       pct_threshold=0.65,
-       count_at_most=100000,
-       count_at_least=0,
+
+   # Query a sequence directly (e.g., a transcript isoform or viral sequence)
+   sequence = "ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG..."
+
+   # Search returns: cell indices, pseudocounts, and additional info
+   locations, intensities, info = mindex.where(
+       sequence,
+       sliding_size=64,        # window size for k-mer matching
+       pct_threshold=0.65,     # minimum fraction of matching k-mers
+       count_at_most=100000,   # upper count threshold
+       count_at_least=0,       # lower count threshold
    )
+
    mindex.close()
 
    # Convert to dataframe
    df_results = pd.DataFrame({
-       "cell": results[0][0],
-       "expression": results[0][1]
+       "cell": locations,
+       "expression": intensities
    })
+
+**Query multiple sequences from a FASTA file:**
+
+.. code-block:: python
+
+   import dnaio
+
+   mindex = MalvaIndex("indices/pbmc_1k_v3")
+   mindex.open()
+
+   # Load sequences from FASTA
+   with dnaio.open("sequences.fa") as fasta:
+       for record in fasta:
+           locations, intensities, _ = mindex.where(
+               record.sequence,
+               sliding_size=64,
+               pct_threshold=0.65,
+           )
+           print(f"{record.name}: found in {len(locations)} cells")
+
+   mindex.close()
 
 This returns the cells containing k-mers from your query sequence, along with pseudocount values.
 
