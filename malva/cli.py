@@ -551,8 +551,8 @@ def get_serve_parser():
     parser.add_argument(
         "--max-mem",
         type=str,
-        default=None,
-        help="""Maximum allowed memory usage for the k-mer index""",
+        default="1M",
+        help="""Maximum allowed memory usage for the k-mer index (default: 1M)""",
     )
     parser.add_argument(
         "--max-len",
