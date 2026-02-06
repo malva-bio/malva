@@ -46,6 +46,7 @@ html_theme_options = {
 
 # Static files
 html_static_path = ['_static']
+html_css_files = ['custom.css']
 
 # Settings
 suppress_warnings = ['autodoc.duplicate_object']
