@@ -17,7 +17,11 @@ extensions = [
     'myst_parser',
     'sphinx_click',
     'sphinx_copybutton',
+    'nbsphinx',
 ]
+
+# nbsphinx settings
+nbsphinx_execute = 'never'  # Don't re-execute notebooks, use stored outputs
 
 # FURO THEME
 html_theme = 'furo'
