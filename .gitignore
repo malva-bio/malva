@@ -192,3 +192,6 @@ cython_debug/
 #.idea/
 
 !docs/_build/
+
+# Ignore excluding example notebooks
+~examples/*.ipynb
