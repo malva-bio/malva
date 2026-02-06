@@ -207,6 +207,7 @@
 <li class="toctree-l1"><a class="reference internal" href="about.html">About Malva Tools</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_spatial.html">Quick Start: Spatial Data</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
 <ul>
@@ -222,6 +223,14 @@
 <li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.spacemake.html">malva.spacemake module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">Examples</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of Examples</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/2_simple_analysis.html">Single-Cell Analysis of Malva Quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
 </ul>
 </li>
 </ul>
@@ -276,17 +285,27 @@
         <article role="main" id="furo-main-content">
           <section id="installation">
 <h1>Installation<a class="headerlink" href="#installation" title="Link to this heading">¶</a></h1>
-<p>Malva Tools are distributed as pre-built binaries with an Apptainer container for dependency management. This ensures reproducibility across different systems.</p>
+<p>Malva Tools are distributed in two formats:</p>
+<ul class="simple">
+<li><p><strong>Python wheel</strong>: For using Malva as a Python library in notebooks and scripts</p></li>
+<li><p><strong>Apptainer container</strong>: For running CLI commands on HPC systems</p></li>
+</ul>
+<p>Choose the installation method that fits your use case, or install both.</p>
 <section id="availability">
 <h2>Availability<a class="headerlink" href="#availability" title="Link to this heading">¶</a></h2>
-<p>Malva Tools are provided free of charge for academic non-profit research. To request access, contact <a class="reference external" href="mailto:daniel&#46;leonperinan&#37;&#52;&#48;mdc-berlin&#46;de">daniel<span>&#46;</span>leonperinan<span>&#64;</span>mdc-berlin<span>&#46;</span>de</a> with your name, institution, and intended use case.</p>
+<p>Malva Tools are provided free of charge for academic non-profit research.</p>
+<p><strong>Download</strong></p>
+<p>Pre-built binaries are available upon request.</p>
+<p>The distribution includes both the Python wheel and the Apptainer container.</p>
+<p><strong>Access Request</strong></p>
+<p>For access, contact <a class="reference external" href="mailto:daniel&#46;leonperinan&#37;&#52;&#48;mdc-berlin&#46;de">daniel<span>&#46;</span>leonperinan<span>&#64;</span>mdc-berlin<span>&#46;</span>de</a> with your name, institution, and intended use case.</p>
 </section>
 <section id="system-requirements">
 <h2>System Requirements<a class="headerlink" href="#system-requirements" title="Link to this heading">¶</a></h2>
 <dl class="simple">
 <dt><strong>Supported Platform</strong></dt><dd><p>Linux (Ubuntu 22.04+, CentOS 7+, or similar)</p>
 </dd>
-<dt><strong>Required Software</strong></dt><dd><p>Apptainer (formerly Singularity), available on most HPC systems</p>
+<dt><strong>Python Version</strong></dt><dd><p>Python 3.11 (for wheel installation)</p>
 </dd>
 <dt><strong>Hardware</strong></dt><dd><ul class="simple">
 <li><p>Minimum: 2 GB RAM, 1 CPU core</p></li>
@@ -296,36 +315,45 @@
 </dd>
 </dl>
 </section>
-<section id="installing-apptainer">
-<h2>Installing Apptainer<a class="headerlink" href="#installing-apptainer" title="Link to this heading">¶</a></h2>
-<p>Apptainer is pre-installed on most HPC clusters. Check availability with:</p>
+<section id="option-1-python-wheel-recommended">
+<h2>Option 1: Python Wheel (Recommended)<a class="headerlink" href="#option-1-python-wheel-recommended" title="Link to this heading">¶</a></h2>
+<p>Install the Python wheel to use Malva in notebooks and Python scripts. This is the recommended method for most users.</p>
+<ol class="arabic simple">
+<li><p>Download the wheel file (upon request)</p></li>
+<li><p>Install with pip:</p></li>
+</ol>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>pip<span class="w"> </span>install<span class="w"> </span>malva-0.2.0-cp311-cp311-linux_x86_64.whl
+</pre></div>
+</div>
+<ol class="arabic simple" start="3">
+<li><p>Verify the installation:</p></li>
+</ol>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">malva</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">malva.indexes</span><span class="w"> </span><span class="kn">import</span> <span class="n">MalvaIndex</span>
+</pre></div>
+</div>
+<p>This method enables:</p>
+<ul class="simple">
+<li><p>Importing Malva in Python scripts and Jupyter notebooks</p></li>
+<li><p>Using the Python API for programmatic queries</p></li>
+<li><p>Running CLI commands via <code class="docutils literal notranslate"><span class="pre">malva</span></code></p></li>
+</ul>
+</section>
+<section id="option-2-apptainer-container">
+<h2>Option 2: Apptainer Container<a class="headerlink" href="#option-2-apptainer-container" title="Link to this heading">¶</a></h2>
+<p>Use the Apptainer container for running CLI commands, especially on HPC systems where you may not have control over the Python environment.</p>
+<p><strong>Prerequisites</strong></p>
+<p>Apptainer (formerly Singularity) must be available. Check with:</p>
 <div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>apptainer<span class="w"> </span>--version
 </pre></div>
 </div>
 <p>If not available, ask your system administrator or install following the <a class="reference external" href="https://apptainer.org/docs/admin/main/installation.html">official guide</a>.</p>
-<p>For local installation on Ubuntu/Debian:</p>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>sudo<span class="w"> </span>apt<span class="w"> </span>update
-sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> </span>-y<span class="w"> </span>apptainer
-</pre></div>
-</div>
-</section>
-<section id="distribution-contents">
-<h2>Distribution Contents<a class="headerlink" href="#distribution-contents" title="Link to this heading">¶</a></h2>
-<p>After receiving access, you will download a distribution package containing:</p>
-<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>malva_dist/
-├── python.sif        # Apptainer container with Python runtime
-├── site-packages/    # Malva package and dependencies
-├── malva             # CLI wrapper script
-└── malva_runner.py   # Helper for Python/Jupyter integration
-</pre></div>
-</div>
-</section>
-<section id="setup">
-<h2>Setup<a class="headerlink" href="#setup" title="Link to this heading">¶</a></h2>
+<p><strong>Setup</strong></p>
 <ol class="arabic simple">
 <li><p>Download and extract the distribution:</p></li>
 </ol>
-<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span>tar<span class="w"> </span>-xzvf<span class="w"> </span>malva_dist.tar.gz
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="c1"># get malva_dist.tar.gz upon request</span>
+tar<span class="w"> </span>-xzvf<span class="w"> </span>malva_dist.tar.gz
 <span class="nb">cd</span><span class="w"> </span>malva_dist
 </pre></div>
 </div>
@@ -336,6 +364,35 @@ sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> <
 ./malva<span class="w"> </span>--help
 </pre></div>
 </div>
+<p><strong>Distribution Contents</strong></p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>malva_dist/
+├── python.sif        # Apptainer container with Python runtime
+├── site-packages/    # Malva package and dependencies
+├── malva             # CLI wrapper script
+└── malva_runner.py   # Helper for Python/Jupyter integration
+</pre></div>
+</div>
+</section>
+<section id="hpc-configuration">
+<h2>HPC Configuration<a class="headerlink" href="#hpc-configuration" title="Link to this heading">¶</a></h2>
+<p>On HPC systems, you may need to configure Apptainer to access data directories outside the default bind paths.</p>
+<p><strong>Binding additional paths</strong></p>
+<p>If Malva cannot find your data files (<code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code>), edit the <code class="docutils literal notranslate"><span class="pre">malva</span></code> wrapper script to bind your data directories:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="nv">DIST</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>dirname<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">BASH_SOURCE</span><span class="p">[0]</span><span class="si">}</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span>
+<span class="nb">exec</span><span class="w"> </span>apptainer<span class="w"> </span><span class="nb">exec</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--bind<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">:</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--bind<span class="w"> </span><span class="s2">&quot;/data:/data&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--bind<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DIST</span><span class="s2">:</span><span class="nv">$DIST</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$DIST</span><span class="s2">/site-packages&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pwd<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="nv">$DIST</span><span class="s2">/python.sif&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>python<span class="w"> </span>-m<span class="w"> </span>malva<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$@</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">/data:/data</span></code> with your institution’s data path (e.g., <code class="docutils literal notranslate"><span class="pre">/scratch:/scratch</span></code> or <code class="docutils literal notranslate"><span class="pre">/home:/home</span></code>).</p>
+<p><strong>Symlinks</strong></p>
+<p>If your input files are symlinks, ensure the symlink target directory is also bound. Alternatively, use the resolved path (<code class="docutils literal notranslate"><span class="pre">readlink</span> <span class="pre">-f</span> <span class="pre">&lt;symlink&gt;</span></code>).</p>
 </section>
 </section>
 
@@ -397,9 +454,9 @@ sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> <
 <li><a class="reference internal" href="#">Installation</a><ul>
 <li><a class="reference internal" href="#availability">Availability</a></li>
 <li><a class="reference internal" href="#system-requirements">System Requirements</a></li>
-<li><a class="reference internal" href="#installing-apptainer">Installing Apptainer</a></li>
-<li><a class="reference internal" href="#distribution-contents">Distribution Contents</a></li>
-<li><a class="reference internal" href="#setup">Setup</a></li>
+<li><a class="reference internal" href="#option-1-python-wheel-recommended">Option 1: Python Wheel (Recommended)</a></li>
+<li><a class="reference internal" href="#option-2-apptainer-container">Option 2: Apptainer Container</a></li>
+<li><a class="reference internal" href="#hpc-configuration">HPC Configuration</a></li>
 </ul>
 </li>
 </ul>
@@ -417,5 +474,6 @@ sudo<span class="w"> </span>apt<span class="w"> </span>install<span class="w"> <
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     </body>
 </html>

@@ -207,6 +207,7 @@
 <li class="toctree-l1"><a class="reference internal" href="about.html">About Malva Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_spatial.html">Quick Start: Spatial Data</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
 <ul class="current">
@@ -222,6 +223,14 @@
 <li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.spacemake.html">malva.spacemake module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">Examples</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of Examples</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/2_simple_analysis.html">Single-Cell Analysis of Malva Quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
 </ul>
 </li>
 </ul>
@@ -277,8 +286,9 @@
           <section id="quant">
 <h1>quant<a class="headerlink" href="#quant" title="Link to this heading">¶</a></h1>
 <p>Pseudo-quantification of expression of a set of query sequences against a Malva Index</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">malva</span> <span class="n">quant</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">index</span><span class="o">-</span><span class="ow">in</span> <span class="n">INDEX_IN</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">reference</span> <span class="n">REFERENCE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">background</span><span class="o">-</span><span class="n">model</span> <span class="n">BACKGROUND_MODEL</span><span class="p">]</span> <span class="o">--</span><span class="n">folder</span><span class="o">-</span><span class="n">out</span> <span class="n">FOLDER_OUT</span> <span class="p">[</span><span class="o">--</span><span class="n">h5ad</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="nb">bin</span><span class="o">-</span><span class="n">size</span> <span class="n">BIN_SIZE</span><span class="p">]</span>
-                   <span class="p">[</span><span class="o">--</span><span class="n">sliding</span><span class="o">-</span><span class="n">size</span> <span class="n">SLIDING_SIZE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">pct</span><span class="o">-</span><span class="n">threshold</span> <span class="n">PCT_THRESHOLD</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">kmer</span><span class="o">-</span><span class="nb">min</span> <span class="n">KMER_MIN</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">kmer</span><span class="o">-</span><span class="nb">max</span> <span class="n">KMER_MAX</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">single</span><span class="o">-</span><span class="n">count</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">malva</span> <span class="n">quant</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">index</span><span class="o">-</span><span class="ow">in</span> <span class="n">INDEX_IN</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">reference</span> <span class="n">REFERENCE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">background</span><span class="o">-</span><span class="n">model</span> <span class="n">BACKGROUND_MODEL</span><span class="p">]</span> <span class="o">--</span><span class="n">folder</span><span class="o">-</span><span class="n">out</span> <span class="n">FOLDER_OUT</span> <span class="p">[</span><span class="o">--</span><span class="n">h5ad</span><span class="p">]</span>
+                   <span class="p">[</span><span class="o">--</span><span class="nb">bin</span><span class="o">-</span><span class="n">size</span> <span class="n">BIN_SIZE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">sliding</span><span class="o">-</span><span class="n">size</span> <span class="n">SLIDING_SIZE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">pct</span><span class="o">-</span><span class="n">threshold</span> <span class="n">PCT_THRESHOLD</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">kmer</span><span class="o">-</span><span class="nb">min</span> <span class="n">KMER_MIN</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">kmer</span><span class="o">-</span><span class="nb">max</span> <span class="n">KMER_MAX</span><span class="p">]</span>
+                   <span class="p">[</span><span class="o">--</span><span class="n">single</span><span class="o">-</span><span class="n">count</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="cmdline_parser-named-arguments">
@@ -414,5 +424,6 @@ barcodes.txt.gz, features.txt.gz, and matrix.mtx</p>
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     </body>
 </html>

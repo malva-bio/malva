@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="author" title="About these documents" href="about.html" /><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="index" href="cmd_index.html" /><link rel="prev" title="Installation" href="installation.html" />
+<link rel="author" title="About these documents" href="about.html" /><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="Quick Start: Spatial Data" href="quickstart_spatial.html" /><link rel="prev" title="Installation" href="installation.html" />
         <link rel="prefetch" href="_static/malva_logo.svg" as="image" />
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
@@ -207,6 +207,7 @@
 <li class="toctree-l1"><a class="reference internal" href="about.html">About Malva Tools</a></li>
 <li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
 <li class="toctree-l1 current current-page"><a class="current reference internal" href="#">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_spatial.html">Quick Start: Spatial Data</a></li>
 </ul>
 <p class="caption" role="heading"><span class="caption-text">Subcommands &amp; API</span></p>
 <ul>
@@ -222,6 +223,14 @@
 <li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.spacemake.html">malva.spacemake module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">Examples</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of Examples</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/2_simple_analysis.html">Single-Cell Analysis of Malva Quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
 </ul>
 </li>
 </ul>
@@ -281,8 +290,7 @@
 <section id="prerequisites">
 <h2>Prerequisites<a class="headerlink" href="#prerequisites" title="Link to this heading">¶</a></h2>
 <ul class="simple">
-<li><p>Malva Tools installed (see <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a>)</p></li>
-<li><p>Apptainer available on your system</p></li>
+<li><p>Malva Tools installed via Python wheel or Apptainer (see <a class="reference internal" href="installation.html"><span class="doc">Installation</span></a>)</p></li>
 <li><p>~20 GB disk space for this example</p></li>
 </ul>
 </section>
@@ -360,43 +368,83 @@ wget<span class="w"> </span>https://bimsbstatic.mdc-berlin.de/rajewsky/malva/exa
 <p>Runtime: 10-60 minutes for this dataset (on 1 CPU core, depending on IO throughput of your machine).</p>
 <p>Output: <code class="docutils literal notranslate"><span class="pre">quant/pbmc_1k_v3/pseudoquant.h5ad</span></code></p>
 </section>
-<section id="step-4-query-custom-sequences-interactively">
-<h2>Step 4: Query Custom Sequences Interactively<a class="headerlink" href="#step-4-query-custom-sequences-interactively" title="Link to this heading">¶</a></h2>
-<p>Search for any sequence in your indexed data:</p>
-<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">malva.indexes</span><span class="w"> </span><span class="kn">import</span> <span class="n">MalvaIndex</span>
+<section id="step-4-query-custom-sequences">
+<h2>Step 4: Query Custom Sequences<a class="headerlink" href="#step-4-query-custom-sequences" title="Link to this heading">¶</a></h2>
+<p>Search for any sequence in your indexed data using the Python API.</p>
+<p><strong>Basic sequence search:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">from</span><span class="w"> </span><span class="nn">malva.index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MalvaIndex</span>
 <span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
-<span class="kn">import</span><span class="w"> </span><span class="nn">dnaio</span>
 
-<span class="c1"># Load a query sequence (e.g., a transcript isoform)</span>
-<span class="n">query</span> <span class="o">=</span> <span class="p">[]</span>
-<span class="k">with</span> <span class="n">dnaio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;sequence.fa&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fasta</span><span class="p">:</span>
-    <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">fasta</span><span class="p">:</span>
-        <span class="n">query</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="n">record</span><span class="o">.</span><span class="n">sequence</span><span class="p">])</span>
-
-<span class="c1"># Search the index</span>
+<span class="c1"># Open the index</span>
 <span class="n">mindex</span> <span class="o">=</span> <span class="n">MalvaIndex</span><span class="p">(</span><span class="s2">&quot;indices/pbmc_1k_v3&quot;</span><span class="p">)</span>
 <span class="n">mindex</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
-<span class="n">results</span> <span class="o">=</span> <span class="n">mindex</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
-    <span class="n">sequence</span><span class="o">=</span><span class="n">query</span><span class="p">,</span>
-    <span class="n">sliding_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
-    <span class="n">pct_threshold</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span>
-    <span class="n">count_at_most</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span>
-    <span class="n">count_at_least</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+
+<span class="c1"># Query a sequence directly (e.g., a transcript isoform or viral sequence)</span>
+<span class="n">sequence</span> <span class="o">=</span> <span class="s2">&quot;ATGCAGTCGGGCACTCACTGGAGAGTTCTGGGCCTCTGCCTCTTATCAG...&quot;</span>
+
+<span class="c1"># Search returns: cell indices, pseudocounts, and additional info</span>
+<span class="n">locations</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">info</span> <span class="o">=</span> <span class="n">mindex</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+    <span class="n">sequence</span><span class="p">,</span>
+    <span class="n">sliding_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>        <span class="c1"># window size for k-mer matching</span>
+    <span class="n">pct_threshold</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span>     <span class="c1"># minimum fraction of matching k-mers</span>
+    <span class="n">count_at_most</span><span class="o">=</span><span class="mi">100000</span><span class="p">,</span>   <span class="c1"># upper count threshold</span>
+    <span class="n">count_at_least</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>       <span class="c1"># lower count threshold</span>
 <span class="p">)</span>
+
 <span class="n">mindex</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 
 <span class="c1"># Convert to dataframe</span>
 <span class="n">df_results</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
-    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">0</span><span class="p">],</span>
-    <span class="s2">&quot;expression&quot;</span><span class="p">:</span> <span class="n">results</span><span class="p">[</span><span class="mi">0</span><span class="p">][</span><span class="mi">1</span><span class="p">]</span>
+    <span class="s2">&quot;cell&quot;</span><span class="p">:</span> <span class="n">locations</span><span class="p">,</span>
+    <span class="s2">&quot;expression&quot;</span><span class="p">:</span> <span class="n">intensities</span>
 <span class="p">})</span>
+</pre></div>
+</div>
+<p><strong>Query multiple sequences from a FASTA file:</strong></p>
+<div class="highlight-python notranslate"><div class="highlight"><pre><span></span><span class="kn">import</span><span class="w"> </span><span class="nn">dnaio</span>
+
+<span class="n">mindex</span> <span class="o">=</span> <span class="n">MalvaIndex</span><span class="p">(</span><span class="s2">&quot;indices/pbmc_1k_v3&quot;</span><span class="p">)</span>
+<span class="n">mindex</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+
+<span class="c1"># Load sequences from FASTA</span>
+<span class="k">with</span> <span class="n">dnaio</span><span class="o">.</span><span class="n">open</span><span class="p">(</span><span class="s2">&quot;sequences.fa&quot;</span><span class="p">)</span> <span class="k">as</span> <span class="n">fasta</span><span class="p">:</span>
+    <span class="k">for</span> <span class="n">record</span> <span class="ow">in</span> <span class="n">fasta</span><span class="p">:</span>
+        <span class="n">locations</span><span class="p">,</span> <span class="n">intensities</span><span class="p">,</span> <span class="n">_</span> <span class="o">=</span> <span class="n">mindex</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+            <span class="n">record</span><span class="o">.</span><span class="n">sequence</span><span class="p">,</span>
+            <span class="n">sliding_size</span><span class="o">=</span><span class="mi">64</span><span class="p">,</span>
+            <span class="n">pct_threshold</span><span class="o">=</span><span class="mf">0.65</span><span class="p">,</span>
+        <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">record</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: found in </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span><span class="si">}</span><span class="s2"> cells&quot;</span><span class="p">)</span>
+
+<span class="n">mindex</span><span class="o">.</span><span class="n">close</span><span class="p">()</span>
 </pre></div>
 </div>
 <p>This returns the cells containing k-mers from your query sequence, along with pseudocount values.</p>
 </section>
+<section id="troubleshooting">
+<h2>Troubleshooting<a class="headerlink" href="#troubleshooting" title="Link to this heading">¶</a></h2>
+<p><strong>Apptainer cannot find files on HPC</strong></p>
+<p>If you get <code class="docutils literal notranslate"><span class="pre">FileNotFoundError</span></code> for files that exist when using the Apptainer container, it may not have access to the required paths. Edit the <code class="docutils literal notranslate"><span class="pre">malva</span></code> wrapper script to bind additional paths:</p>
+<div class="highlight-bash notranslate"><div class="highlight"><pre><span></span><span class="ch">#!/bin/bash</span>
+<span class="nv">DIST</span><span class="o">=</span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">cd</span><span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span>dirname<span class="w"> </span><span class="s2">&quot;</span><span class="si">${</span><span class="nv">BASH_SOURCE</span><span class="p">[0]</span><span class="si">}</span><span class="s2">&quot;</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="o">&amp;&amp;</span><span class="w"> </span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span>
+<span class="nb">exec</span><span class="w"> </span>apptainer<span class="w"> </span><span class="nb">exec</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--bind<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">:</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--bind<span class="w"> </span><span class="s2">&quot;/data:/data&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--bind<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$DIST</span><span class="s2">:</span><span class="nv">$DIST</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--env<span class="w"> </span><span class="nv">PYTHONPATH</span><span class="o">=</span><span class="s2">&quot;</span><span class="nv">$DIST</span><span class="s2">/site-packages&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>--pwd<span class="w"> </span><span class="s2">&quot;</span><span class="k">$(</span><span class="nb">pwd</span><span class="k">)</span><span class="s2">&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span><span class="s2">&quot;</span><span class="nv">$DIST</span><span class="s2">/python.sif&quot;</span><span class="w"> </span><span class="se">\</span>
+<span class="w">    </span>python<span class="w"> </span>-m<span class="w"> </span>malva<span class="w"> </span><span class="s2">&quot;</span><span class="nv">$@</span><span class="s2">&quot;</span>
+</pre></div>
+</div>
+<p>Replace <code class="docutils literal notranslate"><span class="pre">/data</span></code> with the path to your data directory (e.g., <code class="docutils literal notranslate"><span class="pre">/scratch</span></code>, <code class="docutils literal notranslate"><span class="pre">/home</span></code>, or your institution’s storage path).</p>
+<p><strong>Symlinks not resolved</strong></p>
+<p>Apptainer may not follow symlinks outside bound paths. Use the actual file paths (<code class="docutils literal notranslate"><span class="pre">readlink</span> <span class="pre">-f</span> <span class="pre">&lt;symlink&gt;</span></code>) or ensure the symlink target is also bound.</p>
+</section>
 <section id="next-steps">
 <h2>Next Steps<a class="headerlink" href="#next-steps" title="Link to this heading">¶</a></h2>
 <ul class="simple">
+<li><p>See <a class="reference internal" href="quickstart_spatial.html"><span class="doc">Quick Start: Spatial Data</span></a> for spatial transcriptomics workflows</p></li>
 <li><p>See the <a class="reference external" href="https://github.com/malva-bio/malva/tree/main/examples/malva_tools">examples folder</a> for complete Jupyter notebooks</p></li>
 <li><p>Check the command reference for all available options</p></li>
 <li><p>Try querying viral sequences, circular RNAs, or custom transcripts</p></li>
@@ -409,12 +457,12 @@ wget<span class="w"> </span>https://bimsbstatic.mdc-berlin.de/rajewsky/malva/exa
       <footer>
         
         <div class="related-pages">
-          <a class="next-page" href="cmd_index.html">
+          <a class="next-page" href="quickstart_spatial.html">
               <div class="page-info">
                 <div class="context">
                   <span>Next</span>
                 </div>
-                <div class="title">index</div>
+                <div class="title">Quick Start: Spatial Data</div>
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
@@ -464,7 +512,8 @@ wget<span class="w"> </span>https://bimsbstatic.mdc-berlin.de/rajewsky/malva/exa
 <li><a class="reference internal" href="#step-1-prepare-the-data">Step 1: Prepare the Data</a></li>
 <li><a class="reference internal" href="#step-2-build-the-index">Step 2: Build the Index</a></li>
 <li><a class="reference internal" href="#step-3-quantify-gene-expression">Step 3: Quantify Gene Expression</a></li>
-<li><a class="reference internal" href="#step-4-query-custom-sequences-interactively">Step 4: Query Custom Sequences Interactively</a></li>
+<li><a class="reference internal" href="#step-4-query-custom-sequences">Step 4: Query Custom Sequences</a></li>
+<li><a class="reference internal" href="#troubleshooting">Troubleshooting</a></li>
 <li><a class="reference internal" href="#next-steps">Next Steps</a></li>
 </ul>
 </li>
@@ -483,5 +532,6 @@ wget<span class="w"> </span>https://bimsbstatic.mdc-berlin.de/rajewsky/malva/exa
     <script src="_static/scripts/furo.js?v=46bd48cc"></script>
     <script src="_static/clipboard.min.js?v=a7894cd8"></script>
     <script src="_static/copybutton.js?v=f281be69"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
     </body>
 </html>
