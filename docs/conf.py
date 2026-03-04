@@ -20,6 +20,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
     'sphinxarg.ext',
     'sphinx_autodoc_typehints',
     'myst_parser',

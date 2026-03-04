@@ -138,12 +138,13 @@ Availability
 .. note::
 
    Malva Tools are provided **free of charge** for academic non-profit research.
+   Any academic user with an ORCID account has free and unlimited access (within hardware constraints).
 
-**To request access:**
+**To get started:**
 
-1. Send an email to daniel.leonperinan@mdc-berlin.de
-2. Include your name, institution, and intended use case
-3. You will receive download instructions and a license agreement
+1. Visit the `Malva Platform <https://malva.bio>`_ and sign in with your ORCID account
+2. Download the Python wheel or Apptainer container from the :doc:`installation` page
+3. See the :doc:`quickstart` guide for your first index and query
 
 ----
 
