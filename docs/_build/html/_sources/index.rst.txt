@@ -163,6 +163,7 @@ Documentation
    :caption: Examples & API
 
    examples/index
+   indexing_framework
    api/modules
 
 .. toctree::

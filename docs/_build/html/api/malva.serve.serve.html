@@ -182,7 +182,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -227,7 +227,15 @@
 <li class="toctree-l2"><a class="reference internal" href="../examples/3_sequence_search.html">Sequence Search with Malva</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="malva.indexes.html">malva.indexes module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="malva.fastq_processing.html">malva.fastq_processing module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html">malva.dbutils module</a></li>
@@ -279,14 +287,185 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
         </div>
         <article role="main" id="furo-main-content">
-          <section id="malva-serve-serve-module">
-<h1>malva.serve.serve module<a class="headerlink" href="#malva-serve-serve-module" title="Link to this heading">¶</a></h1>
+          <section id="module-malva.serve.serve">
+<span id="malva-serve-serve-module"></span><h1>malva.serve.serve module<a class="headerlink" href="#module-malva.serve.serve" title="Link to this heading">¶</a></h1>
+<dl class="py exception">
+<dt class="sig sig-object py" id="malva.serve.serve.SequenceValidationError">
+<em class="property"><span class="k"><span class="pre">exception</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.serve.serve.</span></span><span class="sig-name descname"><span class="pre">SequenceValidationError</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">help_text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#SequenceValidationError"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.SequenceValidationError" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">ValueError</span></code></p>
+<p>Custom error for sequence validation issues</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.SequenceValidationError.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">message</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">help_text</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#SequenceValidationError.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.SequenceValidationError.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.serve.serve.interactive_query_standard">
+<span class="sig-prename descclassname"><span class="pre">malva.serve.serve.</span></span><span class="sig-name descname"><span class="pre">interactive_query_standard</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">sequence</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">sliding_size</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">128</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">pct_threshold</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">0.65</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">low_complexity_filter</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">countmaxkmer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">100000</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">countminkmer</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">10</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#interactive_query_standard"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.interactive_query_standard" title="Link to this definition">¶</a></dt>
+<dd><p>Process standard sequence query</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code>[<code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code>, <code class="xref py py-class docutils literal notranslate"><span class="pre">List</span></code>]</span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.serve.serve.MalvaProxyFix">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.serve.serve.</span></span><span class="sig-name descname"><span class="pre">MalvaProxyFix</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">app</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#MalvaProxyFix"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.MalvaProxyFix" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Custom middleware for handling proxy prefixes</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.MalvaProxyFix.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">app</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">uuid</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#MalvaProxyFix.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.MalvaProxyFix.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.serve.serve.</span></span><span class="sig-name descname"><span class="pre">SpatialData</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coordinates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#SpatialData"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.SpatialData" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class to hold spatial data and related methods</p>
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.coordinates">
+<span class="sig-name descname"><span class="pre">coordinates</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></em><a class="headerlink" href="#malva.serve.serve.SpatialData.coordinates" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.values">
+<span class="sig-name descname"><span class="pre">values</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></em><a class="headerlink" href="#malva.serve.serve.SpatialData.values" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py attribute">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.bounds">
+<span class="sig-name descname"><span class="pre">bounds</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><code class="xref py py-data docutils literal notranslate"><span class="pre">Tuple</span></code><span class="pre">[</span><code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code><span class="pre">,</span> <code class="xref py py-class docutils literal notranslate"><span class="pre">float</span></code><span class="pre">]</span></em><a class="headerlink" href="#malva.serve.serve.SpatialData.bounds" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.xmin">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xmin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#malva.serve.serve.SpatialData.xmin" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.xmax">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">xmax</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#malva.serve.serve.SpatialData.xmax" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.ymin">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ymin</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#malva.serve.serve.SpatialData.ymin" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py property">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.ymax">
+<em class="property"><span class="k"><span class="pre">property</span></span><span class="w"> </span></em><span class="sig-name descname"><span class="pre">ymax</span></span><em class="property"><span class="p"><span class="pre">:</span></span><span class="w"> </span><span class="pre">float</span></em><a class="headerlink" href="#malva.serve.serve.SpatialData.ymax" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.SpatialData.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coordinates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span></em><span class="sig-paren">)</span><a class="headerlink" href="#malva.serve.serve.SpatialData.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.serve.serve.GlobalState">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.serve.serve.</span></span><span class="sig-name descname"><span class="pre">GlobalState</span></span><a class="reference internal" href="../_modules/malva/serve/serve.html#GlobalState"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.GlobalState" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Singleton class to manage global state and data</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.GlobalState.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#GlobalState.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.GlobalState.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.GlobalState.initialize_from_index">
+<span class="sig-name descname"><span class="pre">initialize_from_index</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">index_path</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">max_mem</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">32</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#GlobalState.initialize_from_index"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.GlobalState.initialize_from_index" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize global state from a malva index file</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.GlobalState.initialize">
+<span class="sig-name descname"><span class="pre">initialize</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coordinates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">bounds</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#GlobalState.initialize"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.GlobalState.initialize" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize with data</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.GlobalState.get_bounds">
+<span class="sig-name descname"><span class="pre">get_bounds</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#GlobalState.get_bounds"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.GlobalState.get_bounds" title="Link to this definition">¶</a></dt>
+<dd><p>Get the coordinate bounds</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.GlobalState.get_coordinates">
+<span class="sig-name descname"><span class="pre">get_coordinates</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#GlobalState.get_coordinates"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.GlobalState.get_coordinates" title="Link to this definition">¶</a></dt>
+<dd><p>Get the spatial coordinates</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py class">
+<dt class="sig sig-object py" id="malva.serve.serve.UserSession">
+<em class="property"><span class="k"><span class="pre">class</span></span><span class="w"> </span></em><span class="sig-prename descclassname"><span class="pre">malva.serve.serve.</span></span><span class="sig-name descname"><span class="pre">UserSession</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#UserSession"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.UserSession" title="Link to this definition">¶</a></dt>
+<dd><p>Bases: <code class="xref py py-class docutils literal notranslate"><span class="pre">object</span></code></p>
+<p>Class to manage per-user session data</p>
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.UserSession.__init__">
+<span class="sig-name descname"><span class="pre">__init__</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">session_id</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#UserSession.__init__"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.UserSession.__init__" title="Link to this definition">¶</a></dt>
+<dd></dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.UserSession.initialize_background">
+<span class="sig-name descname"><span class="pre">initialize_background</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#UserSession.initialize_background"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.UserSession.initialize_background" title="Link to this definition">¶</a></dt>
+<dd><p>Initialize session with background data from global state</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.UserSession.add_query_result">
+<span class="sig-name descname"><span class="pre">add_query_result</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">locations</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">intensities</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#UserSession.add_query_result"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.UserSession.add_query_result" title="Link to this definition">¶</a></dt>
+<dd><p>Add query results to user session</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.UserSession.add_background_data">
+<span class="sig-name descname"><span class="pre">add_background_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">coordinates</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">values</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#UserSession.add_background_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.UserSession.add_background_data" title="Link to this definition">¶</a></dt>
+<dd><p>Store background data</p>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.UserSession.get_tile_data">
+<span class="sig-name descname"><span class="pre">get_tile_data</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">x</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">y</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">zoom</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#UserSession.get_tile_data"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.UserSession.get_tile_data" title="Link to this definition">¶</a></dt>
+<dd><p>Get tile data for this user’s view</p>
+<dl class="field-list simple">
+<dt class="field-odd">Return type<span class="colon">:</span></dt>
+<dd class="field-odd"><p><span class="sphinx_autodoc_typehints-type"><code class="xref py py-class docutils literal notranslate"><span class="pre">ndarray</span></code></span></p>
+</dd>
+</dl>
+</dd></dl>
+
+<dl class="py method">
+<dt class="sig sig-object py" id="malva.serve.serve.UserSession.cleanup">
+<span class="sig-name descname"><span class="pre">cleanup</span></span><span class="sig-paren">(</span><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#UserSession.cleanup"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.UserSession.cleanup" title="Link to this definition">¶</a></dt>
+<dd><p>Clean up session data</p>
+</dd></dl>
+
+</dd></dl>
+
+<dl class="py function">
+<dt class="sig sig-object py" id="malva.serve.serve.create_app">
+<span class="sig-prename descclassname"><span class="pre">malva.serve.serve.</span></span><span class="sig-name descname"><span class="pre">create_app</span></span><span class="sig-paren">(</span><em class="sig-param"><span class="n"><span class="pre">init_state</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">True</span></span></em>, <em class="sig-param"><span class="n"><span class="pre">_uuid</span></span><span class="o"><span class="pre">=</span></span><span class="default_value"><span class="pre">None</span></span></em><span class="sig-paren">)</span><a class="reference internal" href="../_modules/malva/serve/serve.html#create_app"><span class="viewcode-link"><span class="pre">[source]</span></span></a><a class="headerlink" href="#malva.serve.serve.create_app" title="Link to this definition">¶</a></dt>
+<dd><p>Application factory function</p>
+</dd></dl>
+
 </section>
 
         </article>
@@ -314,8 +493,64 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">malva.serve.serve module</a><ul>
+<li><a class="reference internal" href="#malva.serve.serve.SequenceValidationError"><code class="docutils literal notranslate"><span class="pre">SequenceValidationError</span></code></a><ul>
+<li><a class="reference internal" href="#malva.serve.serve.SequenceValidationError.__init__"><code class="docutils literal notranslate"><span class="pre">SequenceValidationError.__init__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.serve.serve.interactive_query_standard"><code class="docutils literal notranslate"><span class="pre">interactive_query_standard()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.MalvaProxyFix"><code class="docutils literal notranslate"><span class="pre">MalvaProxyFix</span></code></a><ul>
+<li><a class="reference internal" href="#malva.serve.serve.MalvaProxyFix.__init__"><code class="docutils literal notranslate"><span class="pre">MalvaProxyFix.__init__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData"><code class="docutils literal notranslate"><span class="pre">SpatialData</span></code></a><ul>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.coordinates"><code class="docutils literal notranslate"><span class="pre">SpatialData.coordinates</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.values"><code class="docutils literal notranslate"><span class="pre">SpatialData.values</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.bounds"><code class="docutils literal notranslate"><span class="pre">SpatialData.bounds</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.xmin"><code class="docutils literal notranslate"><span class="pre">SpatialData.xmin</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.xmax"><code class="docutils literal notranslate"><span class="pre">SpatialData.xmax</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.ymin"><code class="docutils literal notranslate"><span class="pre">SpatialData.ymin</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.ymax"><code class="docutils literal notranslate"><span class="pre">SpatialData.ymax</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.SpatialData.__init__"><code class="docutils literal notranslate"><span class="pre">SpatialData.__init__()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.serve.serve.GlobalState"><code class="docutils literal notranslate"><span class="pre">GlobalState</span></code></a><ul>
+<li><a class="reference internal" href="#malva.serve.serve.GlobalState.__init__"><code class="docutils literal notranslate"><span class="pre">GlobalState.__init__()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.GlobalState.initialize_from_index"><code class="docutils literal notranslate"><span class="pre">GlobalState.initialize_from_index()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.GlobalState.initialize"><code class="docutils literal notranslate"><span class="pre">GlobalState.initialize()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.GlobalState.get_bounds"><code class="docutils literal notranslate"><span class="pre">GlobalState.get_bounds()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.GlobalState.get_coordinates"><code class="docutils literal notranslate"><span class="pre">GlobalState.get_coordinates()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.serve.serve.UserSession"><code class="docutils literal notranslate"><span class="pre">UserSession</span></code></a><ul>
+<li><a class="reference internal" href="#malva.serve.serve.UserSession.__init__"><code class="docutils literal notranslate"><span class="pre">UserSession.__init__()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.UserSession.initialize_background"><code class="docutils literal notranslate"><span class="pre">UserSession.initialize_background()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.UserSession.add_query_result"><code class="docutils literal notranslate"><span class="pre">UserSession.add_query_result()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.UserSession.add_background_data"><code class="docutils literal notranslate"><span class="pre">UserSession.add_background_data()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.UserSession.get_tile_data"><code class="docutils literal notranslate"><span class="pre">UserSession.get_tile_data()</span></code></a></li>
+<li><a class="reference internal" href="#malva.serve.serve.UserSession.cleanup"><code class="docutils literal notranslate"><span class="pre">UserSession.cleanup()</span></code></a></li>
+</ul>
+</li>
+<li><a class="reference internal" href="#malva.serve.serve.create_app"><code class="docutils literal notranslate"><span class="pre">create_app()</span></code></a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

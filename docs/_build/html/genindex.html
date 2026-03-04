@@ -225,7 +225,15 @@
 <li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.indexes.html">malva.indexes module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
@@ -276,7 +284,7 @@
           
 <section class="genindex-section">
   <h1 id="index">Index</h1>
-  <div class="genindex-jumpbox"><a href="#_"><strong>_</strong></a> | <a href="#A"><strong>A</strong></a> | <a href="#B"><strong>B</strong></a> | <a href="#C"><strong>C</strong></a> | <a href="#D"><strong>D</strong></a> | <a href="#E"><strong>E</strong></a> | <a href="#F"><strong>F</strong></a> | <a href="#G"><strong>G</strong></a> | <a href="#H"><strong>H</strong></a> | <a href="#I"><strong>I</strong></a> | <a href="#J"><strong>J</strong></a> | <a href="#K"><strong>K</strong></a> | <a href="#L"><strong>L</strong></a> | <a href="#M"><strong>M</strong></a> | <a href="#N"><strong>N</strong></a> | <a href="#O"><strong>O</strong></a> | <a href="#P"><strong>P</strong></a> | <a href="#R"><strong>R</strong></a> | <a href="#S"><strong>S</strong></a> | <a href="#T"><strong>T</strong></a> | <a href="#U"><strong>U</strong></a> | <a href="#V"><strong>V</strong></a> | <a href="#W"><strong>W</strong></a> | <a href="#X"><strong>X</strong></a></div>
+  <div class="genindex-jumpbox"><a href="#_"><strong>_</strong></a> | <a href="#A"><strong>A</strong></a> | <a href="#B"><strong>B</strong></a> | <a href="#C"><strong>C</strong></a> | <a href="#D"><strong>D</strong></a> | <a href="#E"><strong>E</strong></a> | <a href="#F"><strong>F</strong></a> | <a href="#G"><strong>G</strong></a> | <a href="#H"><strong>H</strong></a> | <a href="#I"><strong>I</strong></a> | <a href="#J"><strong>J</strong></a> | <a href="#K"><strong>K</strong></a> | <a href="#L"><strong>L</strong></a> | <a href="#M"><strong>M</strong></a> | <a href="#N"><strong>N</strong></a> | <a href="#O"><strong>O</strong></a> | <a href="#P"><strong>P</strong></a> | <a href="#R"><strong>R</strong></a> | <a href="#S"><strong>S</strong></a> | <a href="#T"><strong>T</strong></a> | <a href="#U"><strong>U</strong></a> | <a href="#V"><strong>V</strong></a> | <a href="#W"><strong>W</strong></a> | <a href="#X"><strong>X</strong></a> | <a href="#Y"><strong>Y</strong></a></div>
 </section>
 <section id="_" class="genindex-section">
   <h2>_</h2>
@@ -290,6 +298,16 @@
           <li><a href="api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.__init__">(malva.dbutils.EnsemblLocalDB method)</a>
 </li>
           <li><a href="api/malva.serve.reportgen.html#malva.serve.reportgen.HTMLReportGenerator.__init__">(malva.serve.reportgen.HTMLReportGenerator method)</a>
+</li>
+          <li><a href="api/malva.serve.serve.html#malva.serve.serve.GlobalState.__init__">(malva.serve.serve.GlobalState method)</a>
+</li>
+          <li><a href="api/malva.serve.serve.html#malva.serve.serve.MalvaProxyFix.__init__">(malva.serve.serve.MalvaProxyFix method)</a>
+</li>
+          <li><a href="api/malva.serve.serve.html#malva.serve.serve.SequenceValidationError.__init__">(malva.serve.serve.SequenceValidationError method)</a>
+</li>
+          <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.__init__">(malva.serve.serve.SpatialData method)</a>
+</li>
+          <li><a href="api/malva.serve.serve.html#malva.serve.serve.UserSession.__init__">(malva.serve.serve.UserSession method)</a>
 </li>
           <li><a href="api/malva.show.html#malva.show.MalvaPlot.__init__">(malva.show.MalvaPlot method)</a>
 </li>
@@ -306,12 +324,16 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.fast_map.html#malva.fast_map.FastMapOfMap.add">add() (malva.fast_map.FastMapOfMap method)</a>
 </li>
-        <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.add_reads">add_reads() (malva.indexes.MalvaIndex method)</a>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.UserSession.add_background_data">add_background_data() (malva.serve.serve.UserSession method)</a>
 </li>
-        <li><a href="api/malva.spacemake.html#malva.spacemake.aggregate_adata_by_indices">aggregate_adata_by_indices() (in module malva.spacemake)</a>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.UserSession.add_query_result">add_query_result() (malva.serve.serve.UserSession method)</a>
+</li>
+        <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.add_reads">add_reads() (malva.indexes.MalvaIndex method)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/malva.spacemake.html#malva.spacemake.aggregate_adata_by_indices">aggregate_adata_by_indices() (in module malva.spacemake)</a>
+</li>
         <li><a href="api/malva.autoannotate.html#malva.autoannotate.analyze_technical_genes">analyze_technical_genes() (in module malva.autoannotate)</a>
 </li>
         <li><a href="api/malva.autoannotate.html#malva.autoannotate.annotate_clusters">annotate_clusters() (in module malva.autoannotate)</a>
@@ -328,11 +350,13 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.indexes.html#malva.indexes.BackgroundModel">BackgroundModel (class in malva.indexes)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.utils.html#malva.utils.binary_search">binary_search() (in module malva.utils)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.spacemake.html#malva.spacemake.binning_hexagon">binning_hexagon() (in module malva.spacemake)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.bounds">bounds (malva.serve.serve.SpatialData attribute)</a>
 </li>
     </ul></td>
   </tr></table>
@@ -355,6 +379,8 @@
         <li><a href="api/malva.search.html#malva.search.check_server_connection">check_server_connection() (in module malva.search)</a>
 </li>
         <li><a href="api/malva.datastore.html#malva.datastore.ChunkedStore">ChunkedStore (class in malva.datastore)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.UserSession.cleanup">cleanup() (malva.serve.serve.UserSession method)</a>
 </li>
         <li><a href="api/malva.fast_map.html#malva.fast_map.FastMapOfMap.clear">clear() (malva.fast_map.FastMapOfMap method)</a>
 </li>
@@ -382,10 +408,10 @@
 </li>
         <li><a href="api/malva.cli.html#malva.cli.cmdline_args">cmdline_args() (in module malva.cli)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.cli.html#malva.cli.cmdline_main">cmdline_main() (in module malva.cli)</a>
 </li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.cli.html#malva.cli.cmdline_parser">cmdline_parser() (in module malva.cli)</a>
 </li>
         <li><a href="api/malva.combine.html#malva.combine.combine_indices">combine_indices() (in module malva.combine)</a>
@@ -406,9 +432,13 @@
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.coord_lims">coord_lims (malva.indexes.MalvaIndex attribute)</a>
 </li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.coordinates">coordinates (malva.serve.serve.SpatialData attribute)</a>
+</li>
         <li><a href="api/malva.datastore.html#malva.datastore.ChunkedStore.copy_dataset">copy_dataset() (malva.datastore.ChunkedStore method)</a>
 </li>
         <li><a href="api/malva.utils.html#malva.utils.copytree2">copytree2() (in module malva.utils)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.create_app">create_app() (in module malva.serve.serve)</a>
 </li>
         <li><a href="api/malva.datastore.html#malva.datastore.ChunkedStore.create_dataset">create_dataset() (malva.datastore.ChunkedStore method)</a>
 </li>
@@ -522,6 +552,8 @@
 </li>
         <li><a href="api/malva.compressed_index.html#malva.compressed_index.CompressedArrayStorage.get_batch">get_batch() (malva.compressed_index.CompressedArrayStorage method)</a>
 </li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.GlobalState.get_bounds">get_bounds() (malva.serve.serve.GlobalState method)</a>
+</li>
         <li><a href="api/malva.compressed_index.html#malva.compressed_index.CompressedArrayStorage.get_cache_stats">get_cache_stats() (malva.compressed_index.CompressedArrayStorage method)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.get_cell_id">get_cell_id() (malva.indexes.MalvaIndex method)</a>
@@ -537,6 +569,8 @@
         <li><a href="api/malva.compressed_index.html#malva.compressed_index.CompressedArrayStorage.get_chunk_raw">get_chunk_raw() (malva.compressed_index.CompressedArrayStorage method)</a>
 </li>
         <li><a href="api/malva.cli.html#malva.cli.get_combine_parser">get_combine_parser() (in module malva.cli)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.GlobalState.get_coordinates">get_coordinates() (malva.serve.serve.GlobalState method)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.SpatialIndex.get_coords">get_coords() (malva.indexes.SpatialIndex method)</a>
 </li>
@@ -586,11 +620,15 @@
 </li>
         <li><a href="api/malva.kmer_processing.html#malva.kmer_processing.get_sliding_kmers_numeric">get_sliding_kmers_numeric() (in module malva.kmer_processing)</a>
 </li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.UserSession.get_tile_data">get_tile_data() (malva.serve.serve.UserSession method)</a>
+</li>
         <li><a href="api/malva.autoannotate.html#malva.autoannotate.get_top_cell_types">get_top_cell_types() (in module malva.autoannotate)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.get_whole_sliding_sequence">get_whole_sliding_sequence() (malva.indexes.MalvaIndex method)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.get_whole_sliding_sequence_chunk">get_whole_sliding_sequence_chunk() (malva.indexes.MalvaIndex method)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.GlobalState">GlobalState (class in malva.serve.serve)</a>
 </li>
         <li><a href="api/malva.utils.html#malva.utils.group_intervals">group_intervals() (in module malva.utils)</a>
 </li>
@@ -638,13 +676,23 @@
 </li>
         <li><a href="api/malva.dbutils.html#malva.dbutils.EnsemblLocalDB.index_fasta">index_fasta() (malva.dbutils.EnsemblLocalDB method)</a>
 </li>
-    </ul></td>
-    <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.index_file">index_file (malva.indexes.MalvaIndex attribute)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.initialize">initialize() (malva.indexes.MalvaIndex method)</a>
+
+        <ul>
+          <li><a href="api/malva.serve.serve.html#malva.serve.serve.GlobalState.initialize">(malva.serve.serve.GlobalState method)</a>
+</li>
+        </ul></li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.UserSession.initialize_background">initialize_background() (malva.serve.serve.UserSession method)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.GlobalState.initialize_from_index">initialize_from_index() (malva.serve.serve.GlobalState method)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.initialize_kmer_index">initialize_kmer_index() (malva.indexes.MalvaIndex method)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.interactive_query_standard">interactive_query_standard() (in module malva.serve.serve)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.BackgroundModel.is_mer_above_cutoff">is_mer_above_cutoff() (malva.indexes.BackgroundModel method)</a>
 </li>
@@ -894,6 +942,13 @@
           <li><a href="api/malva.serve.reportgen.html#module-malva.serve.reportgen">module</a>
 </li>
         </ul></li>
+        <li>
+    malva.serve.serve
+
+        <ul>
+          <li><a href="api/malva.serve.serve.html#module-malva.serve.serve">module</a>
+</li>
+        </ul></li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
         <li>
@@ -931,6 +986,8 @@
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex">MalvaIndex (class in malva.indexes)</a>
 </li>
         <li><a href="api/malva.show.html#malva.show.MalvaPlot">MalvaPlot (class in malva.show)</a>
+</li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.MalvaProxyFix">MalvaProxyFix (class in malva.serve.serve)</a>
 </li>
         <li><a href="api/malva.quant.html#malva.quant.MalvaReferenceNotFound">MalvaReferenceNotFound</a>
 </li>
@@ -985,6 +1042,8 @@
           <li><a href="api/malva.serve.modeling.html#module-malva.serve.modeling">malva.serve.modeling</a>
 </li>
           <li><a href="api/malva.serve.reportgen.html#module-malva.serve.reportgen">malva.serve.reportgen</a>
+</li>
+          <li><a href="api/malva.serve.serve.html#module-malva.serve.serve">malva.serve.serve</a>
 </li>
           <li><a href="api/malva.show.html#module-malva.show">malva.show</a>
 </li>
@@ -1123,6 +1182,8 @@
 </li>
         <li><a href="api/malva.fastq_processing.html#malva.fastq_processing.SequenceFastqParser">SequenceFastqParser (class in malva.fastq_processing)</a>
 </li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SequenceValidationError">SequenceValidationError</a>
+</li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.set_background_model">set_background_model() (malva.indexes.MalvaIndex method)</a>
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.set_barcode_index">set_barcode_index() (malva.indexes.MalvaIndex method)</a>
@@ -1163,6 +1224,8 @@
 </li>
         <li><a href="api/malva.indexes.html#malva.indexes.MalvaIndex.spatial_coord">spatial_coord (malva.indexes.MalvaIndex attribute)</a>
 </li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData">SpatialData (class in malva.serve.serve)</a>
+</li>
         <li><a href="api/malva.indexes.html#malva.indexes.SpatialIndex">SpatialIndex (class in malva.indexes)</a>
 </li>
         <li><a href="api/malva.search.html#malva.search.submit_search_job">submit_search_job() (in module malva.search)</a>
@@ -1191,6 +1254,8 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.compressed_index.html#malva.compressed_index.CompressedArrayStorage.unload_chunks_from_memory">unload_chunks_from_memory() (malva.compressed_index.CompressedArrayStorage method)</a>
 </li>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.UserSession">UserSession (class in malva.serve.serve)</a>
+</li>
     </ul></td>
   </tr></table>
 </section>
@@ -1201,10 +1266,12 @@
     <td style="width: 33%; vertical-align: top;"><ul>
         <li><a href="api/malva.dbutils.html#malva.dbutils.validate_and_infer_query">validate_and_infer_query() (in module malva.dbutils)</a>
 </li>
-        <li><a href="api/malva.datastore.html#malva.datastore.ChunkedStore.values">values() (malva.datastore.ChunkedStore method)</a>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.values">values (malva.serve.serve.SpatialData attribute)</a>
 </li>
     </ul></td>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/malva.datastore.html#malva.datastore.ChunkedStore.values">values() (malva.datastore.ChunkedStore method)</a>
+</li>
         <li><a href="api/malva.indexes.html#malva.indexes.BackgroundModel.verbose">verbose (malva.indexes.BackgroundModel attribute)</a>
 
         <ul>
@@ -1241,7 +1308,27 @@
   <h2>X</h2>
   <table style="width: 100%" class="indextable genindextable"><tr>
     <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.xmax">xmax (malva.serve.serve.SpatialData property)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.xmin">xmin (malva.serve.serve.SpatialData property)</a>
+</li>
         <li><a href="api/malva.xopen.html#malva.xopen.xopen">xopen() (in module malva.xopen)</a>
+</li>
+    </ul></td>
+  </tr></table>
+</section>
+
+<section id="Y" class="genindex-section">
+  <h2>Y</h2>
+  <table style="width: 100%" class="indextable genindextable"><tr>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.ymax">ymax (malva.serve.serve.SpatialData property)</a>
+</li>
+    </ul></td>
+    <td style="width: 33%; vertical-align: top;"><ul>
+        <li><a href="api/malva.serve.serve.html#malva.serve.serve.SpatialData.ymin">ymin (malva.serve.serve.SpatialData property)</a>
 </li>
     </ul></td>
   </tr></table>
