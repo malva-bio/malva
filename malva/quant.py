@@ -55,8 +55,6 @@ def process_batch(
         use_batched=False
     )
 
-    print("done")
-
     total_nnz = 0
     for i, (locs, counts, _) in enumerate(results):
         current_col = start_col + i
