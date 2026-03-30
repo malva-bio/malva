@@ -53,12 +53,6 @@ cdef extern from *:
     #define INITIAL_BUCKET_CAPACITY 65536
     #define MAX_DATA_PER_BUCKET 4194304
 
-    /* ── SIMD bulk varint decoder ────────────────────────────────────────────
-     * Decodes `count` LEB128 varints from `src` into `dst` as raw (non-delta)
-     * values.  Returns bytes consumed.
-     * Uses a branch-free inner loop: read 8 bytes at a time, use __builtin_ctz
-     * on the continuation-bit mask to locate boundaries in bulk.
-     */
     #include <stdint.h>
     #include <string.h>
 
@@ -71,7 +65,6 @@ cdef extern from *:
         while (n < count && pos < src_len) {
             uint32_t val = 0, shift = 0;
             uint8_t b;
-            /* Unrolled: most varints are 1-2 bytes */
             b = src[pos++]; val  = (uint32_t)(b & 0x7F);        if (!(b & 0x80)) goto done;
             b = src[pos++]; val |= (uint32_t)(b & 0x7F) <<  7;  if (!(b & 0x80)) goto done;
             b = src[pos++]; val |= (uint32_t)(b & 0x7F) << 14;  if (!(b & 0x80)) goto done;
@@ -83,8 +76,7 @@ cdef extern from *:
         return pos;
     }
 
-    /* Decode count varints AND apply delta (prefix-sum) in one pass.
-     * dst[0] = first_val + delta[0], dst[i] = dst[i-1] + delta[i]  */
+
     static inline int
     decode_delta_varints(const uint8_t* __restrict__ src, int src_len,
                          uint32_t* __restrict__ dst, uint32_t count,
@@ -109,25 +101,6 @@ cdef extern from *:
         return pos;
     }
 
-    /*
-     * ── decomp_suffix_into_upto ──────────────────────────────────────────────
-     *
-     * Like decomp_suffix_into, but decodes lengths only up to stop_at
-     * (inclusive), not all n. This is the key suf_decomp optimisation:
-     *
-     *   • Suffix delta array is always fully decoded — it's needed for binary
-     *     search and is unavoidable.
-     *   • Length array is decoded only as far as the deepest hit we found.
-     *     For zero-hit buckets the length section is skipped entirely.
-     *     For hit buckets we stop at max(hit_positions)+1.
-     *
-     * Layout in suffix buffer:
-     *   [4B n][4B first_suf][varint deltas x (n-1)][varint lengths x n]
-     *
-     * Returns n_entries (always the full count read from header).
-     * len_out is filled for indices 0..stop_at only; rest is undefined.
-     * If stop_at >= n, behaves identically to decomp_suffix_into.
-     */
     static inline uint32_t
     decomp_suffix_into_upto(const uint8_t* __restrict__ buf, int buf_len,
                             uint32_t* __restrict__ suf_out,
@@ -152,8 +125,6 @@ cdef extern from *:
             b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 28;
             sd: prev += delta; suf_out[i] = prev;
         }
-        /* Decode lengths only up to stop_at (inclusive).
-         * If stop_at >= n, decode all — same as before. */
         uint32_t limit = (stop_at < n) ? stop_at + 1 : n;
         for (uint32_t i = 0; i < limit; i++) {
             uint32_t L = 0; uint8_t b;
@@ -176,19 +147,6 @@ cdef extern from *:
         return decomp_suffix_into_upto(buf, buf_len, suf_out, len_out, 0xFFFFFFFFu);
     }
 
-    /*
-     * ── decomp_suffixes_only ─────────────────────────────────────────────────
-     *
-     * Decodes ONLY the suffix delta array — no length decoding at all.
-     * Returns n_entries. Stores the byte offset of the start of the length
-     * section in *len_section_pos_out (so a subsequent decode_lengths_upto
-     * call can pick up from there without re-parsing the suffix array).
-     *
-     * This enables the true two-phase suf_decomp optimisation:
-     *   Phase A (all buckets): decode suffixes only → binary search
-     *   Phase B (hit buckets only): decode lengths 0..max_hit_pos
-     *   Phase C (zero-hit buckets): skip entirely
-     */
     static inline uint32_t
     decomp_suffixes_only(const uint8_t* __restrict__ buf, int buf_len,
                          uint32_t* __restrict__ suf_out,
@@ -216,13 +174,6 @@ cdef extern from *:
         return n;
     }
 
-    /*
-     * ── decode_lengths_upto ──────────────────────────────────────────────────
-     *
-     * Decodes length varints from buf starting at byte offset len_pos,
-     * filling len_out[0..stop_at] (inclusive). Used in Phase B after bsearch
-     * has determined max_hit_pos = stop_at.
-     */
     static inline void
     decode_lengths_upto(const uint8_t* __restrict__ buf, int buf_len,
                         int len_pos,
@@ -241,11 +192,6 @@ cdef extern from *:
         }
     }
 
-    /* ── Fast byte-offset builder ────────────────────────────────────────────
-     * Build byte-offset table for a data block given the length array.
-     * bo[i] = first byte of kmer i's data in blk.
-     * Optimised: unrolled varint-skip using __builtin_ctz on continuation mask.
-     */
     static inline void
     build_bo_fast(const uint8_t* __restrict__ blk, int blk_len,
                   const uint32_t* __restrict__ lb, uint32_t ne,
@@ -259,7 +205,6 @@ cdef extern from *:
             if (L == 0 || bofs + 4 > blk_len) continue;
             bofs += 4;
             uint32_t rem = L - 1;
-            /* Skip rem varints as fast as possible */
             while (rem > 0 && bofs < blk_len) {
                 uint64_t word;
                 int avail = blk_len - bofs;
@@ -293,38 +238,19 @@ cdef extern from *:
         }
     }
 
-    /*
-     * ── scan_to_byte_offset ──────────────────────────────────────────────────
-     *
-     * This is the core phase2 optimisation for sparse (1–few) hits per bucket.
-     *
-     * Instead of calling build_bo_fast (which builds a full offset table for
-     * ALL entries up to max_spos), we scan directly to a single target position.
-     *
-     * For the ~99% of buckets with exactly 1 hit, this replaces a full forward
-     * scan of up to hundreds of entries with a scan of exactly `pos` entries.
-     * For pos=0 it returns immediately. For pos=1..3 it's ~10-30 bytes.
-     *
-     * Uses the same 8-byte word trick as build_bo_fast for the skip loop,
-     * so the per-byte cost is identical — we just stop sooner.
-     *
-     * lb[i] = cell count for entry i (from lb_pool, decoded in Step 3).
-     * Returns byte offset of entry `pos` in blk, or blk_len on overrun.
-     */
     static inline uint32_t
     scan_to_byte_offset(const uint8_t* __restrict__ blk, int blk_len,
                         const uint32_t* __restrict__ lb, uint32_t pos)
     {
-        /* Entry 0 is always at byte 0 */
         if (pos == 0) return 0;
 
         int bofs = 0;
         for (uint32_t ki = 0; ki < pos; ki++) {
             uint32_t L = lb[ki];
-            if (L == 0) continue;         /* empty entry — zero bytes */
+            if (L == 0) continue;
             if (bofs + 4 > blk_len) return (uint32_t)blk_len;
-            bofs += 4;                     /* 4-byte first cell (raw uint32) */
-            uint32_t rem = L - 1;          /* remaining varints to skip */
+            bofs += 4;  /* first cell stored as raw uint32 */
+            uint32_t rem = L - 1;
             while (rem > 0 && bofs < blk_len) {
                 int avail = blk_len - bofs;
                 if (avail >= 8) {
@@ -355,7 +281,6 @@ cdef extern from *:
         return (bofs < blk_len) ? (uint32_t)bofs : (uint32_t)blk_len;
     }
 
-    /* Decode one kmer's delta cells — identical logic, kept for clarity */
     static inline int
     decode_kmer_cells_fast(const uint8_t* __restrict__ blk, int blk_len,
                            uint32_t byte_off, uint32_t cell_count,
@@ -382,77 +307,15 @@ cdef extern from *:
         return (int)cell_count;
     }
 
-    /*
-     * ── phase2_decode_all ────────────────────────────────────────────────────
-     *
-     * Entire phase2 inner loop in pure C — no GIL, no Python overhead.
-     *
-     * Processes n_hits sorted hit records. For each hit:
-     *   1. Finds byte offset via scan_to_byte_offset (sparse) or bo[] table (dense).
-     *   2. Decodes delta-varint cell list.
-     *   3. Deduplicates consecutive identical cell IDs.
-     *   4. Writes results to flat output arrays.
-     *
-     * Output layout (all parallel arrays, caller pre-allocates):
-     *   out_km[i]        — kmer value for result i
-     *   out_cells[j]     — cell id, packed flat across all results
-     *   out_offsets[i]   — out_cells[out_offsets[i]..out_offsets[i+1]) is result i
-     *   out_offsets has n_results+1 entries (CSR-style indptr)
-     *
-     * Returns number of results written (kmers that had at least 1 decoded cell).
-     * Returns -1 if out_cells capacity exceeded (caller must retry with larger buf).
-     *
-     * Parameters:
-     *   sort_order       — argsort of (bidx<<32|spos), length n_hits
-     *   hit_km/bidx/spos/dl — hit record arrays, length n_hits
-     *   bkt_heap_off     — byte offset of each bucket's data in dat_heap
-     *   bkt_pool_off     — index into lb_pool for each bucket's length array
-     *   bkt_ne           — entry count per bucket
-     *   bkt_dbs          — data block size per bucket
-     *   bkt_hit_count    — hit count per bucket (for sparse/dense dispatch)
-     *   bkt_max_hit_pos  — max hit spos per bucket (for dense build_bo_fast)
-     *   lb_pool          — flat pool of length arrays
-     *   dat_heap         — flat pool of data blocks
-     *   sparse_threshold — buckets with hit_count <= this use scan_to_byte_offset
-     *   tmp_dd / tmp_dd_cap — scratch buffer for one kmer's cell decode
-     *   tmp_bo / tmp_bo_cap — scratch buffer for dense bo table (passed by pointer
-     *                         so caller can own and reuse across calls)
-     */
-    /*
-     * ── uring_read_decode_all ────────────────────────────────────────────────
-     *
-     * Unified io_uring read + decode pipeline.
-     *
-     * Previous design (broken): submit ALL reads → wait for ALL completions →
-     * write 10GB to dat_heap → then scan 10GB again in phase2.
-     * That's 20GB of memory traffic for 10GB of useful data.
-     *
-     * New design: sliding-window io_uring where each completion immediately
-     * triggers decode of that bucket's hits. Peak memory = QD * avg_bucket_size
-     * (~64 * 150KB = ~10MB). The NVMe stays saturated throughout because we
-     * always have QD outstanding I/Os while decoding runs in parallel.
-     *
-     * Hit records must be pre-sorted by (bidx, spos) so that when a bucket
-     * completes we can process all its hits in one contiguous scan.
-     *
-     * hit_bidx_start[bidx] = first index in sorted hit array for bucket bidx
-     * hit_bidx_count[bidx] = number of hits in that bucket
-     * (caller builds these from sort_order)
-     *
-     * Each bucket gets a private aligned buffer of bkt_dbs[bidx] bytes.
-     * Buffers are allocated from a pool of QD slots, each of max_bucket_sz bytes.
-     * On completion the buffer is decoded and the slot returned to the free list.
-     */
     #ifdef __linux__
     #include <liburing.h>
     #include <fcntl.h>
     #include <unistd.h>
 
-    /* Per-inflight slot */
     typedef struct {
-        uint8_t*  buf;        /* aligned buffer for this read */
-        uint32_t  bidx;       /* bucket index */
-        uint32_t  buf_sz;     /* allocated size (aligned) */
+        uint8_t*  buf;
+        uint32_t  bidx;
+        uint32_t  buf_sz;
     } UringSlot;
 
     static int
@@ -466,26 +329,21 @@ cdef extern from *:
         const uint32_t* __restrict__ bkt_max_hit_pos,
         const uint32_t* __restrict__ lb_pool,
         uint64_t n_bkts,
-        /* hit records, sorted by (bidx<<32|spos) */
         const uint64_t* __restrict__ sort_order,
         const uint64_t* __restrict__ hit_km,
         const uint32_t* __restrict__ hit_bidx,
         const uint32_t* __restrict__ hit_spos,
         const uint32_t* __restrict__ hit_dl,
         uint64_t n_hits,
-        /* per-bucket hit range in sorted order */
-        const uint64_t* __restrict__ bkt_hit_start,  /* first hit index for bidx */
-        const uint32_t* __restrict__ bkt_hit_cnt,    /* hit count for bidx */
+        const uint64_t* __restrict__ bkt_hit_start,
+        const uint32_t* __restrict__ bkt_hit_cnt,
         uint32_t sparse_threshold,
-        /* output */
         uint64_t* __restrict__ out_km,
         uint32_t* __restrict__ out_cells,
         uint64_t* __restrict__ out_offsets,
         uint64_t  out_cells_cap,
-        /* scratch */
         uint32_t*  tmp_dd,
         uint32_t   tmp_dd_cap,
-        /* stats */
         uint64_t* bytes_read_out
     )
     {
@@ -494,7 +352,6 @@ cdef extern from *:
         int ret = io_uring_queue_init(QD, &ring, 0);
         if (ret < 0) return ret;
 
-        /* Find max bucket size for slot allocation */
         uint32_t max_bsz = 0;
         for (uint64_t i = 0; i < n_bkts; i++) {
             uint32_t sz = (bkt_dbs[i] + 511) & ~511u;  /* 512-align */
@@ -502,7 +359,6 @@ cdef extern from *:
         }
         if (max_bsz == 0) { io_uring_queue_exit(&ring); return 0; }
 
-        /* Allocate QD aligned buffers — one per inflight slot */
         UringSlot* slots = (UringSlot*)malloc(QD * sizeof(UringSlot));
         if (!slots) { io_uring_queue_exit(&ring); return -1; }
         for (int s = 0; s < QD; s++) {
@@ -518,7 +374,6 @@ cdef extern from *:
             }
         }
 
-        /* Free-slot stack */
         int* free_slots = (int*)malloc(QD * sizeof(int));
         if (!free_slots) {
             for (int s = 0; s < QD; s++) free(slots[s].buf);
@@ -527,7 +382,6 @@ cdef extern from *:
         for (int s = 0; s < QD; s++) free_slots[s] = s;
         int n_free = QD;
 
-        /* Dense bo[] scratch — one per active bucket (reused) */
         uint32_t  bo_cap = 4096;
         uint32_t* bo     = (uint32_t*)malloc(bo_cap * 4);
         if (!bo) {
@@ -540,12 +394,11 @@ cdef extern from *:
         out_offsets[0] = 0;
         uint64_t bytes_read = 0;
 
-        uint64_t next_submit = 0;  /* next bucket index to submit */
+        uint64_t next_submit = 0;
         int inflight = 0;
 
         while (next_submit < n_bkts || inflight > 0) {
 
-            /* Fill SQ up to QD */
             while (inflight < QD && next_submit < n_bkts && n_free > 0) {
                 uint32_t bidx = (uint32_t)next_submit;
                 next_submit++;
@@ -569,12 +422,10 @@ cdef extern from *:
             ret = io_uring_submit(&ring);
             if (ret < 0 && ret != -EBUSY) break;
 
-            /* Wait for at least one completion */
             struct io_uring_cqe* cqe;
             ret = io_uring_wait_cqe(&ring, &cqe);
             if (ret < 0) break;
 
-            /* Drain all available completions and decode each */
             unsigned head, reaped = 0;
             io_uring_for_each_cqe(&ring, head, cqe) {
                 int slot_id = (int)io_uring_cqe_get_data64(cqe);
@@ -593,7 +444,6 @@ cdef extern from *:
                     uint32_t cur_maxpos   = bkt_max_hit_pos[bidx];
                     bytes_read += blk_len;
 
-                    /* Build bo table if dense */
                     if (cur_hits > sparse_threshold) {
                         if (cur_ne > bo_cap) {
                             bo_cap = cur_ne + 256;
@@ -604,7 +454,6 @@ cdef extern from *:
                         build_bo_fast(blk, blk_len, cur_lb, cur_ne, bo, cur_maxpos);
                     }
 
-                    /* Process all hits for this bucket */
                     uint64_t h_start = bkt_hit_start[bidx];
                     for (uint32_t h = 0; h < cur_hits; h++) {
                         uint64_t idx = sort_order[h_start + h];
@@ -643,7 +492,6 @@ cdef extern from *:
                     }
                 }
 
-                /* Return slot to free list */
                 free_slots[n_free++] = slot_id;
             }
             io_uring_cq_advance(&ring, reaped);
@@ -679,7 +527,6 @@ cdef extern from *:
         uint64_t out_cells_cap, uint32_t* tmp_dd, uint32_t tmp_dd_cap,
         uint64_t* bytes_read_out)
     {
-        /* Find max bucket size */
         uint32_t max_bsz = 0;
         for (uint64_t i = 0; i < n_bkts; i++) {
             if (bkt_dbs[i] > max_bsz) max_bsz = bkt_dbs[i];
@@ -755,13 +602,11 @@ cdef extern from *:
         const uint8_t* buf, int buf_len,
         uint32_t* suf_out, uint32_t* len_out) nogil
 
-    # NEW: early-stop variant — decodes lengths only up to stop_at index
     uint32_t decomp_suffix_into_upto(
         const uint8_t* buf, int buf_len,
         uint32_t* suf_out, uint32_t* len_out,
         uint32_t stop_at) nogil
 
-    # Two-phase suffix decode: suffix array only, then lengths on demand
     uint32_t decomp_suffixes_only(
         const uint8_t* buf, int buf_len,
         uint32_t* suf_out,
@@ -778,7 +623,6 @@ cdef extern from *:
         const uint32_t* lb, uint32_t ne,
         uint32_t* bo, uint32_t stop_at) nogil
 
-    # NEW: direct scan to a single byte offset — avoids full bo table for sparse hits
     uint32_t scan_to_byte_offset(
         const uint8_t* blk, int blk_len,
         const uint32_t* lb, uint32_t pos) nogil
@@ -821,12 +665,11 @@ cdef extern from *:
     #include <stdlib.h>
     #include <stdint.h>
 
-    /* ── Open-addressing hash map: uint32 → uint32 ─────────────────────── */
     typedef struct {
-        uint32_t* keys;       /* 0xFFFFFFFF = empty */
+        uint32_t* keys;  /* 0xFFFFFFFF = empty */
         uint32_t* vals;
-        uint32_t  mask;       /* table_size - 1, always power-of-2 */
-        uint32_t  n_unique;   /* number of distinct keys inserted */
+        uint32_t  mask;  /* table_size - 1, power-of-2 */
+        uint32_t  n_unique;
     } OAHash32;
 
     static inline void oahash_init(OAHash32* h, uint32_t expected) {
@@ -871,7 +714,6 @@ cdef extern from *:
         }
     }
 
-    /* ── Binary search on sorted uint64 array ──────────────────────────── */
     static inline int64_t bsearch_u64(const uint64_t* arr, int64_t n, uint64_t target) {
         int64_t lo = 0, hi = n - 1, mid;
         while (lo <= hi) {
@@ -883,7 +725,6 @@ cdef extern from *:
         return -1;
     }
 
-    /* ── Remap a flat cell array in-place using OAHash32 ───────────────── */
     static inline uint32_t remap_cells_flat(
         uint32_t* __restrict__ cells, uint64_t n_cells,
         OAHash32* h)
@@ -2286,7 +2127,6 @@ cdef extern from *:
     #include <stdint.h>
     #include <string.h>
 
-    /* C++ compatible base encoding table — initialized at startup */
     static int QW_BASE_ENC_storage[256];
     static const int* QW_BASE_ENC = QW_BASE_ENC_storage;
     static struct _QW_Init {
@@ -2316,8 +2156,6 @@ cdef extern from *:
                 if (b == 4) { has_n = 1; }  /* invalid base */
                 val = (val << 2) | (b & 3);
             }
-            /* Check for N: BASE_ENC['N'] = 3 = BASE_ENC['G'], so we
-             * need explicit N check */
             if (has_n) {
                 /* Scan for actual N */
                 has_n = 0;
