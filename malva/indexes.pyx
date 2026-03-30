@@ -412,9 +412,9 @@ cdef extern from *:
         return (int)n_results;
     }
 
-    #else  /* fallback: Linux without liburing, or non-Linux — serial pread */
+    #else  /* fallback: Linux without liburing, or non-Linux - serial pread */
     #ifdef __linux__
-    #pragma message("liburing not found — building without io_uring support. " \
+    #pragma message("liburing not found - building without io_uring support. " \
                     "Install liburing-dev for better I/O performance.")
     #include <fcntl.h>
     #include <unistd.h>
@@ -1055,7 +1055,7 @@ cdef class PrefixIndex:
         free(bkt_peek)
         acc_suf += time.perf_counter() - t0
 
-        # Record provisional hits (suffix match) — no count filter yet since
+        # Record provisional hits (suffix match) - no count filter yet since
         # lengths not decoded. We record (km, bidx, spos) and defer dl lookup.
         t0 = time.perf_counter()
 
@@ -1369,11 +1369,11 @@ cdef class PrefixIndex:
         """Query returning CSR arrays instead of unordered_map.
 
         Returns (kmer_keys, cell_data, cell_indptr, orig_cell_ids, N_unique) where:
-          kmer_keys[N_found]       — sorted kmer values (uint64)
-          cell_data[total_cells]   — flat packed remapped cell IDs (uint32)
-          cell_indptr[N_found+1]   — CSR offsets (uint64)
-          orig_cell_ids[N_unique]  — compact_id → original cell ID mapping
-          N_unique                 — number of unique cells
+          kmer_keys[N_found]       - sorted kmer values (uint64)
+          cell_data[total_cells]   - flat packed remapped cell IDs (uint32)
+          cell_indptr[N_found+1]   - CSR offsets (uint64)
+          orig_cell_ids[N_unique]  - compact_id → original cell ID mapping
+          N_unique                 - number of unique cells
 
         Uses _csr_mode flag to bypass unordered_map construction inside query_batch.
         """
@@ -1759,7 +1759,7 @@ def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
         return []
 
     if chunk_num == 0:
-        logging.info(f"Single chunk with {tp:,} pairs — using radix build")
+        logging.info(f"Single chunk with {tp:,} pairs - using radix build")
         _build_index_radix(ak, ac, tp, output_dir, kmer_size, l_prefix, 0)
         return []
     else:
@@ -1769,7 +1769,7 @@ def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
             _write_sorted_chunk(ak, ac, tp, cp)
             chunk_paths.append(cp)
         free(ak); free(ac)
-        logging.info(f"Written {len(chunk_paths)} chunks — will merge")
+        logging.info(f"Written {len(chunk_paths)} chunks - will merge")
         return chunk_paths
 
 cdef void _build_index_radix(uint64_t* ak, uint32_t* ac, uint64_t tp, str output_dir, int kmer_size, int l_prefix, uint64_t n_cells):
@@ -2311,7 +2311,7 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
     int chunk_size=5000000, bint verbose=True):
     """
     Convert HDF5 index arrays to prefix-bucketed compressed format.
-    All heavy work in C — zero Python calls in the inner loop.
+    All heavy work in C - zero Python calls in the inner loop.
     """
     cdef:
         int l_suffix = kmer_size - l_prefix
@@ -2366,8 +2366,8 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
     cdef double t0 = time.time(), last_report = t0, now, dt
 
     # Adaptive chunk size: if cells-per-kmer is high, reduce chunk_size to
-    # cap peak memory.  bucket_pairs holds (suffix, cell) pairs — 8 bytes each.
-    # data_block holds cell IDs — 4 bytes each.  Peak memory per chunk iteration
+    # cap peak memory.  bucket_pairs holds (suffix, cell) pairs - 8 bytes each.
+    # data_block holds cell IDs - 4 bytes each.  Peak memory per chunk iteration
     # is roughly: data_block + bucket_pairs ≈ 2 × data_block_size.
     # Cap at ~2GB combined → max ~250M cell references per chunk.
     max_pairs_per_chunk = 250000000  # 250M pairs = ~2GB

@@ -12,20 +12,24 @@ from Cython.Build import cythonize
 
 
 def _has_liburing():
-    """Return True if liburing is available on this Linux system."""
+    """Return True if liburing header is available on this Linux system.
+
+    Uses the same test as __has_include(<liburing.h>) in the C++ code so that
+    the compile-time guard and the linker flag are always in sync.
+    Handles system installs and conda/virtualenv installs alike.
+    """
     if sys.platform != "linux":
         return False
-    try:
-        import pkgconfig
-        return pkgconfig.exists("liburing")
-    except Exception:
-        pass
-    # fallback: check header directly
     import subprocess
+    # Include paths to search: active conda/venv prefix + system default.
+    extra_includes = []
+    prefix = getattr(sys, "prefix", None)
+    if prefix:
+        extra_includes += ["-I", os.path.join(prefix, "include")]
     try:
         r = subprocess.run(
-            ["gcc", "-x", "c", "-", "-o", "/dev/null", "-luring"],
-            input=b"#include <liburing.h>\nint main(){return 0;}\n",
+            ["cc", "-x", "c", "-", "-fsyntax-only"] + extra_includes,
+            input=b"#include <liburing.h>\n",
             capture_output=True,
         )
         return r.returncode == 0
