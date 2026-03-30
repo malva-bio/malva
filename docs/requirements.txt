@@ -11,8 +11,9 @@ sphinx-copybutton>=0.5
 sphinx-design>=0.5
 sphinx-click>=5.0
 
-# Notebook support (bundles pandoc binary — no system install needed)
+# Notebook support (bundles pandoc binary - no system install needed)
 pypandoc_binary
+ipython
 
 # For autodoc type resolution
 numpy
