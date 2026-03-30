@@ -68,7 +68,7 @@ class MalvaIndex:
         self._chunk_paths = []
         self._builder = None
 
-            self._background_model = None
+        self._background_model = None
 
         self.meta_path = os.path.join(index_dir, 'meta.json')
 
