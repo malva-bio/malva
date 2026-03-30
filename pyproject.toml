@@ -6,7 +6,7 @@ build-backend = "poetry.masonry.api"
 name = "malva"
 version = "1.0.0"
 description = "malva: fast indexing and querying of genomic sequences from single-cell omics data"
-license = "GPL-2.0"
+license = "LicenseRef-Malva-Academic-NonCommercial"
 authors = [
     "Daniel León-Periñán <daniel.leonperinan@mdc-berlin.de>",
     "Nikolaos Karaiskos <nikolaos.karaiskos@mdc-berlin.de>",
@@ -29,6 +29,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "License :: Other/Proprietary License",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
