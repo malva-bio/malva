@@ -1,22 +1,19 @@
-# Sphinx core
+# Sphinx and theme
 sphinx>=7.0
-
-# Theme
 furo>=2024.0
 
 # Extensions
-sphinx-autodoc-typehints>=1.25
-sphinx-click>=5.0
-sphinx-copybutton>=0.5
-sphinx-design>=0.5  # For grid cards
 myst-parser>=2.0
 nbsphinx>=0.9
-pypandoc_binary  # Bundles pandoc binary
-
-# Intersphinx targets (optional, for linking to external docs)
-# These are only needed if your code imports from these packages
-# and you want autodoc to resolve type hints
-pandas
-numpy
-
+sphinx-autodoc-typehints>=1.25
 sphinx-argparse>=0.5.2
+sphinx-copybutton>=0.5
+sphinx-design>=0.5
+sphinx-click>=5.0
+
+# Notebook support (bundles pandoc binary — no system install needed)
+pypandoc_binary
+
+# For autodoc type resolution
+numpy
+pandas
