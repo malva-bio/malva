@@ -684,6 +684,7 @@ def cmdline_args():
     parent_parser = argparse.ArgumentParser(
         allow_abbrev=False,
         description="malva: fast indexing and querying of genomic sequences from spatial transcriptomics data",
+        epilog="Set MALVA_DEBUG=1 to enable verbose debug logging.",
     )
 
     parent_parser_subparsers = parent_parser.add_subparsers(title="commands", dest="subcommand")
@@ -739,8 +740,8 @@ def cmdline_main():
         del args.version
 
     if "func" in args:
-        logging.info(f"malva {args.subcommand} - running with the following parameters:")
-        logging.info(args.__dict__)
+        logging.debug(f"malva {args.subcommand} - running with the following parameters:")
+        logging.debug(args.__dict__)
         args.func(args)
     else:
         parser.print_help()

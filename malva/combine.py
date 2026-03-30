@@ -122,7 +122,7 @@ def hierarchical_combine(base_dir, project_uuids=None,
         raise ValueError(f"No indices found in {base_dir}")
 
     if len(all_indices) <= group_size:
-        logging.info("Direct merge (within group size limit)")
+        logging.debug("Direct merge (within group size limit)")
         combine_indices(
             base_dir,
             project_uuids=project_uuids,
@@ -131,7 +131,7 @@ def hierarchical_combine(base_dir, project_uuids=None,
         )
         return
 
-    logging.info(f"Hierarchical merge: {len(all_indices)} indices in groups of {group_size}")
+    logging.debug(f"Hierarchical merge: {len(all_indices)} indices in groups of {group_size}")
 
     groups = []
     current_offset = 0
@@ -207,12 +207,12 @@ def hierarchical_combine(base_dir, project_uuids=None,
     if os.path.exists(final_temp_dir):
         shutil.rmtree(final_temp_dir)
 
-    logging.info("Hierarchical merge complete")
+    logging.debug("Hierarchical merge complete")
 
 
 def _run_combine(args):
     """CLI entry point for combining prefix indices."""
-    from malva.utils import check_directory_exists, check_file_exists
+    from malva.utils import check_directory_exists, check_file_exists, SUCCESS_MSG
 
     if not check_directory_exists(args.index_in):
         logging.error("Base directory does not exist")
@@ -234,7 +234,7 @@ def _run_combine(args):
     ]
 
     if len(index_dirs) <= 16:
-        logging.info(f"Direct merge of {len(index_dirs)} indices")
+        logging.debug(f"Direct merge of {len(index_dirs)} indices")
         combine_indices(
             args.index_in,
             project_uuids=project_uuids,
@@ -242,7 +242,7 @@ def _run_combine(args):
             verbose=True,
         )
     else:
-        logging.info(f"Hierarchical merge of {len(index_dirs)} indices")
+        logging.debug(f"Hierarchical merge of {len(index_dirs)} indices")
         hierarchical_combine(
             args.index_in,
             project_uuids=project_uuids,
@@ -251,4 +251,4 @@ def _run_combine(args):
             verbose=True,
         )
 
-    logging.info("SUCCESS!")
+    logging.info(SUCCESS_MSG)

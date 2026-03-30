@@ -34,8 +34,6 @@ from malva.serve.reportgen import HTMLReportGenerator
 # from malva.serve.modeling import handle_natural_query, setup_model
 # from malva.serve.templates.strings import HINT_SEQUENCE_QUERY
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Errors
@@ -64,7 +62,7 @@ def interactive_query_standard(
     countminkmer: int = 10,
 ) -> Tuple[np.ndarray, np.ndarray, List]:
     """Process standard sequence query"""
-    logger.info(f"Querying sequence '{sequence}'")
+    logger.debug(f"Querying sequence '{sequence}'")
     
     result = global_state.kmer_index.where(
         sequence,
@@ -162,7 +160,7 @@ class GlobalState:
                 self._loc_all = np.arange(n_cells, dtype=np.uint32)
                 self._abu_all = np.ones(n_cells, dtype=np.uint32)
 
-                logger.info("Warming up the index...")
+                logger.debug("Warming up the index...")
                 self.kmer_index._ensure_index_open()
 
                 self.bounds = (
@@ -220,7 +218,7 @@ class UserSession:
         """Initialize session with background data from global state"""
         if global_state.initialized and global_state._loc_all is not None:
             with self.lock:
-                logger.info("Initializing background data for session")
+                logger.debug("Initializing background data for session")
                 background_coords = global_state.xy[global_state._loc_all]
                 background_values = global_state._abu_all
                 
@@ -232,7 +230,7 @@ class UserSession:
                     'intensities': background_values
                 }
                 self.background_tree = cKDTree(background_coords)
-                logger.info(f"Background data initialized with intensity range: {self.background_intensity_range}")
+                logger.debug(f"Background data initialized with intensity range: {self.background_intensity_range}")
 
     def _calculate_intensity_range(self, values: np.ndarray) -> Tuple[float, float]:
         """Calculate robust intensity range for values"""
@@ -260,7 +258,7 @@ class UserSession:
                 'intensities': intensities
             }
             self.query_tree = cKDTree(locations)
-            logger.info(f"Query results added with intensity range: {self.query_intensity_range}")
+            logger.debug(f"Query results added with intensity range: {self.query_intensity_range}")
 
 
     def add_background_data(self, coordinates: np.ndarray, values: np.ndarray):
@@ -679,7 +677,7 @@ def create_app(init_state=True, _uuid=None):
                 raise SequenceValidationError("No sequence provided", 
                     "Please enter a sequence or gene name")
             
-            logger.info("Starting sequence processing...")
+            logger.debug("Starting sequence processing...")
             
             # Get parameters
             sliding_size = int(request.args.get("sliding_size", 128))
@@ -690,7 +688,7 @@ def create_app(init_state=True, _uuid=None):
             
             # Process input
             processed_sequences = process_sequence_input(query)
-            logger.info(f"Initial processing returned {len(processed_sequences)} sequences")
+            logger.debug(f"Initial processing returned {len(processed_sequences)} sequences")
             
             if not processed_sequences:
                 raise SequenceValidationError(
@@ -746,7 +744,7 @@ def create_app(init_state=True, _uuid=None):
                     errors.append(f"Error processing {seq[:20]}: {str(e)}")
                     continue
             
-            logger.info(f"Final processing yielded {len(final_sequences)} sequences")
+            logger.debug(f"Final processing yielded {len(final_sequences)} sequences")
             
             if not final_sequences:
                 error_msg = "No valid sequences could be processed."
@@ -810,7 +808,7 @@ def create_app(init_state=True, _uuid=None):
             if errors:
                 response["errors"] = errors
             
-            logger.info("Search completed successfully")
+            logger.debug("Search completed successfully")
             return jsonify(response)
             
         except SequenceValidationError as e:
@@ -869,7 +867,7 @@ def _run_serve(args):
         # Initialize global state first
         global_state = GlobalState()
         global_state.initialize_from_index(args.index_in, max_mem=args.max_mem)
-        logger.info("Initialized global state from index")
+        logger.debug("Initialized global state from index")
         
         # Create app only once after global state is initialized
         app = create_app(init_state=True, _uuid=args.uuid)

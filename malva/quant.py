@@ -14,7 +14,7 @@ from malva.malva_index import MalvaIndex
 from malva.reader import iterate_fasta
 from malva.spacemake import create_meshed_adata
 from malva.utils import (check_directory_exists, check_file_exists,
-                         get_reference_cache)
+                         get_reference_cache, SUCCESS_MSG)
 
 N_EACH_REPORT = 100
 
@@ -236,7 +236,7 @@ def _run_quant(args):
         check_file_exists(h5ad_mesh_file, except_when=True)
         mesh_adata.write_h5ad(h5ad_mesh_file)
 
-    logging.info("SUCCESS!")
+    logging.info(SUCCESS_MSG)
 
 
 if __name__ == "__main__":

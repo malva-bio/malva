@@ -233,7 +233,7 @@ def create_spatial_index(str spatial_barcode_file):
         uint32_t line_count = 0
         Py_ssize_t report_interval = 10_000_000
 
-    logging.info("Starting spatial index creation...")
+    logging.debug("Starting spatial index creation...")
 
     file = fopen(spatial_barcode_file.encode('ascii'), "r")
     if file == NULL:
@@ -280,7 +280,7 @@ def create_singlecell_index(str whitelist_file):
         uint32_t line_count = 0
         Py_ssize_t report_interval = 10_000_000
 
-    logging.info("Starting single-cell barcode index creation...")
+    logging.debug("Starting single-cell barcode index creation...")
 
     file = fopen(whitelist_file.encode('ascii'), "r")
     if file == NULL:

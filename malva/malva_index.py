@@ -13,8 +13,6 @@ from collections import defaultdict
 
 import numpy as np
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 class _IndexCompat:
     """Minimal shim that mimics HDF5 file for 'key in index' and index['key'] access."""
     def __init__(self, keys, parent):
@@ -189,7 +187,7 @@ class MalvaIndex:
         from malva.indexes import build_from_sorted_chunks
 
         if len(self._chunk_paths) == 0:
-            logging.info("Index built directly (no chunk merge needed)")
+            logging.debug("Index built directly (no chunk merge needed)")
             chunk_dir = os.path.join(self.index_dir, '_chunks')
             if os.path.exists(chunk_dir):
                 shutil.rmtree(chunk_dir)
@@ -210,14 +208,14 @@ class MalvaIndex:
             import json as _json
             with open(meta_check_path) as _f:
                 _m = _json.load(_f)
-            logging.info(f"Post-merge meta.json: n_kmers={_m.get('n_kmers',0):,}, n_cells={_m.get('n_cells',0):,}")
-        
+            logging.debug(f"Post-merge meta.json: n_kmers={_m.get('n_kmers',0):,}, n_cells={_m.get('n_cells',0):,}")
+
         pi_check = os.path.join(self.index_dir, 'pi.bin')
         suf_check = os.path.join(self.index_dir, 'suffixes.bin')
         dat_check = os.path.join(self.index_dir, 'data.bin')
-        logging.info(f"Post-merge files: PI={os.path.getsize(pi_check)/1e6:.1f}MB "
-                     f"Suf={os.path.getsize(suf_check)/1e6:.1f}MB "
-                     f"Data={os.path.getsize(dat_check)/1e6:.1f}MB")
+        logging.debug(f"Post-merge files: PI={os.path.getsize(pi_check)/1e6:.1f}MB "
+                      f"Suf={os.path.getsize(suf_check)/1e6:.1f}MB "
+                      f"Data={os.path.getsize(dat_check)/1e6:.1f}MB")
 
         chunk_dir = os.path.join(self.index_dir, '_chunks')
         if os.path.exists(chunk_dir):
@@ -234,7 +232,7 @@ class MalvaIndex:
         if len(self._chunk_paths) > 0:
             self._build_from_chunks()
         else:
-            logging.info("Index already built, nothing to merge")
+            logging.debug("Index already built, nothing to merge")
 
     def open(self, mode='r', blosc_load_to_memory=False):
         """Open the index for querying."""
@@ -316,8 +314,8 @@ class MalvaIndex:
 
         self._ensure_index_open()
 
-        logging.info(f"quantify_where: n_spatial={self.n_spatial}, kmer_size={self.kmer_size}, "
-                     f"sliding_size={sliding_size}, n_groups={len(sequence_groups)}")
+        logging.debug(f"quantify_where: n_spatial={self.n_spatial}, kmer_size={self.kmer_size}, "
+                      f"sliding_size={sliding_size}, n_groups={len(sequence_groups)}")
 
         return quantify_where(
             self._prefix_index,

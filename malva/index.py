@@ -9,7 +9,7 @@ import yaml
 
 from malva.barcodes import SpatialIndex, create_spatial_index, create_singlecell_index
 from malva.malva_index import MalvaIndex
-from malva.utils import check_directory_exists, check_file_exists, get_module_path
+from malva.utils import check_directory_exists, check_file_exists, get_module_path, SUCCESS_MSG
 
 N_REPORT = 1_000_000
 
@@ -53,7 +53,7 @@ def _run_index(args):
     _sindex_exists = check_file_exists(_sindex_loc)
 
     if _sindex_exists:
-        logging.info("Loading previously created barcode->coordinate index")
+        logging.debug("Loading previously created barcode->coordinate index")
         sindex = SpatialIndex()
         if args.flavor == "stereo_seq":
             sindex.load_binary_stomics(_sindex_loc)
@@ -67,7 +67,7 @@ def _run_index(args):
             raise ValueError("STOmics indices must be provided in .bin format!")
         logging.info("Creating spatial barcode->coordinate index")
         sindex = create_spatial_index(args.spatial_bc_in)
-        logging.info("Saving spatial index")
+        logging.debug("Saving spatial index")
         sindex.save_binary(_sindex_loc)
 
     l_prefix = min(args.kmer_length // 2, 12)
@@ -99,8 +99,8 @@ def _run_index(args):
             exit(1)
 
     logging.info(f"Indexing {args.kmer_length}-mers from {args.reads_in}")
-    logging.info(f"  l_prefix={l_prefix}, l_suffix={args.kmer_length - l_prefix}")
-    logging.info(f"  Writing chunks every {args.chunksize:,} sequences")
+    logging.debug(f"  l_prefix={l_prefix}, l_suffix={args.kmer_length - l_prefix}")
+    logging.debug(f"  Writing chunks every {args.chunksize:,} sequences")
 
     kmer_index.add_reads(
         args.reads_in,
@@ -110,7 +110,7 @@ def _run_index(args):
         threads=args.threads,
     )
 
-    logging.info("SUCCESS!")
+    logging.info(SUCCESS_MSG)
 
 
 if __name__ == "__main__":

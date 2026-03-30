@@ -11,9 +11,6 @@ import time
 
 import numpy as np
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-
 def convert_malva_to_prefix(malva_index_dir, output_dir, l_prefix=12,
                             chunk_size=5_000_000, verbose=True):
     """Convert a legacy HDF5 index to the current prefix-bucketed format.
@@ -39,7 +36,7 @@ def convert_malva_to_prefix(malva_index_dir, output_dir, l_prefix=12,
 
     kmer_size = mindex.kmer_size
     n_spatial = mindex.n_spatial
-    logger.info(f"  kmer_size={kmer_size}, n_spatial={n_spatial:,}")
+    logger.debug(f"  kmer_size={kmer_size}, n_spatial={n_spatial:,}")
 
     chunk_id = 0
     indices_ds = mindex.index[f'index_{chunk_id}_indices']
@@ -109,7 +106,7 @@ def verify_indices(old_index_dir, new_index_dir, n_sample=100000, seed=42, verbo
     total_indices = len(indices_ds)
     total_indptr = len(indptr_ds)
     total_data = len(data_ds)
-    logger.info(f"  Old: {total_indices:,} kmers")
+    logger.debug(f"  Old: {total_indices:,} kmers")
 
     logger.info(f"Opening new index: {new_index_dir}")
     new_idx = PrefixIndex()
@@ -153,26 +150,26 @@ def verify_indices(old_index_dir, new_index_dir, n_sample=100000, seed=42, verbo
             elif len(new_cells) == 0 and len(old_cells) > 0:
                 n_missing_new += 1
                 if n_missing_new <= 3:
-                    logger.warning(f"  MISSING: kmer={kmer_val:#x} old={len(old_cells)} cells")
+                    logger.debug(f"  MISSING: kmer={kmer_val:#x} old={len(old_cells)} cells")
             elif len(old_cells) == 0 and len(new_cells) > 0:
                 n_extra_new += 1
                 if n_extra_new <= 3:
-                    logger.warning(f"  EXTRA: kmer={kmer_val:#x} new={len(new_cells)} cells")
+                    logger.debug(f"  EXTRA: kmer={kmer_val:#x} new={len(new_cells)} cells")
             else:
                 n_mismatch += 1
                 if n_mismatch <= 3:
                     o = set(old_cells.tolist()); n = set(new_cells.tolist())
-                    logger.warning(f"  MISMATCH: kmer={kmer_val:#x} "
-                                   f"old={len(old_cells)} new={len(new_cells)} "
-                                   f"only_old={len(o-n)} only_new={len(n-o)}")
+                    logger.debug(f"  MISMATCH: kmer={kmer_val:#x} "
+                                 f"old={len(old_cells)} new={len(new_cells)} "
+                                 f"only_old={len(o-n)} only_new={len(n-o)}")
 
         now = time.time()
         if verbose and (now - last_report > 3.0 or batch_end >= len(sample_idx)):
             dt = now - t0
             rate = n_checked / dt if dt > 0 else 0
-            logger.info(f"  {n_checked:,}/{len(sample_idx):,} "
-                        f"ok={n_ok} mis={n_mismatch} miss={n_missing_new} extra={n_extra_new} "
-                        f"({rate:.0f}/s)")
+            logger.debug(f"  {n_checked:,}/{len(sample_idx):,} "
+                         f"ok={n_ok} mis={n_mismatch} miss={n_missing_new} extra={n_extra_new} "
+                         f"({rate:.0f}/s)")
             last_report = now
 
     old.close()

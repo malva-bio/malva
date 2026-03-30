@@ -10,7 +10,7 @@ import shutil
 import numpy as np
 import anndata as ad
 from scipy.sparse import csr_matrix, vstack, save_npz, load_npz
-from malva.utils import check_directory_exists
+from malva.utils import check_directory_exists, SUCCESS_MSG
 from malva.kmer_processing import decode_kmer
 
 
@@ -69,9 +69,9 @@ def malva_to_cellxmer(
     interesting_kmers = indices[np.append(_diff_counts_idx, np.array([False]))]
 
     if verbose:
-        logging.info(f"There are {n_kmer_filter[0]:,} {kmer_index.kmer_size}-mers with "
-                     f"{count_at_least:,} < counts < {count_at_most:,}")
-        logging.info(f"Creating sparse matrix")
+        logging.debug(f"There are {n_kmer_filter[0]:,} {kmer_index.kmer_size}-mers with "
+                      f"{count_at_least:,} < counts < {count_at_most:,}")
+        logging.debug(f"Creating sparse matrix")
 
     adata_X_or = csr_matrix(
         (np.ones_like(data), data, indptr),
@@ -88,7 +88,7 @@ def malva_to_cellxmer(
     adata_X_tr = (adata_X_tr * 0.5).astype(np.uint32)
 
     if verbose:
-        logging.info(f"Creating AnnData object from cell-by-kmer sparse matrix")
+        logging.debug(f"Creating AnnData object from cell-by-kmer sparse matrix")
 
     adata = ad.AnnData(X=adata_X_tr.tocsr())
     adata.var_names = [decode_kmer(v, int(kmer_index.kmer_size)) for v in interesting_kmers]
@@ -124,8 +124,8 @@ def malva_to_filtered_cellxmer_chunked(
         delete_temp = False
 
     if verbose:
-        logging.info(f"Using temporary directory: {temp_dir}")
-        logging.info(f"Opening malva index and loading k-mer information")
+        logging.debug(f"Using temporary directory: {temp_dir}")
+        logging.debug(f"Opening malva index and loading k-mer information")
 
     if k_size is None:
         k_size = int(kmer_index.kmer_size)
@@ -203,7 +203,7 @@ def malva_to_filtered_cellxmer_chunked(
 
     if delete_temp:
         if verbose:
-            logging.info(f"Cleaning up temporary directory: {temp_dir}")
+            logging.debug(f"Cleaning up temporary directory: {temp_dir}")
         shutil.rmtree(temp_dir)
 
     return adata
@@ -253,7 +253,7 @@ def _run_cellxmer(args):
         _run_cellxmer_non_chunked(args)
 
     logging.info(f"Final filtered AnnData object was stored at {args.h5ad_out}")
-    logging.info("SUCCESS!")
+    logging.info(SUCCESS_MSG)
 
 
 def _run_cellxmer_non_chunked(args):

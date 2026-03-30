@@ -254,12 +254,12 @@ def _run_search_data(args):
                 if file_sequences:
                     # Use the first sequence if multiple are found
                     query = file_sequences[0]
-                    logging.info(f"Using first sequence from file ({len(query)} bases)")
+                    logging.debug(f"Using first sequence from file ({len(query)} bases)")
                 else:
                     # If no sequences found, try as plain text
                     with open(args.file, 'r') as f:
                         query = f.read().strip()
-                    logging.info(f"Using file content as raw query ({len(query)} characters)")
+                    logging.debug(f"Using file content as raw query ({len(query)} characters)")
             except Exception as e:
                 logging.error(f"Error reading file {args.file}: {str(e)}")
                 return 1
