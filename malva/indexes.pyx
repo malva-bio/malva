@@ -29,10 +29,6 @@ cdef extern from *:
     static inline void prefetch_range(const void* addr, size_t len) {
         madvise((void*)addr, len, MADV_WILLNEED);
     }
-    static inline void hint_sequential(const void* addr, size_t len) {
-        madvise((void*)addr, len, MADV_SEQUENTIAL);
-        madvise((void*)addr, len, MADV_WILLNEED);
-    }
     static inline void release_range(const void* addr, size_t len) {
         madvise((void*)addr, len, MADV_DONTNEED);
     }
@@ -41,16 +37,11 @@ cdef extern from *:
     static inline void prefetch_range(const void* addr, size_t len) {
         madvise((void*)addr, len, MADV_WILLNEED);
     }
-    static inline void hint_sequential(const void* addr, size_t len) {
-        madvise((void*)addr, len, MADV_SEQUENTIAL);
-        madvise((void*)addr, len, MADV_WILLNEED);
-    }
     static inline void release_range(const void* addr, size_t len) {
         madvise((void*)addr, len, MADV_FREE);
     }
     #else
     static inline void prefetch_range(const void* addr, size_t len) { (void)addr; (void)len; }
-    static inline void hint_sequential(const void* addr, size_t len) { (void)addr; (void)len; }
     static inline void release_range(const void* addr, size_t len) { (void)addr; (void)len; }
     #endif
 
@@ -60,97 +51,6 @@ cdef extern from *:
 
     #include <stdint.h>
     #include <string.h>
-
-    static inline int
-    decode_varints_bulk(const uint8_t* __restrict__ src, int src_len,
-                        uint32_t* __restrict__ dst, uint32_t count)
-    {
-        int pos = 0;
-        uint32_t n = 0;
-        while (n < count && pos < src_len) {
-            uint32_t val = 0, shift = 0;
-            uint8_t b;
-            b = src[pos++]; val  = (uint32_t)(b & 0x7F);        if (!(b & 0x80)) goto done;
-            b = src[pos++]; val |= (uint32_t)(b & 0x7F) <<  7;  if (!(b & 0x80)) goto done;
-            b = src[pos++]; val |= (uint32_t)(b & 0x7F) << 14;  if (!(b & 0x80)) goto done;
-            b = src[pos++]; val |= (uint32_t)(b & 0x7F) << 21;  if (!(b & 0x80)) goto done;
-            b = src[pos++]; val |= (uint32_t)(b & 0x7F) << 28;
-            done:
-            dst[n++] = val;
-        }
-        return pos;
-    }
-
-
-    static inline int
-    decode_delta_varints(const uint8_t* __restrict__ src, int src_len,
-                         uint32_t* __restrict__ dst, uint32_t count,
-                         uint32_t first_val)
-    {
-        int pos = 0;
-        uint32_t prev = first_val;
-        dst[0] = prev;
-        uint32_t n = 1;
-        while (n < count && pos < src_len) {
-            uint32_t delta = 0;
-            uint8_t b;
-            b = src[pos++]; delta  = (uint32_t)(b & 0x7F);        if (!(b & 0x80)) goto ddone;
-            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) <<  7;  if (!(b & 0x80)) goto ddone;
-            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) << 14;  if (!(b & 0x80)) goto ddone;
-            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) << 21;  if (!(b & 0x80)) goto ddone;
-            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) << 28;
-            ddone:
-            prev += delta;
-            dst[n++] = prev;
-        }
-        return pos;
-    }
-
-    static inline uint32_t
-    decomp_suffix_into_upto(const uint8_t* __restrict__ buf, int buf_len,
-                            uint32_t* __restrict__ suf_out,
-                            uint32_t* __restrict__ len_out,
-                            uint32_t stop_at)
-    {
-        if (buf_len < 4) return 0;
-        uint32_t n;
-        memcpy(&n, buf, 4);
-        if (n == 0) return 0;
-        if (buf_len < 8) return 0;
-        int pos = 4;
-        uint32_t prev;
-        memcpy(&prev, buf + pos, 4); pos += 4;
-        suf_out[0] = prev;
-        for (uint32_t i = 1; i < n; i++) {
-            uint32_t delta = 0; uint8_t b;
-            b = buf[pos++]; delta  = (uint32_t)(b & 0x7F); if (!(b & 0x80)) goto sd;
-            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) <<  7; if (!(b & 0x80)) goto sd;
-            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 14; if (!(b & 0x80)) goto sd;
-            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 21; if (!(b & 0x80)) goto sd;
-            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 28;
-            sd: prev += delta; suf_out[i] = prev;
-        }
-        uint32_t limit = (stop_at < n) ? stop_at + 1 : n;
-        for (uint32_t i = 0; i < limit; i++) {
-            uint32_t L = 0; uint8_t b;
-            b = buf[pos++]; L  = (uint32_t)(b & 0x7F); if (!(b & 0x80)) goto ld;
-            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) <<  7; if (!(b & 0x80)) goto ld;
-            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 14; if (!(b & 0x80)) goto ld;
-            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 21; if (!(b & 0x80)) goto ld;
-            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 28;
-            ld: len_out[i] = L;
-        }
-        return n;
-    }
-
-    /* Original full decomp — kept for legacy callers */
-    static inline uint32_t
-    decomp_suffix_into(const uint8_t* __restrict__ buf, int buf_len,
-                       uint32_t* __restrict__ suf_out,
-                       uint32_t* __restrict__ len_out)
-    {
-        return decomp_suffix_into_upto(buf, buf_len, suf_out, len_out, 0xFFFFFFFFu);
-    }
 
     static inline uint32_t
     decomp_suffixes_only(const uint8_t* __restrict__ buf, int buf_len,
@@ -597,20 +497,11 @@ cdef extern from *:
     
     """
     void prefetch_range(const void* addr, size_t len) nogil
-    void hint_sequential(const void* addr, size_t len) nogil
     void release_range(const void* addr, size_t len) nogil
     void CPU_PREFETCH(const void* addr) nogil
     enum: INITIAL_BUCKET_CAPACITY
     enum: MAX_DATA_PER_BUCKET
 
-    uint32_t decomp_suffix_into(
-        const uint8_t* buf, int buf_len,
-        uint32_t* suf_out, uint32_t* len_out) nogil
-
-    uint32_t decomp_suffix_into_upto(
-        const uint8_t* buf, int buf_len,
-        uint32_t* suf_out, uint32_t* len_out,
-        uint32_t stop_at) nogil
 
     uint32_t decomp_suffixes_only(
         const uint8_t* buf, int buf_len,
@@ -708,17 +599,6 @@ cdef extern from *:
         }
     }
 
-    /* Lookup only (no insert).  Returns compact ID, or 0xFFFFFFFF if missing. */
-    static inline uint32_t oahash_lookup(const OAHash32* h, uint32_t key) {
-        uint32_t idx = (key * 2654435761u) & h->mask;
-        while (1) {
-            uint32_t k = h->keys[idx];
-            if (k == key) return h->vals[idx];
-            if (k == 0xFFFFFFFFu) return 0xFFFFFFFFu;
-            idx = (idx + 1) & h->mask;
-        }
-    }
-
     static inline int64_t bsearch_u64(const uint64_t* arr, int64_t n, uint64_t target) {
         int64_t lo = 0, hi = n - 1, mid;
         while (lo <= hi) {
@@ -749,7 +629,6 @@ cdef extern from *:
     void oahash_init(OAHash32* h, uint32_t expected) nogil
     void oahash_free(OAHash32* h) nogil
     uint32_t oahash_insert(OAHash32* h, uint32_t key) nogil
-    uint32_t oahash_lookup(const OAHash32* h, uint32_t key) nogil
     int64_t bsearch_u64(const uint64_t* arr, int64_t n, uint64_t target) nogil
     uint32_t remap_cells_flat(uint32_t* cells, uint64_t n_cells, OAHash32* h) nogil
 
