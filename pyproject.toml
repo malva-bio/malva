@@ -93,3 +93,22 @@ exclude_lines = [
 
 [tool.coverage.html]
 directory = "htmlcov"
+
+# wheel building (cibuildwheel)
+[tool.cibuildwheel]
+# Build for CPython 3.9-3.12; skip 32-bit and musl targets
+build = "cp39-* cp310-* cp311-* cp312-*"
+skip = "*-win32 *-manylinux_i686 *-musllinux*"
+# Install Cython and numpy before building the extensions
+before-build = "pip install 'cython>=3.0' 'numpy>=1.21'"
+# Always build production wheels (no tracing hooks)
+environment = {MALVA_DEBUG_BUILD = "0"}
+
+[tool.cibuildwheel.linux]
+# liburing is required on Linux for io_uring support in indexes.pyx
+before-all = "yum install -y liburing-devel 2>/dev/null || apt-get install -y liburing-dev 2>/dev/null || true"
+manylinux-x86_64-image = "manylinux_2_28"
+archs = ["x86_64"]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
