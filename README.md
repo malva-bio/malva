@@ -48,10 +48,6 @@ If you use Malva in your research, please cite:
 
 > [TBA]
 
-## License
-Malva Client: Clear BSD License
-Malva Tools: GNU License (academic use)
-
 ## Contact
 
 - Issues and questions: [GitHub Issues](https://github.com/malva-bio/malva/issues)
