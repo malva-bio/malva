@@ -33,6 +33,15 @@ def get_extensions():
 
     extensions = [
         Extension(
+            "malva.prefix_index",
+            ["malva/prefix_index.pyx"],
+            include_dirs=common_include_dirs,
+            language="c++",
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
+            libraries=["uring"] if sys.platform == "linux" else [],
+        ),
+        Extension(
             "malva.kmer_processing",
             ["malva/kmer_processing.pyx"],
             include_dirs=common_include_dirs,
@@ -67,22 +76,6 @@ def get_extensions():
         Extension(
             "malva.fast_map",
             ["malva/fast_map.pyx"],
-            include_dirs=common_include_dirs,
-            language="c++",
-            extra_compile_args=common_compile_args,
-            define_macros=common_macros,
-        ),
-        Extension(
-            "malva.datastore",
-            ["malva/datastore.pyx"],
-            include_dirs=common_include_dirs,
-            language="c++",
-            extra_compile_args=common_compile_args,
-            define_macros=common_macros,
-        ),
-        Extension(
-            "malva.filter_minimizers",
-            ["malva/filter_minimizers.pyx"],
             include_dirs=common_include_dirs,
             language="c++",
             extra_compile_args=common_compile_args,
