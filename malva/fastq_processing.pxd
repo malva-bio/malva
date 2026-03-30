@@ -23,7 +23,7 @@ cdef class FastKmerProcessor:
         unordered_set[uint64_t] unique_kmers
         int min_valid_sequence_size
 
-    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) nogil except -1
+    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) except -1 nogil
     cdef np.ndarray process_sequences(self, sequences)
 
 cdef class KmerFastqParser:
