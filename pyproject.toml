@@ -4,8 +4,8 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "malva"
-version = "0.2.0"
-description = "malva: fast indexing and querying of genomic sequences from spatial transcriptomics data"
+version = "1.0.0"
+description = "malva: fast indexing and querying of genomic sequences from single-cell omics data"
 license = "GPL-2.0"
 authors = [
     "Daniel León-Periñán <daniel.leonperinan@mdc-berlin.de>",
@@ -17,19 +17,18 @@ maintainers = [
 ]
 readme = "README.md"
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 5 - Production/Stable",
     "Environment :: Console",
     "Intended Audience :: Developers",
     "Intended Audience :: Science/Research",
     "Natural Language :: English",
     "Operating System :: MacOS :: MacOS X",
-    "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
@@ -40,7 +39,7 @@ script = "build.py"
 generate-setup-file = true
 
 [tool.poetry.dependencies]
-python = ">3.8,<3.13"
+python = ">=3.9,<3.13"
 numpy = ">=1.17.0"
 pandas = ">=1.0"
 dnaio = ">1.0.0"
