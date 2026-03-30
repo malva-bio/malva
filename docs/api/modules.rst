@@ -8,19 +8,6 @@ distribution.
 
 ----
 
-Algorithmic Framework
----------------------
-
-The indexing and query algorithms are fully documented below, including data structures, pseudocode,
-and default parameters.
-
-.. toctree::
-   :maxdepth: 2
-
-   ../indexing_framework
-
-----
-
 Python Modules
 --------------
 
@@ -34,3 +21,5 @@ The following modules are available in the open-source Python distribution:
    malva.dbutils
    malva.spacemake
    malva.utils
+
+
