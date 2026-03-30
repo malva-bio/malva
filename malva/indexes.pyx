@@ -212,7 +212,7 @@ cdef extern from *:
         return (int)cell_count;
     }
 
-    #ifdef __linux__
+    #if defined(__linux__) && __has_include(<liburing.h>)
     #include <liburing.h>
     #include <fcntl.h>
     #include <unistd.h>
@@ -412,7 +412,13 @@ cdef extern from *:
         return (int)n_results;
     }
 
-    #else  /* non-Linux stub — serial pread fallback */
+    #else  /* fallback: Linux without liburing, or non-Linux — serial pread */
+    #ifdef __linux__
+    #pragma message("liburing not found — building without io_uring support. " \
+                    "Install liburing-dev for better I/O performance.")
+    #include <fcntl.h>
+    #include <unistd.h>
+    #endif
 
     typedef struct { uint8_t* buf; uint32_t bidx; uint32_t buf_sz; } UringSlot;
 

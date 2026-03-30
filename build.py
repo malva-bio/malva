@@ -10,6 +10,28 @@ from distutils.command.build_ext import build_ext
 from setuptools import Extension
 from Cython.Build import cythonize
 
+
+def _has_liburing():
+    """Return True if liburing is available on this Linux system."""
+    if sys.platform != "linux":
+        return False
+    try:
+        import pkgconfig
+        return pkgconfig.exists("liburing")
+    except Exception:
+        pass
+    # fallback: check header directly
+    import subprocess
+    try:
+        r = subprocess.run(
+            ["gcc", "-x", "c", "-", "-o", "/dev/null", "-luring"],
+            input=b"#include <liburing.h>\nint main(){return 0;}\n",
+            capture_output=True,
+        )
+        return r.returncode == 0
+    except Exception:
+        return False
+
 # Set MALVA_DEBUG_BUILD=1 to build with profiling hooks and debug symbols.
 # Default (0) builds with full production optimisations for distribution.
 DEBUG_BUILD = os.environ.get('MALVA_DEBUG_BUILD', '0') == '1'
@@ -87,7 +109,7 @@ def get_extensions():
             extra_compile_args=compile_args,
             extra_link_args=link_args,
             define_macros=macros,
-            libraries=["uring"] if sys.platform == "linux" else [],
+            libraries=["uring"] if _has_liburing() else [],
         ),
         Extension(
             "malva.barcodes",
