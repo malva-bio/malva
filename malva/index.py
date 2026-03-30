@@ -2,8 +2,8 @@ import logging
 import os
 import yaml
 
-from malva.indexes import SpatialIndex, create_spatial_index, create_singlecell_index
-from malva.malva_prefix_index import MalvaPrefixIndex as MalvaIndex
+from malva.barcodes import SpatialIndex, create_spatial_index, create_singlecell_index
+from malva.malva_index import MalvaIndex
 from malva.utils import check_directory_exists, check_file_exists, get_module_path
 
 N_REPORT = 1_000_000

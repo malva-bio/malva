@@ -10,18 +10,18 @@ import numpy as np
 from rich.progress import track
 
 
-def combine_prefix_indices(combine_dir, project_uuids=None, project_id_offset=0,
+def combine_indices(combine_dir, project_uuids=None, project_id_offset=0,
                            merge_projects=False, project_id_shift=23,
                            cell_id_mask=0x007FFFFF, verbose=False):
     """
-    Merge multiple prefix indices (from different samples) into one.
+    Merge multiple indices (from different samples) into one.
 
     This performs a per-bucket merge: for each prefix, loads suffix buckets
     from all input indices, merges suffixes, concatenates + deduplicates
     cell lists, and writes the output bucket.
 
     Args:
-        combine_dir: directory containing subdirectories, each with a prefix index
+        combine_dir: directory containing subdirectories, each with a MalvaIndex
         project_uuids: optional list of project UUIDs
         project_id_offset: offset for project IDs when embedding
         merge_projects: whether to embed project IDs into cell IDs
@@ -32,7 +32,7 @@ def combine_prefix_indices(combine_dir, project_uuids=None, project_id_offset=0,
     Returns:
         (project_mapping, n_projects): mapping dict and project count
     """
-    from malva.prefix_index import merge_prefix_indices
+    from malva.indexes import merge_prefix_indices
 
     # Find all sub-indices
     if project_uuids is not None:
@@ -46,7 +46,7 @@ def combine_prefix_indices(combine_dir, project_uuids=None, project_id_offset=0,
         ])
 
     if len(subdirs) == 0:
-        raise ValueError(f"No prefix indices found in {combine_dir}")
+        raise ValueError(f"No indices found in {combine_dir}")
 
     # Build project mapping
     project_mapping = {}
@@ -68,7 +68,7 @@ def combine_prefix_indices(combine_dir, project_uuids=None, project_id_offset=0,
     logging.info(f"Merging {len(index_dirs)} prefix indices from {combine_dir}")
 
     # Perform the merge
-    output_dir = os.path.join(combine_dir, '_merged_prefix_index')
+    output_dir = os.path.join(combine_dir, '_merged_index')
 
     merge_prefix_indices(
         index_dirs=index_dirs,
@@ -119,7 +119,7 @@ def process_group(group_idx, group_dirs, base_dir, project_uuids,
         except Exception:
             shutil.copytree(src, dst)
 
-    mapping, n = combine_prefix_indices(
+    mapping, n = combine_indices(
         temp_group_dir,
         project_uuids=None,
         project_id_offset=project_id_offset,
@@ -130,7 +130,7 @@ def process_group(group_idx, group_dirs, base_dir, project_uuids,
     return group_idx, mapping, temp_group_dir
 
 
-def hierarchical_combine_prefix(base_dir, project_uuids=None,
+def hierarchical_combine(base_dir, project_uuids=None,
                                 merge_projects=False, group_size=16,
                                 threads=1, verbose=False):
     """
@@ -154,11 +154,11 @@ def hierarchical_combine_prefix(base_dir, project_uuids=None,
     ])
 
     if len(all_indices) == 0:
-        raise ValueError(f"No prefix indices found in {base_dir}")
+        raise ValueError(f"No indices found in {base_dir}")
 
     if len(all_indices) <= group_size:
         logging.info("Direct merge (within group size limit)")
-        combine_prefix_indices(
+        combine_indices(
             base_dir,
             project_uuids=project_uuids,
             merge_projects=merge_projects,
@@ -211,7 +211,7 @@ def hierarchical_combine_prefix(base_dir, project_uuids=None,
         except Exception:
             shutil.copytree(inter_dir, link_name)
 
-    combine_prefix_indices(
+    combine_indices(
         final_temp_dir,
         merge_projects=False,  # Already embedded at group level
         verbose=verbose,
@@ -278,7 +278,7 @@ def _run_combine(args):
 
     if len(index_dirs) <= 16:
         logging.info(f"Direct merge of {len(index_dirs)} indices")
-        combine_prefix_indices(
+        combine_indices(
             args.index_in,
             project_uuids=project_uuids,
             merge_projects=args.merge_projects,
@@ -286,7 +286,7 @@ def _run_combine(args):
         )
     else:
         logging.info(f"Hierarchical merge of {len(index_dirs)} indices")
-        hierarchical_combine_prefix(
+        hierarchical_combine(
             args.index_in,
             project_uuids=project_uuids,
             merge_projects=args.merge_projects,

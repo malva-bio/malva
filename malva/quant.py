@@ -4,8 +4,8 @@ import os
 
 import numpy as np
 
-from malva.indexes import BackgroundModel
-from malva.malva_prefix_index import MalvaPrefixIndex as MalvaIndex
+from malva.barcodes import BackgroundModel
+from malva.malva_index import MalvaIndex
 from malva.reader import iterate_fasta
 from malva.spacemake import create_meshed_adata
 from malva.utils import (check_directory_exists, check_file_exists,

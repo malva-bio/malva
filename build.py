@@ -33,13 +33,21 @@ def get_extensions():
 
     extensions = [
         Extension(
-            "malva.prefix_index",
-            ["malva/prefix_index.pyx"],
+            "malva.indexes",
+            ["malva/indexes.pyx"],
             include_dirs=common_include_dirs,
             language="c++",
             extra_compile_args=common_compile_args,
             define_macros=common_macros,
             libraries=["uring"] if sys.platform == "linux" else [],
+        ),
+        Extension(
+            "malva.barcodes",
+            ["malva/barcodes.pyx"],
+            include_dirs=common_include_dirs,
+            language="c++",
+            extra_compile_args=common_compile_args,
+            define_macros=common_macros,
         ),
         Extension(
             "malva.kmer_processing",
@@ -60,14 +68,6 @@ def get_extensions():
         Extension(
             "malva.reader",
             ["malva/reader.pyx"],
-            include_dirs=common_include_dirs,
-            language="c++",
-            extra_compile_args=common_compile_args,
-            define_macros=common_macros,
-        ),
-        Extension(
-            "malva.indexes",
-            ["malva/indexes.pyx"],
             include_dirs=common_include_dirs,
             language="c++",
             extra_compile_args=common_compile_args,

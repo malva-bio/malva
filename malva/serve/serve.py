@@ -153,24 +153,15 @@ class GlobalState:
                 self.kmer_index = MalvaIndex(index_path, verbose=True)
                 self.kmer_index.open()
 
-                # Load the initial data points
-                if len(self.kmer_index.index[f"index_0_data"]) >= 2*MAX_LOAD_ALL:
-                    self._loc_all, self._abu_all = np.unique(
-                        self.kmer_index.index[f"index_0_data"][MAX_LOAD_ALL:(2*MAX_LOAD_ALL)],
-                        return_counts=True,
-                    )
-                else:
-                    self._loc_all, self._abu_all = np.unique(
-                        self.kmer_index.index[f"index_0_data"][0:MAX_LOAD_ALL],
-                        return_counts=True,
-                    )
+                # Load background data: use all cell positions with equal weight
+                # as a starting point for the background visualization.
+                n_cells = self.kmer_index.n_spatial
+                self._loc_all = np.arange(n_cells, dtype=np.uint32)
+                self._abu_all = np.ones(n_cells, dtype=np.uint32)
 
-                logger.info("Loading the pointers into memory. Might take a while.")
-                self.kmer_index.where(
-                    "A" * self.kmer_index.kmer_size + "T",
-                    max_mem=max_mem,
-                    use_background_model=False
-                )
+                # Warm up the index (opens the mmap'd files on first access)
+                logger.info("Warming up the index...")
+                self.kmer_index._ensure_index_open()
 
                 # Set up the coordinate bounds
                 self.bounds = (

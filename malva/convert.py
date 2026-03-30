@@ -11,9 +11,21 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 
 def convert_malva_to_prefix(malva_index_dir, output_dir, l_prefix=12,
                             chunk_size=5_000_000, verbose=True):
-    """Convert HDF5 index to prefix-bucketed compressed format."""
-    from malva.indexes import MalvaIndex
-    from malva.prefix_index import convert_h5_to_prefix
+    """Convert a legacy HDF5 index to the current prefix-bucketed format.
+
+    .. deprecated::
+        This function requires the legacy HDF5-based MalvaIndex which is no longer
+        part of the package. It is kept for historical reference only.
+    """
+    try:
+        from malva._legacy_index import MalvaIndex  # no longer distributed
+    except ImportError:
+        raise ImportError(
+            "The legacy HDF5-based MalvaIndex is no longer part of Malva. "
+            "If you need to convert an old index, check out the git history "
+            "of the 'prefix_bucketed_index' branch for the original convert.py."
+        )
+    from malva.indexes import convert_h5_to_prefix
 
     logger = logging.getLogger("convert_to_prefix")
     logger.info(f"Opening existing index at {malva_index_dir}")
@@ -66,9 +78,19 @@ def convert_malva_to_prefix(malva_index_dir, output_dir, l_prefix=12,
 
 
 def verify_indices(old_index_dir, new_index_dir, n_sample=100000, seed=42, verbose=True):
-    """Compare old HDF5 index vs new prefix index."""
-    from malva.indexes import MalvaIndex
-    from malva.prefix_index import PrefixIndex
+    """Compare a legacy HDF5 index against a converted prefix-bucketed index.
+
+    .. deprecated::
+        Requires the legacy HDF5-based MalvaIndex which is no longer distributed.
+    """
+    try:
+        from malva._legacy_index import MalvaIndex  # no longer distributed
+    except ImportError:
+        raise ImportError(
+            "The legacy HDF5-based MalvaIndex is no longer part of Malva. "
+            "See convert_malva_to_prefix() for details."
+        )
+    from malva.indexes import PrefixIndex
 
     logger = logging.getLogger("verify_indices")
     logger.info(f"Opening old index: {old_index_dir}")

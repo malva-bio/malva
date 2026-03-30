@@ -1,8 +1,8 @@
 """
-malva_prefix_index.py — Drop-in replacement for MalvaIndex using prefix-bucketed storage.
+malva_index.py — The Malva k-mer index using prefix-bucketed storage.
 
-This module provides MalvaPrefixIndex which is API-compatible with MalvaIndex
-but uses the prefix-bucketed file format for dramatically faster queries.
+This module provides MalvaIndex, Malvas high-performance k-mer index based on prefix-bucketed
+compressed storage for fast spatial and single-cell queries.
 
 File layout on disk:
     index_dir/
@@ -24,7 +24,7 @@ from collections import defaultdict
 import numpy as np
 
 # These imports would come from the compiled Cython module
-# from malva.prefix_index import PrefixIndex, PrefixIndexBuilder, build_from_sorted_chunks, merge_prefix_indices
+# from malva.indexes import PrefixIndex, PrefixIndexBuilder, build_from_sorted_chunks, merge_prefix_indices
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -45,12 +45,12 @@ class _IndexCompat:
         return {'n_spatial': self._parent.n_spatial}
 
 
-class MalvaPrefixIndex:
+class MalvaIndex:
     """
-    Prefix-bucketed k-mer index for spatial / single-cell data.
+    High-performance prefix-bucketed k-mer index for spatial / single-cell data.
 
-    Drop-in replacement for MalvaIndex with the same query interface
-    (especially the `where()` method) but using prefix-bucketed storage.
+    Provides fast k-mer lookup for spatial and single-cell queries using prefix-bucketed
+    compressed storage (pi.bin, suffixes.bin, data.bin) on disk.
 
     Attributes:
         index_dir (str): Directory where index files are stored
@@ -186,7 +186,7 @@ class MalvaPrefixIndex:
         Compatible with the original MalvaIndex.add_reads() interface.
         """
         from malva.utils import check_cell_string
-        from malva.prefix_index import process_fastq_reads, build_from_sorted_chunks
+        from malva.indexes import process_fastq_reads, build_from_sorted_chunks
 
         read_group, start, end = check_cell_string(cell)
         is_bulk = isinstance(reads_in[0], int)
@@ -215,7 +215,7 @@ class MalvaPrefixIndex:
 
     def _build_from_chunks(self):
         """Build the prefix index from sorted chunk files."""
-        from malva.prefix_index import build_from_sorted_chunks
+        from malva.indexes import build_from_sorted_chunks
 
         if len(self._chunk_paths) == 0:
             logging.info("Index built directly (no chunk merge needed)")
@@ -299,7 +299,7 @@ class MalvaPrefixIndex:
     def _ensure_index_open(self):
         """Ensure the PrefixIndex is open for queries."""
         if self._prefix_index is None or not self._prefix_index.is_loaded:
-            from malva.prefix_index import PrefixIndex as CyPrefixIndex
+            from malva.indexes import PrefixIndex as CyPrefixIndex
             self._prefix_index = CyPrefixIndex()
             self._prefix_index.open(self.index_dir)
 
@@ -359,7 +359,7 @@ class MalvaPrefixIndex:
         Uses PrefixIndex for fast kmer lookup + identical cell-counting logic
         from the original MalvaIndex._where (copied verbatim into Cython).
         """
-        from malva.prefix_index import quantify_where
+        from malva.indexes import quantify_where
 
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be between 0 and 1")

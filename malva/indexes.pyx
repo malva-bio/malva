@@ -1,2136 +1,2967 @@
+# indexes.pyx — Prefix-bucketed k-mer index for Malva
 # distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
-
 cimport cython
 cimport numpy as np
+from cython.operator cimport dereference as deref, preincrement as inc
+from libc.stdint cimport uint8_t, uint16_t, uint32_t, uint64_t, int16_t, int32_t, int64_t
+from libc.stdlib cimport malloc, free, realloc
+from libc.string cimport memcpy, memset
 
-from cython.operator cimport preincrement as inc
-from libc.stdint cimport uint16_t, uint32_t, int32_t, uint64_t
-from libc.math cimport floor
-from libc.stdlib cimport malloc, free
-from libc.string cimport memcpy
-from libc.stdio cimport FILE, fopen, fwrite, fread, fclose, getline
-from libcpp.algorithm cimport lower_bound
-from libcpp.string cimport string
+from libc.stdio cimport FILE, fopen, fwrite, fread, fclose, fseek, SEEK_SET, SEEK_END, ftell
 from libcpp.vector cimport vector
-from libcpp.utility cimport pair, move
-from libcpp.unordered_set cimport unordered_set
+from libcpp.pair cimport pair
+from libcpp.algorithm cimport sort as stdsort
 from libcpp.unordered_map cimport unordered_map
-from cython.operator cimport dereference as deref, predecrement as dec
 from cpython.exc cimport PyErr_CheckSignals
-
-import h5py
-import logging
-import os
-import io
-import time
-import numpy as np
-import pandas as pd
-import glob
-import json
-
-from rich.progress import track
-
-from malva.fast_map cimport map
-from malva.fastq_processing cimport SequenceFastqParser, KmerFastqParser, FastKmerProcessor
-from malva.kmer_processing import encode_kmer, get_kmers_numeric, get_sliding_kmers_numeric
-from malva.kmer_processing cimport FastKmerExtractor
-from malva.utils import check_cell_string, convert_to_bytes
-from malva.xopen import xopen
-from malva.compressed_index import CompressedArrayStorage
-
-cdef int BUFFER_SIZE = max(io.DEFAULT_BUFFER_SIZE, 4096 * 1024)
-
-cdef extern from "<algorithm>" namespace "std" nogil:
-    void sort[Iter, Compare](Iter first, Iter last, Compare comp)
-
-cdef extern from "<cstdio>" nogil:
-    double atof(const char* nptr)
-
-cdef extern from "numpy/arrayobject.h":
-    void* PyArray_DATA(np.ndarray arr) nogil
-
-cdef int compare_indexed_value(const pair[uint64_t, uint32_t]& a, const pair[uint64_t, uint32_t]& b) nogil:
-    return a.first < b.first
-
-cdef extern from *:
-    """
-    struct SearchGroup {
-        std::vector<std::pair<uint64_t, size_t>> kmers;
-        uint64_t start;
-        uint64_t end;
-        
-        // Default constructor
-        SearchGroup() : start(0), end(0) {}
-        
-        // Constructor with parameters
-        SearchGroup(uint64_t s, uint64_t e) : start(s), end(e) {}
-    };
-    """
-    struct SearchGroup:
-        vector[pair[uint64_t, size_t]] kmers
-        uint64_t start
-        uint64_t end
-
-
-cdef extern from *:
-    """
-    struct CompareFirst {
-        bool operator()(const std::pair<uint64_t, std::pair<uint64_t, uint64_t>>& lhs, const uint64_t& rhs) const {
-            return lhs.first < rhs;
-        }
-    };
-    """
-    struct CompareFirst:
-        pass
-
-cdef pair[uint64_t, pair[uint32_t, uint32_t]] binary_search(vector[pair[uint64_t, pair[uint32_t, uint32_t]]] vec, uint64_t target):
-    cdef vector[pair[uint64_t, pair[uint32_t, uint32_t]]].iterator result
-
-    result = lower_bound(vec.begin(), vec.end(), target, CompareFirst())
-    
-    if result == vec.end():
-        return vec.back()
-    elif deref(result).first != target and result != vec.begin():
-        dec(result)
-    
-    return deref(result)
-
-cdef int backed_binary_search_int(object arr, uint64_t low, uint64_t high, uint64_t x):
-    if high >= low:
-        mid = (high + low) // 2
-        if arr[mid] == x:
-            return mid
-        elif arr[mid] > x:
-            return backed_binary_search_int(arr, low, mid - 1, x)
-        else:
-            return backed_binary_search_int(arr, mid + 1, high, x)
- 
-    else:
-        return -1
-
+from cpython.bytes cimport PyBytes_AS_STRING
+import json, logging, numpy as np, os, time
 np.import_array()
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
-ctypedef uint64_t kmer_t
-
-cdef struct SpatialCoord:
-    uint32_t x
-    uint32_t y
-
-cdef class MalvaIndex:
+# ── Platform / SIMD support ────────────────────────────────────────────────────
+cdef extern from *:
     """
-    A spatial indexing system for k-mer sequences.
-
-    Manages creation, storage, and querying of k-mer indices with associated spatial coordinates.
-    Supports both memory-efficient and performance-optimized indexing strategies.
-
-    Attributes:
-        index_dir (str): Directory where index files are stored
-        kmer_size (int): Length of k-mers used in the index
-        verbose (bool): Whether to print detailed logging information
-        n_chunks (int): Number of chunks the index is split into
-    """
-    cdef:
-        public str index_dir
-        public str index_file
-        public int kmer_size
-        public int jump_amount
-        public bint verbose
-        public object index
-        public dict __index
-        public tuple coord_lims
-        public int n_chunks
-        public list data_lengths
-        public object spatial_coord
-        public uint32_t n_spatial
-        public int _n_kmers_processed
-        public dict project_mapping
-        uint32_t PROJECT_ID_SHIFT
-        uint32_t CELL_ID_MASK
-        bint HAS_MERGED_PROJECTS
-        public vector[pair[uint64_t, uint32_t]] _iter_seqs
-        map[uint64_t, pair[uint64_t, uint64_t]] _index_backed
-        SpatialIndex spatial_index
-        BackgroundModel background_model
-
-        # for the hierarchical index
-        bint using_hierarchical
-        vector[size_t] hierarchical_sizes
-        int page_size
-
-    def __cinit__(self, str index_dir, bint rewrite=False, int kmer_size_initialize=24,
-                  bint verbose=False, int max_project_capacity=512, int jump_amount=0):
-        self.index_dir = index_dir
-        self.index = None
-        self.__index = {}
-
-        project_bits = int(np.ceil(np.log2(max_project_capacity)))
-        self.PROJECT_ID_SHIFT = 32 - project_bits
-
-        cell_bits = 32 - project_bits
-        self.CELL_ID_MASK = (1 << cell_bits) - 1
-
-        self.HAS_MERGED_PROJECTS = False
-
-        self.project_mapping = None
-        self.index_file = os.path.join(self.index_dir, 'malva_index.h5')
-        self.kmer_size = kmer_size_initialize
-        # when jump_amount is 0 we just assume we should take the k-mer size
-        self.jump_amount = kmer_size_initialize if jump_amount == 0 else jump_amount
-        self.n_chunks = 0
-        self._n_kmers_processed = 0
-        self.verbose = verbose
-        self.spatial_index = SpatialIndex()
-        self.background_model = BackgroundModel(self.kmer_size)
-
-        self._iter_seqs = vector[pair[uint64_t, uint32_t]]()
-        self._index_backed = map[uint64_t, pair[uint64_t, uint64_t]]()
-
-        # for the hierarchical index
-        self.using_hierarchical = False
-        self.hierarchical_sizes = vector[size_t]()
-        self.page_size = 1024
-
-        if rewrite:
-            if os.path.exists(self.index_dir):
-                import shutil
-                shutil.rmtree(self.index_dir)
-            os.mkdir(self.index_dir)
-        elif self.index_exists(self):
-            logging.info("The index exists. Will load now.")
-            self.open(mode='r')
-            # we close the file to avoid issues when we need to write something (e.g., create hierarchical index)
-            self.close()
-        else:
-            logging.info(f"Will create malva index at `{self.index_file}` with {kmer_size_initialize}-mers")
-            self.initialize(kmer_size=kmer_size_initialize)
-
-    @staticmethod
-    def index_exists(self):
-        # because we are using the driver 'split', to avoid corruption issues
-        # this is a very weird issue that took me too long to debug
-        # .. and I didn't find a solution :))))
-        return os.path.exists(f'{self.index_file}-m.h5') and os.path.exists(f'{self.index_file}-r.h5')
-
-    def initialize(self, int kmer_size=8):
-        if kmer_size < 8 or kmer_size > 32:
-            raise ValueError("`kmer_size` must be between 8 and 32 (inclusive)")
-        if kmer_size < 24:
-            logging.warning(f"For accuracy and speed, we recommend using > 24-mers (currently using {kmer_size}-mers)")
-
-        self.kmer_size = kmer_size
-        self.initialize_kmer_index()
-
-    def initialize_kmer_index(self):
-        self.open(mode='w')
-        self.index.attrs['kmer_size'] = self.kmer_size
-        self.index.attrs['n_chunks'] = self.n_chunks
-        self.close()
-
-    cdef void _create_hierarchical_index(self, int chunk_id):
-        """Creates hierarchical index structure in HDF5 file."""
-        if self.verbose:
-            logging.info(f"Creating hierarchical index for chunk {chunk_id}")
-            
-        cdef:
-            size_t base_size = len(self.index[f'index_{chunk_id}_indices'])
-            size_t current_size = (base_size + self.page_size - 1) // self.page_size
-            vector[size_t] level_sizes
-            np.ndarray source_data
-            str level_name
-            size_t i, level
-
-        # Calculate sizes for each level
-        while current_size > self.page_size:
-            level_sizes.push_back(current_size)
-            if self.verbose:
-                logging.info(f"Level size: {current_size}")
-            current_size = (current_size + self.page_size - 1) // self.page_size
-
-        level_sizes.push_back(current_size)
-        if self.verbose:
-            logging.info(f"Final level size: {current_size}")
-            
-        self.hierarchical_sizes = level_sizes
-
-        # Ensure we're in write mode
-        self.index.flush()
-        if not self.index.mode == 'r+':
-            logging.error(f"HDF5 file not in write mode! Current mode: {self.index.mode}")
-            return
-
-        # Store sizes
-        level_sizes_name = f"hierarchical_{chunk_id}_sizes"
-        if level_sizes_name in self.index:
-            del self.index[level_sizes_name]
-        
-        sizes_array = np.array([level_sizes[i] for i in range(level_sizes.size())])
-        self.index.create_dataset(level_sizes_name, data=sizes_array)
-        
-        # Create datasets for each level
-        for level in range(len(level_sizes)):
-            level_name = f"hierarchical_{chunk_id}_level_{level}"
-            if self.verbose:
-                logging.info(f"Creating level {level} dataset: {level_name}")
-                
-            if level_name in self.index:
-                del self.index[level_name]
-            
-            if level == 0:
-                source_data = self.index[f'index_{chunk_id}_indices'][::self.page_size]
-            else:
-                source_data = self.index[f"hierarchical_{chunk_id}_level_{level-1}"][::self.page_size]
-
-            dset = self.index.create_dataset(
-                level_name, 
-                shape=(level_sizes[level],), 
-                dtype=np.uint64,
-                chunks=(min(self.page_size, level_sizes[level]),)
-            )
-            dset[:len(source_data)] = source_data[:level_sizes[level]]
-            
-            if self.verbose:
-                logging.info(f"Created dataset {level_name} with size {len(source_data)}")
-
-        self.index.flush()
-        if self.verbose:
-            logging.info("Completed hierarchical index creation")
-            logging.info(f"Available datasets: {list(self.index.keys())}")
-
-    # TODO: rename to BarcodeIndex
-    def set_spatial_index(self, SpatialIndex sindex):
-        self.spatial_index = sindex
-        self.set_spatial_coords(sindex.get_coords())
-
-    # TODO: not n_spatial but n_cells
-    def set_barcode_index(self, SpatialIndex sindex):
-        self.spatial_index = sindex
-        self.n_spatial = sindex.num_items()
-
-        self.open(mode='r+')
-        self.index.attrs['n_spatial'] = self.n_spatial
-        self.close()
-
-    def set_spatial_coords(self, coords: np.ndarray):
-        xmin, xmax = coords[:, 0].min(), coords[:, 0].max()
-        ymin, ymax = coords[:, 1].min(), coords[:, 1].max()
-    
-        self.coord_lims = (xmin, xmax, ymin, ymax)
-        self.n_spatial = len(coords)
-
-        # TODO: this will be a context manager
-        self.open(mode='r+')
-        if 'spatial_coord' in self.index:
-            del self.index['spatial_coord']
-
-        self.index['spatial_coord'] = coords
-        self.index.attrs['coord_lims'] = self.coord_lims
-        self.index.attrs['n_spatial'] = self.n_spatial
-        self.close()
-
-    def open(self, str mode='r+', bint blosc_load_to_memory = False):
-        self.index = h5py.File(self.index_file, mode, driver="split")
-        if 'kmer_size' in self.index.attrs:
-            self.kmer_size = self.index.attrs['kmer_size']
-
-        if 'coord_lims' in self.index.attrs:
-            self.coord_lims = tuple(self.index.attrs['coord_lims'])
-
-        if 'n_spatial' in self.index.attrs:
-            self.n_spatial = self.index.attrs['n_spatial']
-
-        if 'n_chunks' in self.index.attrs:
-            self.n_chunks = self.index.attrs['n_chunks']
-            self.data_lengths = [len(self.index[f'index_{chunk}_data']) for chunk in range(self.n_chunks)]
-
-        if 'project_id_shift' in self.index.attrs:
-            self.PROJECT_ID_SHIFT = self.index.attrs['project_id_shift']
-        
-        if 'cell_id_mask' in self.index.attrs:
-            self.CELL_ID_MASK = self.index.attrs['cell_id_mask']
-        
-        if 'has_merged_projects' in self.index.attrs:
-            self.HAS_MERGED_PROJECTS = self.index.attrs['has_merged_projects']
-
-        if 'spatial_coord' in self.index:
-            self.spatial_coord = self.index['spatial_coord']
-
-        _blosc_exists_indices = all([os.path.exists(self.index_file + f"_index_{_c}_indices.blosc") for _c in range(self.n_chunks)])
-        if _blosc_exists_indices:
-            for _chunk in range(self.n_chunks):
-                _layer_name = f"index_{_chunk}_indices"
-                _f_blosc = self.index_file + f"_{_layer_name}.blosc"
-                self.__index[_layer_name] = CompressedArrayStorage()
-                self.__index[_layer_name].load(_f_blosc, load_in_memory=blosc_load_to_memory)
-        else:
-            for _chunk in range(self.n_chunks):
-                _layer_name = f"index_{_chunk}_indices"
-                self.__index[_layer_name] = self.index[_layer_name]
-
-        _blosc_exists_indptr = all([os.path.exists(self.index_file + f"_index_{_c}_indptr.blosc") for _c in range(self.n_chunks)])
-        if _blosc_exists_indptr:
-            for _chunk in range(self.n_chunks):
-                _layer_name = f"index_{_chunk}_indptr"
-                _f_blosc = self.index_file + f"_{_layer_name}.blosc"
-                self.__index[_layer_name] = CompressedArrayStorage()
-                self.__index[_layer_name].load(_f_blosc, load_in_memory=blosc_load_to_memory)
-        else:
-            for _chunk in range(self.n_chunks):
-                _layer_name = f"index_{_chunk}_indptr"
-                self.__index[_layer_name] = self.index[_layer_name]
-
-        _blosc_exists_data = all([os.path.exists(self.index_file + f"_index_{_c}_data.blosc") for _c in range(self.n_chunks)])
-        if _blosc_exists_data:
-            for _chunk in range(self.n_chunks):
-                _layer_name = f"index_{_chunk}_data"
-                _f_blosc = self.index_file + f"_{_layer_name}.blosc"
-                self.__index[_layer_name] = CompressedArrayStorage()
-                self.__index[_layer_name].load(_f_blosc, load_in_memory=blosc_load_to_memory)
-        else:
-            for _chunk in range(self.n_chunks):
-                _layer_name = f"index_{_chunk}_data"
-                self.__index[_layer_name] = self.index[_layer_name]
-
-        if 'project_mapping' in self.index.attrs:
-            project_mapping_str = self.index.attrs['project_mapping']
-            # we load the indices as integers because they are chunk IDs as per MalvaIndex convention
-            self.project_mapping = {int(k): v for k, v in json.loads(project_mapping_str).items()}
-
-    def close(self):
-        self.index.flush()
-        self.index.close()
-
-    cdef void process_kmer(self, vector[pair[uint64_t, uint32_t]] kmer_coords):
-        cdef:
-            int _chunk
-            vector[uint64_t] k_unique
-            vector[uint64_t] k_change
-            vector[uint32_t] k_data
-            size_t i, items = 0
-            uint64_t current_kmer
-            uint32_t current_data
-
-        if self._n_kmers_processed == 0:
-            logging.warning("There are no kmers to process!")
-            return
-
-        _chunk = self.n_chunks
-
-        current_kmer = kmer_coords[0].first
-        current_data = kmer_coords[0].second
-        k_unique.push_back(current_kmer)
-        k_change.push_back(<uint64_t>0)
-        k_data.push_back(kmer_coords[0].second)
-        items += 1
-
-        with nogil:
-            for i in range(1, self._n_kmers_processed):
-                if kmer_coords[i].first != current_kmer:
-                    # New kmer encountered
-                    k_unique.push_back(kmer_coords[i].first)
-                    k_change.push_back(items)
-                    current_kmer = kmer_coords[i].first
-
-                    # Reset current_data for the new kmer
-                    current_data = kmer_coords[i].second
-                    k_data.push_back(current_data)
-                    items += 1
-                    
-                elif kmer_coords[i].second != current_data:
-                    # Same kmer, but new data
-                    current_data = kmer_coords[i].second
-                    k_data.push_back(current_data)
-                    items += 1
-
-        _index = h5py.File(self.index_file, 'a', driver="split")
-
-        try:
-            temp_indices = _index.create_dataset(f"index_{_chunk}_indices", shape=(k_unique.size(),), dtype=np.uint64)
-            temp_indices[:] = np.asarray(<np.uint64_t[:k_unique.size()]>&k_unique[0])
-            temp_indices = _index.create_dataset(f"index_{_chunk}_indptr", shape=(k_change.size(),), dtype=np.uint64)
-            temp_indices[:] = np.asarray(<np.uint64_t[:k_change.size()]>&k_change[0])
-            temp_indices = _index.create_dataset(f"index_{_chunk}_data", shape=(k_data.size(),), dtype=np.uint32, chunks=True, compression=None)
-            temp_indices[:] = np.asarray(<np.uint32_t[:k_data.size()]>&k_data[0])
-
-            self.n_chunks += 1
-            _index.attrs['n_chunks'] = self.n_chunks
-        finally:
-            _index.flush()
-            _index.close()
-        
-
-    cdef int add_kmers(self, vector[uint64_t] kmers, uint64_t cell_bc) nogil:
-        cdef:
-            uint32_t coord
-            size_t n_kmers, i
-            pair[uint64_t, uint32_t] item
-
-        coord = self.spatial_index.get_key(cell_bc)
-        if coord == 0:
-            return 0
-
-        n_kmers = kmers.size()
-
-        for i in range(n_kmers):
-            item = pair[uint64_t, uint32_t](kmers[i], coord)
-            self._iter_seqs.push_back(item)
-
-        self._n_kmers_processed += n_kmers
-        return 1
-
-    cdef int add_kmers_bulk(self, vector[uint64_t] kmers, uint64_t cell_bc) nogil:
-        cdef:
-            size_t n_kmers, i
-            pair[uint64_t, uint32_t] item
-
-        n_kmers = kmers.size()
-
-        for i in range(n_kmers):
-            item = pair[uint64_t, uint32_t](kmers[i], <uint32_t>cell_bc)
-            self._iter_seqs.push_back(item)
-
-        self._n_kmers_processed += n_kmers
-        return 1
-
-    cdef void _add_reads(self, list reads_in, str bam_tags, str read_group, int[] trim_limit, int n_report, int chunksize, int threads):
-        cdef int num_reads = len(reads_in)
-        cdef int _n_sequences = 0
-        cdef SequenceFastqParser iter_r1
-        cdef KmerFastqParser iter_r2
-        cdef uint64_t r1
-        cdef vector[uint64_t] r2
-
-        if read_group != 'r1':
-            raise NotImplementedError("Only 'r1' is implemented")
-
-        _t0 = time.time()
-
-        if isinstance(reads_in[0], int):
-            logging.info("Processing bulk reads")
-            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.jump_amount)
-            
-            while True:
-                try:
-                    r2 = iter_r2.next()
-                except StopIteration: # reached eof
-                    break
-
-                _n_sequences += 1
-                self.add_kmers_bulk(r2, reads_in[0])
-            
-                if (_n_sequences) % n_report == 0:
-                    _t1 = time.time()
-                    _elapsed = _t1 - _t0
-                    logging.info(f"Processed {_n_sequences:,} sequences in {round(_elapsed, 2)} s ({round(n_report/_elapsed, 2):,} reads/s)")
-                    _t0 = time.time()
-                if (_n_sequences) % chunksize == 0:
-                    self.write()
-            
-            # write last time the remaining reads
-            self.write()
-        elif num_reads == 2:
-            iter_r1 = SequenceFastqParser(xopen(reads_in[0], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, trim_start = trim_limit[0], trim_end = trim_limit[1])
-            iter_r2 = KmerFastqParser(xopen(reads_in[1], "rb", threads=max(threads//2, 1)), BUFFER_SIZE, kmer_size = self.kmer_size, jump_amount = self.jump_amount)
-            
-            while True:
-                try:
-                    r2 = iter_r2.next()
-                    r1 = iter_r1.next()
-                except StopIteration: # reached eof
-                    break
-
-                _n_sequences += 1
-                self.add_kmers(r2, r1)
-            
-                if (_n_sequences) % n_report == 0:
-                    _t1 = time.time()
-                    _elapsed = _t1 - _t0
-                    logging.info(f"Processed {_n_sequences:,} sequences in {round(_elapsed, 2)} s ({round(n_report/_elapsed, 2):,} reads/s)")
-                    _t0 = time.time()
-                if (_n_sequences) % chunksize == 0:
-                    self.write()
-            
-            # write last time the remaining reads
-            self.write()
-        else:
-            raise ValueError("`--reads-in` must point to paired FASTQ files")
-
-    def add_reads(self, list reads_in, str bam_tags='CB:{cell}', str cell='r1[2:27]', n_report: int=10_000_000, chunksize: int=100_000_000, threads: int = 1):
-        self._iter_seqs.clear()
-        read_group, start, end = check_cell_string(cell)
-        self._add_reads(reads_in, bam_tags, read_group, [start, end], n_report, chunksize, threads)
-
-    def merge_chunks(self, file_out, merge_projects: bool = False, sample_percentage: float = 0.05):
-        self._merge_chunks(file_out, merge_projects, sample_percentage)
-    
-    @cython.wraparound(True)
-    cdef void _merge_chunks(self, str file_out, bint _merge_projects=False, float sample_percentage=0.05):
-        cdef:
-            uint32_t chunksize
-            int n_chunks = self.n_chunks
-            list srt_pointer = [0]*n_chunks
-            list end_pointer = [0]*n_chunks
-            list srt_pointer_to_data = [0]*n_chunks
-            list end_pointer_to_data = [0]*n_chunks
-            uint64_t min_value
-            uint64_t curr_i_value
-            uint64_t len_per_k_data_chunk
-            uint64_t total_len_per_k_data_chunk
-            uint64_t total_data
-            int i
-            size_t i_chunks
-            uint64_t current_i_data_len
-            np.ndarray[uint64_t, ndim=1] k_unique
-            np.ndarray[uint64_t, ndim=1] k_change
-            np.ndarray[uint64_t, ndim=1] _k_change_cumsum
-            np.ndarray[uint32_t, ndim=1] k_data
-            np.ndarray[uint32_t, ndim=1] k_data_sorted
-            np.ndarray[np.uint64_t, ndim=1] dest_indices
-            uint64_t current_kmer
-            uint64_t last_indptr_out_next = 0
-            size_t total_processed
-            size_t total_processed_data
-
-            np.uint64_t start, end, dest, length
-
-        self.open(mode="r")
-        last_time = time.time()
-
-        # sampling from each chunk to ensure we proces a reasonable amount from each chunk
-        # sample_percentage for ~5% of each chunk at a time, adjust as needed
-        # we assume the indices are similarly distributed, i.e., all have lexicographically-sorted k-mers
-        # and the distribution of uniques is broadly similar when looking at a coarse scale
-        initial_proportions = {}
-        for i in range(n_chunks):
-            indices_length = len(self.index[f'index_{i}_indices'])
-            
-            if indices_length <= 1:
-                srt_pointer[i] = 0
-                end_pointer[i] = 0
-                initial_proportions[i] = 0
-            else:
-                proportional_size = int(indices_length * sample_percentage)
-                proportional_size = max(proportional_size, 1000)
-                # we set the proportional size to at most 100M indices. Above that, performance is bad.
-                proportional_size = min(min(proportional_size, indices_length), 10_000_000)
-                initial_proportions[i] = proportional_size
-                
-                srt_pointer[i] = 0
-                end_pointer[i] = proportional_size - 1
-            
-            srt_pointer_to_data[i] = 0
-            end_pointer_to_data[i] = 0
-            
-            if self.verbose:
-                logging.info(f"Chunk {i}: size={indices_length}, initial chunk size={end_pointer[i] - srt_pointer[i] + 1}")
-
-        # we cache the lengths because multiway merge can get super slow...
-        indices_lengths = [len(self.index[f'index_{i}_indices']) for i in range(n_chunks)]
-        indptr_lengths = [len(self.index[f'index_{i}_indptr']) for i in range(n_chunks)]
-        data_lengths = [len(self.index[f'index_{i}_data']) for i in range(n_chunks)]
-
-        if _merge_projects and self.project_mapping is None:
-            raise ValueError("You must set a project_mapping when running with _merge_projects = True")
-
-        file_out_tmp = file_out + ".tmp"
-
-        with h5py.File(file_out_tmp, 'w', driver="split") as f_out:
-            for key, value in self.index.attrs.items():
-                f_out.attrs[key] = value
-                
-            f_out.attrs['n_chunks'] = 1
-            
-            max_size = sum(indices_lengths[i] for i in range(n_chunks))
-            max_size_data = sum(data_lengths[i] for i in range(n_chunks))
-            indices_out = f_out.create_dataset('index_0_indices', shape=(0,), maxshape=(max_size,), dtype='uint64')
-            indptr_out = f_out.create_dataset('index_0_indptr', shape=(0,), maxshape=(max_size,), dtype='uint64')
-            data_out = f_out.create_dataset('index_0_data', shape=(max_size_data,), dtype='uint32')
-
-            if 'spatial_coord' in self.index:
-                f_out.create_dataset('spatial_coord', data=self.index['spatial_coord'], dtype=np.float32)
-
-            total_processed = 0
-            total_processed_data = 0
-            last_processed_data = 0
-            indptr_out.resize(1, axis=0)
-            indptr_out[0] = 0
-
-            while True:
-                if all(srt_pointer[i] >= indices_lengths[i] for i in range(n_chunks)):
-                    break
-
-                if self.verbose:
-                    percentage = round(100 * total_processed_data/max_size_data, 3)
-                    units_per_second = round((total_processed_data - last_processed_data) / (time.time() - last_time), 2)
-                    logging.info(f"Processed {total_processed_data:,}/{max_size_data:,} ({percentage:.2f}%) indexed locations at {units_per_second:,.2f} items/s")
-
-                last_processed_data = total_processed_data
-                last_time = time.time()
-
-                # find the smallest value across all chunks
-                # because we avoid overflowing to much more than assigned chunksize
-                min_value = 0xFFFFFFFFFFFFFFFF
-                for i in range(n_chunks):
-                    indices_len = indices_lengths[i]
-                    if end_pointer[i] >= indices_len or indices_len == 0:
-                        continue
-                        
-                    curr_i_value = self.index[f'index_{i}_indices'][end_pointer[i]]
-                    if curr_i_value < min_value:
-                        min_value = curr_i_value
-
-                chunk_cache = {}
-
-                for i in range(n_chunks):
-                    if srt_pointer[i] == end_pointer[i]:
-                        continue
-
-                    current_i_data_len = data_lengths[i]
-
-                    if i not in chunk_cache or chunk_cache[i]['start'] != srt_pointer[i] or chunk_cache[i]['end'] != end_pointer[i]:
-                        chunk_cache[i] = {
-                            'data': self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64),
-                            'start': srt_pointer[i],
-                            'end': end_pointer[i]
+    #ifdef __linux__
+    #include <sys/mman.h>
+    static inline void prefetch_range(const void* addr, size_t len) {
+        madvise((void*)addr, len, MADV_WILLNEED);
+    }
+    static inline void hint_sequential(const void* addr, size_t len) {
+        madvise((void*)addr, len, MADV_SEQUENTIAL);
+        madvise((void*)addr, len, MADV_WILLNEED);
+    }
+    static inline void release_range(const void* addr, size_t len) {
+        madvise((void*)addr, len, MADV_DONTNEED);
+    }
+    #elif defined(__APPLE__)
+    #include <sys/mman.h>
+    static inline void prefetch_range(const void* addr, size_t len) {
+        madvise((void*)addr, len, MADV_WILLNEED);
+    }
+    static inline void hint_sequential(const void* addr, size_t len) {
+        madvise((void*)addr, len, MADV_SEQUENTIAL);
+        madvise((void*)addr, len, MADV_WILLNEED);
+    }
+    static inline void release_range(const void* addr, size_t len) {
+        madvise((void*)addr, len, MADV_FREE);
+    }
+    #else
+    static inline void prefetch_range(const void* addr, size_t len) { (void)addr; (void)len; }
+    static inline void hint_sequential(const void* addr, size_t len) { (void)addr; (void)len; }
+    static inline void release_range(const void* addr, size_t len) { (void)addr; (void)len; }
+    #endif
+
+    #define CPU_PREFETCH(addr) __builtin_prefetch((const void*)(addr), 0, 1)
+    #define INITIAL_BUCKET_CAPACITY 65536
+    #define MAX_DATA_PER_BUCKET 4194304
+
+    /* ── SIMD bulk varint decoder ────────────────────────────────────────────
+     * Decodes `count` LEB128 varints from `src` into `dst` as raw (non-delta)
+     * values.  Returns bytes consumed.
+     * Uses a branch-free inner loop: read 8 bytes at a time, use __builtin_ctz
+     * on the continuation-bit mask to locate boundaries in bulk.
+     */
+    #include <stdint.h>
+    #include <string.h>
+
+    static inline int
+    decode_varints_bulk(const uint8_t* __restrict__ src, int src_len,
+                        uint32_t* __restrict__ dst, uint32_t count)
+    {
+        int pos = 0;
+        uint32_t n = 0;
+        while (n < count && pos < src_len) {
+            uint32_t val = 0, shift = 0;
+            uint8_t b;
+            /* Unrolled: most varints are 1-2 bytes */
+            b = src[pos++]; val  = (uint32_t)(b & 0x7F);        if (!(b & 0x80)) goto done;
+            b = src[pos++]; val |= (uint32_t)(b & 0x7F) <<  7;  if (!(b & 0x80)) goto done;
+            b = src[pos++]; val |= (uint32_t)(b & 0x7F) << 14;  if (!(b & 0x80)) goto done;
+            b = src[pos++]; val |= (uint32_t)(b & 0x7F) << 21;  if (!(b & 0x80)) goto done;
+            b = src[pos++]; val |= (uint32_t)(b & 0x7F) << 28;
+            done:
+            dst[n++] = val;
+        }
+        return pos;
+    }
+
+    /* Decode count varints AND apply delta (prefix-sum) in one pass.
+     * dst[0] = first_val + delta[0], dst[i] = dst[i-1] + delta[i]  */
+    static inline int
+    decode_delta_varints(const uint8_t* __restrict__ src, int src_len,
+                         uint32_t* __restrict__ dst, uint32_t count,
+                         uint32_t first_val)
+    {
+        int pos = 0;
+        uint32_t prev = first_val;
+        dst[0] = prev;
+        uint32_t n = 1;
+        while (n < count && pos < src_len) {
+            uint32_t delta = 0;
+            uint8_t b;
+            b = src[pos++]; delta  = (uint32_t)(b & 0x7F);        if (!(b & 0x80)) goto ddone;
+            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) <<  7;  if (!(b & 0x80)) goto ddone;
+            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) << 14;  if (!(b & 0x80)) goto ddone;
+            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) << 21;  if (!(b & 0x80)) goto ddone;
+            b = src[pos++]; delta |= (uint32_t)(b & 0x7F) << 28;
+            ddone:
+            prev += delta;
+            dst[n++] = prev;
+        }
+        return pos;
+    }
+
+    /*
+     * ── decomp_suffix_into_upto ──────────────────────────────────────────────
+     *
+     * Like decomp_suffix_into, but decodes lengths only up to stop_at
+     * (inclusive), not all n. This is the key suf_decomp optimisation:
+     *
+     *   • Suffix delta array is always fully decoded — it's needed for binary
+     *     search and is unavoidable.
+     *   • Length array is decoded only as far as the deepest hit we found.
+     *     For zero-hit buckets the length section is skipped entirely.
+     *     For hit buckets we stop at max(hit_positions)+1.
+     *
+     * Layout in suffix buffer:
+     *   [4B n][4B first_suf][varint deltas x (n-1)][varint lengths x n]
+     *
+     * Returns n_entries (always the full count read from header).
+     * len_out is filled for indices 0..stop_at only; rest is undefined.
+     * If stop_at >= n, behaves identically to decomp_suffix_into.
+     */
+    static inline uint32_t
+    decomp_suffix_into_upto(const uint8_t* __restrict__ buf, int buf_len,
+                            uint32_t* __restrict__ suf_out,
+                            uint32_t* __restrict__ len_out,
+                            uint32_t stop_at)
+    {
+        if (buf_len < 4) return 0;
+        uint32_t n;
+        memcpy(&n, buf, 4);
+        if (n == 0) return 0;
+        if (buf_len < 8) return 0;
+        int pos = 4;
+        uint32_t prev;
+        memcpy(&prev, buf + pos, 4); pos += 4;
+        suf_out[0] = prev;
+        for (uint32_t i = 1; i < n; i++) {
+            uint32_t delta = 0; uint8_t b;
+            b = buf[pos++]; delta  = (uint32_t)(b & 0x7F); if (!(b & 0x80)) goto sd;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) <<  7; if (!(b & 0x80)) goto sd;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 14; if (!(b & 0x80)) goto sd;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 21; if (!(b & 0x80)) goto sd;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 28;
+            sd: prev += delta; suf_out[i] = prev;
+        }
+        /* Decode lengths only up to stop_at (inclusive).
+         * If stop_at >= n, decode all — same as before. */
+        uint32_t limit = (stop_at < n) ? stop_at + 1 : n;
+        for (uint32_t i = 0; i < limit; i++) {
+            uint32_t L = 0; uint8_t b;
+            b = buf[pos++]; L  = (uint32_t)(b & 0x7F); if (!(b & 0x80)) goto ld;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) <<  7; if (!(b & 0x80)) goto ld;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 14; if (!(b & 0x80)) goto ld;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 21; if (!(b & 0x80)) goto ld;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 28;
+            ld: len_out[i] = L;
+        }
+        return n;
+    }
+
+    /* Original full decomp — kept for legacy callers */
+    static inline uint32_t
+    decomp_suffix_into(const uint8_t* __restrict__ buf, int buf_len,
+                       uint32_t* __restrict__ suf_out,
+                       uint32_t* __restrict__ len_out)
+    {
+        return decomp_suffix_into_upto(buf, buf_len, suf_out, len_out, 0xFFFFFFFFu);
+    }
+
+    /*
+     * ── decomp_suffixes_only ─────────────────────────────────────────────────
+     *
+     * Decodes ONLY the suffix delta array — no length decoding at all.
+     * Returns n_entries. Stores the byte offset of the start of the length
+     * section in *len_section_pos_out (so a subsequent decode_lengths_upto
+     * call can pick up from there without re-parsing the suffix array).
+     *
+     * This enables the true two-phase suf_decomp optimisation:
+     *   Phase A (all buckets): decode suffixes only → binary search
+     *   Phase B (hit buckets only): decode lengths 0..max_hit_pos
+     *   Phase C (zero-hit buckets): skip entirely
+     */
+    static inline uint32_t
+    decomp_suffixes_only(const uint8_t* __restrict__ buf, int buf_len,
+                         uint32_t* __restrict__ suf_out,
+                         int* __restrict__ len_section_pos_out)
+    {
+        if (buf_len < 4) { *len_section_pos_out = buf_len; return 0; }
+        uint32_t n;
+        memcpy(&n, buf, 4);
+        if (n == 0) { *len_section_pos_out = 4; return 0; }
+        if (buf_len < 8) { *len_section_pos_out = buf_len; return 0; }
+        int pos = 4;
+        uint32_t prev;
+        memcpy(&prev, buf + pos, 4); pos += 4;
+        suf_out[0] = prev;
+        for (uint32_t i = 1; i < n; i++) {
+            uint32_t delta = 0; uint8_t b;
+            b = buf[pos++]; delta  = (uint32_t)(b & 0x7F); if (!(b & 0x80)) goto sd2;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) <<  7; if (!(b & 0x80)) goto sd2;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 14; if (!(b & 0x80)) goto sd2;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 21; if (!(b & 0x80)) goto sd2;
+            b = buf[pos++]; delta |= (uint32_t)(b & 0x7F) << 28;
+            sd2: prev += delta; suf_out[i] = prev;
+        }
+        *len_section_pos_out = pos;
+        return n;
+    }
+
+    /*
+     * ── decode_lengths_upto ──────────────────────────────────────────────────
+     *
+     * Decodes length varints from buf starting at byte offset len_pos,
+     * filling len_out[0..stop_at] (inclusive). Used in Phase B after bsearch
+     * has determined max_hit_pos = stop_at.
+     */
+    static inline void
+    decode_lengths_upto(const uint8_t* __restrict__ buf, int buf_len,
+                        int len_pos,
+                        uint32_t* __restrict__ len_out,
+                        uint32_t stop_at)
+    {
+        int pos = len_pos;
+        for (uint32_t i = 0; i <= stop_at && pos < buf_len; i++) {
+            uint32_t L = 0; uint8_t b;
+            b = buf[pos++]; L  = (uint32_t)(b & 0x7F); if (!(b & 0x80)) goto ld2;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) <<  7; if (!(b & 0x80)) goto ld2;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 14; if (!(b & 0x80)) goto ld2;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 21; if (!(b & 0x80)) goto ld2;
+            b = buf[pos++]; L |= (uint32_t)(b & 0x7F) << 28;
+            ld2: len_out[i] = L;
+        }
+    }
+
+    /* ── Fast byte-offset builder ────────────────────────────────────────────
+     * Build byte-offset table for a data block given the length array.
+     * bo[i] = first byte of kmer i's data in blk.
+     * Optimised: unrolled varint-skip using __builtin_ctz on continuation mask.
+     */
+    static inline void
+    build_bo_fast(const uint8_t* __restrict__ blk, int blk_len,
+                  const uint32_t* __restrict__ lb, uint32_t ne,
+                  uint32_t* __restrict__ bo, uint32_t stop_at)
+    {
+        int bofs = 0;
+        uint32_t limit = stop_at + 1; if (limit > ne) limit = ne;
+        for (uint32_t ki = 0; ki < limit; ki++) {
+            bo[ki] = (uint32_t)bofs;
+            uint32_t L = lb[ki];
+            if (L == 0 || bofs + 4 > blk_len) continue;
+            bofs += 4;
+            uint32_t rem = L - 1;
+            /* Skip rem varints as fast as possible */
+            while (rem > 0 && bofs < blk_len) {
+                uint64_t word;
+                int avail = blk_len - bofs;
+                if (avail >= 8) {
+                    memcpy(&word, blk + bofs, 8);
+                    uint64_t stop_mask = ~word & (uint64_t)0x8080808080808080ULL;
+                    if (stop_mask) {
+                        int n_stops = __builtin_popcountll(stop_mask);
+                        if ((uint32_t)n_stops >= rem) {
+                            uint64_t m = stop_mask;
+                            for (uint32_t s = 1; s < rem; s++) {
+                                m &= m - 1;
+                            }
+                            int stop_bit = __builtin_ctzll(m);
+                            int stop_byte = stop_bit / 8;
+                            bofs += stop_byte + 1;
+                            rem = 0;
+                        } else {
+                            bofs += 8;
+                            rem -= (uint32_t)n_stops;
                         }
+                    } else {
+                        bofs += 8;
+                    }
+                } else {
+                    while (rem > 0 && bofs < blk_len) {
+                        if ((blk[bofs++] & 0x80) == 0) rem--;
+                    }
+                }
+            }
+        }
+    }
 
-                    if srt_pointer[i] < end_pointer[i]:
-                        search_result = np.searchsorted(chunk_cache[i]['data'], min_value, side='right')
-                        end_pointer[i] = srt_pointer[i] + search_result
-                        end_pointer[i] = min(end_pointer[i], indices_lengths[i] - 1)
+    /*
+     * ── scan_to_byte_offset ──────────────────────────────────────────────────
+     *
+     * This is the core phase2 optimisation for sparse (1–few) hits per bucket.
+     *
+     * Instead of calling build_bo_fast (which builds a full offset table for
+     * ALL entries up to max_spos), we scan directly to a single target position.
+     *
+     * For the ~99% of buckets with exactly 1 hit, this replaces a full forward
+     * scan of up to hundreds of entries with a scan of exactly `pos` entries.
+     * For pos=0 it returns immediately. For pos=1..3 it's ~10-30 bytes.
+     *
+     * Uses the same 8-byte word trick as build_bo_fast for the skip loop,
+     * so the per-byte cost is identical — we just stop sooner.
+     *
+     * lb[i] = cell count for entry i (from lb_pool, decoded in Step 3).
+     * Returns byte offset of entry `pos` in blk, or blk_len on overrun.
+     */
+    static inline uint32_t
+    scan_to_byte_offset(const uint8_t* __restrict__ blk, int blk_len,
+                        const uint32_t* __restrict__ lb, uint32_t pos)
+    {
+        /* Entry 0 is always at byte 0 */
+        if (pos == 0) return 0;
 
-                    srt_pointer_to_data[i] = self.index[f'index_{i}_indptr'][srt_pointer[i]]
-
-                    if end_pointer[i] >= indptr_lengths[i] - 1:
-                        end_pointer_to_data[i] = current_i_data_len
-                    else:
-                        # no out of bounds
-                        idx = min(end_pointer[i] + 1, indptr_lengths[i] - 1)
-                        end_pointer_to_data[i] = self.index[f'index_{i}_indptr'][idx]
-
-                max_data_size = int(sum(end_pointer_to_data[i] - srt_pointer_to_data[i] for i in range(n_chunks)))
-                k_unique_list = []
-                k_indptr_start = np.array([], dtype=np.uint64)
-                k_indptr_end = np.array([], dtype=np.uint64)
-                k_data = np.zeros(max_data_size, dtype=np.uint32)
-
-                total_data = 0
-
-                for i in range(n_chunks):
-                    if i in chunk_cache and chunk_cache[i]['start'] == srt_pointer[i] and chunk_cache[i]['end'] >= end_pointer[i]:
-                        start_offset = srt_pointer[i] - chunk_cache[i]['start']
-                        end_offset = end_pointer[i] - chunk_cache[i]['start']
-                        chunk_indices = chunk_cache[i]['data'][start_offset:end_offset]
-                    else:
-                        chunk_indices = self.index[f'index_{i}_indices'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
-                        chunk_cache[i] = {
-                            'data': chunk_indices,
-                            'start': srt_pointer[i],
-                            'end': end_pointer[i]
+        int bofs = 0;
+        for (uint32_t ki = 0; ki < pos; ki++) {
+            uint32_t L = lb[ki];
+            if (L == 0) continue;         /* empty entry — zero bytes */
+            if (bofs + 4 > blk_len) return (uint32_t)blk_len;
+            bofs += 4;                     /* 4-byte first cell (raw uint32) */
+            uint32_t rem = L - 1;          /* remaining varints to skip */
+            while (rem > 0 && bofs < blk_len) {
+                int avail = blk_len - bofs;
+                if (avail >= 8) {
+                    uint64_t word;
+                    memcpy(&word, blk + bofs, 8);
+                    uint64_t stop_mask = ~word & (uint64_t)0x8080808080808080ULL;
+                    if (stop_mask) {
+                        int n_stops = __builtin_popcountll(stop_mask);
+                        if ((uint32_t)n_stops >= rem) {
+                            uint64_t m = stop_mask;
+                            for (uint32_t s = 1; s < rem; s++) m &= m - 1;
+                            bofs += __builtin_ctzll(m) / 8 + 1;
+                            rem = 0;
+                        } else {
+                            bofs += 8;
+                            rem -= (uint32_t)n_stops;
                         }
+                    } else {
+                        bofs += 8;
+                    }
+                } else {
+                    while (rem > 0 && bofs < blk_len) {
+                        if ((blk[bofs++] & 0x80) == 0) rem--;
+                    }
+                }
+            }
+        }
+        return (bofs < blk_len) ? (uint32_t)bofs : (uint32_t)blk_len;
+    }
 
-                    chunk_indptr = self.index[f'index_{i}_indptr'][srt_pointer[i]:end_pointer[i]].astype(np.uint64)
-                    chunk_data_size = end_pointer_to_data[i] - srt_pointer_to_data[i]
+    /* Decode one kmer's delta cells — identical logic, kept for clarity */
+    static inline int
+    decode_kmer_cells_fast(const uint8_t* __restrict__ blk, int blk_len,
+                           uint32_t byte_off, uint32_t cell_count,
+                           uint32_t* __restrict__ out)
+    {
+        int bpos = (int)byte_off;
+        if (cell_count == 0 || bpos + 4 > blk_len) return 0;
+        uint32_t prev;
+        memcpy(&prev, blk + bpos, 4); bpos += 4;
+        out[0] = prev;
+        for (uint32_t j = 1; j < cell_count; j++) {
+            if (bpos >= blk_len) return (int)j;
+            uint32_t delta = 0;
+            uint8_t b;
+            b = blk[bpos++]; delta  = (uint32_t)(b & 0x7F);        if (!(b & 0x80)) goto cdone;
+            b = blk[bpos++]; delta |= (uint32_t)(b & 0x7F) <<  7;  if (!(b & 0x80)) goto cdone;
+            b = blk[bpos++]; delta |= (uint32_t)(b & 0x7F) << 14;  if (!(b & 0x80)) goto cdone;
+            b = blk[bpos++]; delta |= (uint32_t)(b & 0x7F) << 21;  if (!(b & 0x80)) goto cdone;
+            b = blk[bpos++]; delta |= (uint32_t)(b & 0x7F) << 28;
+            cdone:
+            prev += delta;
+            out[j] = prev;
+        }
+        return (int)cell_count;
+    }
 
-                    # don't process empty chunk
-                    if len(chunk_indices) == 0 or len(chunk_indptr) == 0:
-                        continue
+    /*
+     * ── phase2_decode_all ────────────────────────────────────────────────────
+     *
+     * Entire phase2 inner loop in pure C — no GIL, no Python overhead.
+     *
+     * Processes n_hits sorted hit records. For each hit:
+     *   1. Finds byte offset via scan_to_byte_offset (sparse) or bo[] table (dense).
+     *   2. Decodes delta-varint cell list.
+     *   3. Deduplicates consecutive identical cell IDs.
+     *   4. Writes results to flat output arrays.
+     *
+     * Output layout (all parallel arrays, caller pre-allocates):
+     *   out_km[i]        — kmer value for result i
+     *   out_cells[j]     — cell id, packed flat across all results
+     *   out_offsets[i]   — out_cells[out_offsets[i]..out_offsets[i+1]) is result i
+     *   out_offsets has n_results+1 entries (CSR-style indptr)
+     *
+     * Returns number of results written (kmers that had at least 1 decoded cell).
+     * Returns -1 if out_cells capacity exceeded (caller must retry with larger buf).
+     *
+     * Parameters:
+     *   sort_order       — argsort of (bidx<<32|spos), length n_hits
+     *   hit_km/bidx/spos/dl — hit record arrays, length n_hits
+     *   bkt_heap_off     — byte offset of each bucket's data in dat_heap
+     *   bkt_pool_off     — index into lb_pool for each bucket's length array
+     *   bkt_ne           — entry count per bucket
+     *   bkt_dbs          — data block size per bucket
+     *   bkt_hit_count    — hit count per bucket (for sparse/dense dispatch)
+     *   bkt_max_hit_pos  — max hit spos per bucket (for dense build_bo_fast)
+     *   lb_pool          — flat pool of length arrays
+     *   dat_heap         — flat pool of data blocks
+     *   sparse_threshold — buckets with hit_count <= this use scan_to_byte_offset
+     *   tmp_dd / tmp_dd_cap — scratch buffer for one kmer's cell decode
+     *   tmp_bo / tmp_bo_cap — scratch buffer for dense bo table (passed by pointer
+     *                         so caller can own and reuse across calls)
+     */
+    /*
+     * ── uring_read_decode_all ────────────────────────────────────────────────
+     *
+     * Unified io_uring read + decode pipeline.
+     *
+     * Previous design (broken): submit ALL reads → wait for ALL completions →
+     * write 10GB to dat_heap → then scan 10GB again in phase2.
+     * That's 20GB of memory traffic for 10GB of useful data.
+     *
+     * New design: sliding-window io_uring where each completion immediately
+     * triggers decode of that bucket's hits. Peak memory = QD * avg_bucket_size
+     * (~64 * 150KB = ~10MB). The NVMe stays saturated throughout because we
+     * always have QD outstanding I/Os while decoding runs in parallel.
+     *
+     * Hit records must be pre-sorted by (bidx, spos) so that when a bucket
+     * completes we can process all its hits in one contiguous scan.
+     *
+     * hit_bidx_start[bidx] = first index in sorted hit array for bucket bidx
+     * hit_bidx_count[bidx] = number of hits in that bucket
+     * (caller builds these from sort_order)
+     *
+     * Each bucket gets a private aligned buffer of bkt_dbs[bidx] bytes.
+     * Buffers are allocated from a pool of QD slots, each of max_bucket_sz bytes.
+     * On completion the buffer is decoded and the slot returned to the free list.
+     */
+    #ifdef __linux__
+    #include <liburing.h>
+    #include <fcntl.h>
+    #include <unistd.h>
 
-                    k_unique_list.append(chunk_indices)
+    /* Per-inflight slot */
+    typedef struct {
+        uint8_t*  buf;        /* aligned buffer for this read */
+        uint32_t  bidx;       /* bucket index */
+        uint32_t  buf_sz;     /* allocated size (aligned) */
+    } UringSlot;
 
-                    # we need to 'recenter' k_indptr, because it is in local coordinates (for k_data)
-                    k_indptr_start = np.append(k_indptr_start, chunk_indptr + total_data - chunk_indptr[0])
+    static int
+    uring_read_decode_all(
+        int fd,
+        const uint64_t* __restrict__ bkt_dbo,
+        const uint32_t* __restrict__ bkt_dbs,
+        const uint32_t* __restrict__ bkt_pool_off,
+        const uint32_t* __restrict__ bkt_ne,
+        const uint32_t* __restrict__ bkt_hit_count,
+        const uint32_t* __restrict__ bkt_max_hit_pos,
+        const uint32_t* __restrict__ lb_pool,
+        uint64_t n_bkts,
+        /* hit records, sorted by (bidx<<32|spos) */
+        const uint64_t* __restrict__ sort_order,
+        const uint64_t* __restrict__ hit_km,
+        const uint32_t* __restrict__ hit_bidx,
+        const uint32_t* __restrict__ hit_spos,
+        const uint32_t* __restrict__ hit_dl,
+        uint64_t n_hits,
+        /* per-bucket hit range in sorted order */
+        const uint64_t* __restrict__ bkt_hit_start,  /* first hit index for bidx */
+        const uint32_t* __restrict__ bkt_hit_cnt,    /* hit count for bidx */
+        uint32_t sparse_threshold,
+        /* output */
+        uint64_t* __restrict__ out_km,
+        uint32_t* __restrict__ out_cells,
+        uint64_t* __restrict__ out_offsets,
+        uint64_t  out_cells_cap,
+        /* scratch */
+        uint32_t*  tmp_dd,
+        uint32_t   tmp_dd_cap,
+        /* stats */
+        uint64_t* bytes_read_out
+    )
+    {
+        const int QD = 64;
+        struct io_uring ring;
+        int ret = io_uring_queue_init(QD, &ring, 0);
+        if (ret < 0) return ret;
 
-                    if len(chunk_indptr) > 1:
-                        k_indptr_end = np.append(k_indptr_end, np.append(chunk_indptr[1:], end_pointer_to_data[i]) + total_data - chunk_indptr[0])
-                    else:
-                        # Handle the case where chunk_indptr has only one element
-                        k_indptr_end = np.append(k_indptr_end, np.array([end_pointer_to_data[i]]) + total_data - chunk_indptr[0])
-                    
-                    if not _merge_projects:
-                        k_data[int(total_data):int(total_data + chunk_data_size)] = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
-                    else:
-                        cell_ids = self.index[f'index_{i}_data'][srt_pointer_to_data[i]:end_pointer_to_data[i]]
-                        project_id_shifted = np.uint32(self.project_mapping[i][0]) << self.PROJECT_ID_SHIFT
-                        masked_cell_ids = cell_ids & self.CELL_ID_MASK
-                        k_data[int(total_data):int(total_data + chunk_data_size)] = masked_cell_ids | project_id_shifted
+        /* Find max bucket size for slot allocation */
+        uint32_t max_bsz = 0;
+        for (uint64_t i = 0; i < n_bkts; i++) {
+            uint32_t sz = (bkt_dbs[i] + 511) & ~511u;  /* 512-align */
+            if (sz > max_bsz) max_bsz = sz;
+        }
+        if (max_bsz == 0) { io_uring_queue_exit(&ring); return 0; }
 
-                    total_data += chunk_data_size
+        /* Allocate QD aligned buffers — one per inflight slot */
+        UringSlot* slots = (UringSlot*)malloc(QD * sizeof(UringSlot));
+        if (!slots) { io_uring_queue_exit(&ring); return -1; }
+        for (int s = 0; s < QD; s++) {
+            slots[s].buf = (uint8_t*)aligned_alloc(4096,
+                ((size_t)max_bsz + 4095) & ~(size_t)4095);
+            slots[s].buf_sz = max_bsz;
+            slots[s].bidx = (uint32_t)-1;
+            if (!slots[s].buf) {
+                for (int k = 0; k < s; k++) free(slots[k].buf);
+                free(slots);
+                io_uring_queue_exit(&ring);
+                return -1;
+            }
+        }
 
-                # skip if no data was aggregated... we move here because otherwise it will crash
-                # i.e., cannot concat k_unique_list if empty
-                if not k_unique_list:
-                    for i in range(n_chunks):
-                        indices_len = indices_lengths[i]
-                        srt_pointer[i] = min(end_pointer[i] + 1, indices_len)
-                        
-                        if srt_pointer[i] < indices_len and i in initial_proportions:
-                            chunk_size = initial_proportions[i]
-                            end_pointer[i] = min(srt_pointer[i] + chunk_size - 1, indices_len - 1)
-                        else:
-                            end_pointer[i] = srt_pointer[i]
-                    continue
+        /* Free-slot stack */
+        int* free_slots = (int*)malloc(QD * sizeof(int));
+        if (!free_slots) {
+            for (int s = 0; s < QD; s++) free(slots[s].buf);
+            free(slots); io_uring_queue_exit(&ring); return -1;
+        }
+        for (int s = 0; s < QD; s++) free_slots[s] = s;
+        int n_free = QD;
 
-                k_unique = np.concatenate(k_unique_list)
+        /* Dense bo[] scratch — one per active bucket (reused) */
+        uint32_t  bo_cap = 4096;
+        uint32_t* bo     = (uint32_t*)malloc(bo_cap * 4);
+        if (!bo) {
+            for (int s = 0; s < QD; s++) free(slots[s].buf);
+            free(slots); free(free_slots); io_uring_queue_exit(&ring); return -1;
+        }
 
-                # TODO: we can do at maximum performance by using scipy csr_matrix (optionally transposing)?
-                # sort indices and reorder data accordingly
-                sort_idx = np.argsort(k_unique)
-                k_unique = k_unique[sort_idx]
-                # TODO: higher performance by not using unique but iterating over it
-                k_unique_unique = np.unique(k_unique)
-                k_indptr_start = k_indptr_start[sort_idx].astype(np.uint64)
-                k_indptr_end = k_indptr_end[sort_idx].astype(np.uint64)
-                
-                _k_change_cumsum = np.append(np.array([0], dtype=np.uint64), np.cumsum(k_indptr_end - k_indptr_start).astype(np.uint64))
-                _idx_change = np.append(np.array([1], dtype=np.uint64), (np.diff(k_unique) != 0).astype(np.uint64)).astype(bool)
-                
-                if np.any(_idx_change):
-                    k_change = _k_change_cumsum[:-1][_idx_change]
-                    
-                    # reorder k_data based on the sorted indices
-                    k_data_sorted = np.zeros_like(k_data)
-                    dest_indices = np.cumsum(k_indptr_end - k_indptr_start)
+        uint64_t n_results  = 0;
+        uint64_t cells_used = 0;
+        out_offsets[0] = 0;
+        uint64_t bytes_read = 0;
 
-                    for start, end, dest in zip(k_indptr_start, k_indptr_end, dest_indices):
-                        k_data_sorted[dest - (end - start):dest] = np.sort(k_data[start:end])
+        uint64_t next_submit = 0;  /* next bucket index to submit */
+        int inflight = 0;
 
-                    # move data to h5 object
-                    k_data_len = len(k_data_sorted)
-                    new_size = total_processed_data + k_data_len
-                    
-                    # Ensure we don't have shape mismatch
-                    if k_data_len > 0:
-                        # Make sure the slice and data have the same shape
-                        if new_size > max_size_data:
-                            # If we somehow calculated incorrectly, truncate the data
-                            overflow = new_size - max_size_data
-                            k_data_sorted = k_data_sorted[:-overflow]
-                            new_size = max_size_data
-                            
-                        # Double check the actual lengths match
-                        actual_slice_size = new_size - total_processed_data
-                        if actual_slice_size != len(k_data_sorted):
-                            # Truncate to the smaller size to prevent broadcast errors
-                            k_data_sorted = k_data_sorted[:actual_slice_size]
-                        
-                        data_out[total_processed_data:new_size] = k_data_sorted
+        while (next_submit < n_bkts || inflight > 0) {
 
-                    # last_indptr_out takes care that we store the pointers
-                    # respect to the correct coordinates
-                    last_indptr_out = indptr_out[-1]
-                    new_size = total_processed + len(k_unique_unique)
-                    indices_out.resize(new_size, axis=0)
-                    indptr_out.resize(new_size, axis=0)
-                    indices_out[total_processed:] = k_unique_unique
-                    indptr_out[total_processed:] = k_change + last_indptr_out + last_indptr_out_next
+            /* Fill SQ up to QD */
+            while (inflight < QD && next_submit < n_bkts && n_free > 0) {
+                uint32_t bidx = (uint32_t)next_submit;
+                next_submit++;
+                uint32_t dsz = bkt_dbs[bidx];
+                if (dsz == 0 || bkt_hit_cnt[bidx] == 0) continue;
 
-                    total_processed += len(k_unique_unique)
-                    total_processed_data += len(k_data_sorted)
+                int slot_id = free_slots[--n_free];
+                UringSlot* sl = &slots[slot_id];
+                sl->bidx = bidx;
 
-                    # make sure k_change is not empty before trying to access the last element
-                    if len(k_change) > 0:
-                        last_indptr_out_next = <uint64_t>_k_change_cumsum[-1] - <uint64_t>k_change[-1]
-                    else:
-                        last_indptr_out_next = 0
+                uint32_t read_sz = (dsz + 511) & ~511u;
+                struct io_uring_sqe* sqe = io_uring_get_sqe(&ring);
+                if (!sqe) { free_slots[n_free++] = slot_id; break; }
+                io_uring_prep_read(sqe, fd, sl->buf, read_sz, bkt_dbo[bidx]);
+                io_uring_sqe_set_data64(sqe, (uint64_t)slot_id);
+                inflight++;
+            }
 
-                    for i in range(n_chunks):
-                        indices_len = indices_lengths[i]
-                        if indices_len > 0:
-                            srt_pointer[i] = min(end_pointer[i] + 1, indices_len)
-                            
-                            if srt_pointer[i] < indices_len and i in initial_proportions:
-                                chunk_size = initial_proportions[i]
-                                end_pointer[i] = min(srt_pointer[i] + chunk_size - 1, indices_len - 1)
-                            else:
-                                end_pointer[i] = srt_pointer[i]
-                        else:
-                            srt_pointer[i] = 0
-                            end_pointer[i] = 0
+            if (inflight == 0) break;
 
-            if _merge_projects:
-                f_out.attrs['has_merged_projects'] = True
-                f_out.attrs['project_id_shift'] = self.PROJECT_ID_SHIFT
-                f_out.attrs['cell_id_mask'] = self.CELL_ID_MASK
+            ret = io_uring_submit(&ring);
+            if (ret < 0 && ret != -EBUSY) break;
 
-        self.close()
-        
-        if self.verbose:
-            logging.info("Reorganizing the h5 file for performance (might take a while...)")
+            /* Wait for at least one completion */
+            struct io_uring_cqe* cqe;
+            ret = io_uring_wait_cqe(&ring, &cqe);
+            if (ret < 0) break;
 
-        with h5py.File(file_out_tmp, "r", driver="split") as f_in, h5py.File(file_out, "w", driver="split") as f_out:
-            for key, value in f_in.attrs.items():
-                f_out.attrs[key] = value
-            
-            f_out.attrs['n_chunks'] = 1
+            /* Drain all available completions and decode each */
+            unsigned head, reaped = 0;
+            io_uring_for_each_cqe(&ring, head, cqe) {
+                int slot_id = (int)io_uring_cqe_get_data64(cqe);
+                UringSlot* sl = &slots[slot_id];
+                uint32_t bidx = sl->bidx;
+                int res_bytes = cqe->res;
+                reaped++;
+                inflight--;
 
-            chunk_size = 100_000_000
-            
-            # copy indices
-            indices_shape = f_in['index_0_indices'].shape
-            indices_dtype = f_in['index_0_indices'].dtype
-            indices_out = f_out.create_dataset('index_0_indices', shape=indices_shape, dtype=indices_dtype)
-            
-            for i_chunks in range(0, indices_shape[0], chunk_size):
-                end = min(i_chunks + chunk_size, indices_shape[0])
-                indices_out[i_chunks:end] = f_in['index_0_indices'][i_chunks:end]
+                if (res_bytes > 0 && bidx != (uint32_t)-1) {
+                    const uint8_t* blk    = sl->buf;
+                    int blk_len           = (int)bkt_dbs[bidx];
+                    const uint32_t* cur_lb = lb_pool + bkt_pool_off[bidx];
+                    uint32_t cur_ne       = bkt_ne[bidx];
+                    uint32_t cur_hits     = bkt_hit_cnt[bidx];
+                    uint32_t cur_maxpos   = bkt_max_hit_pos[bidx];
+                    bytes_read += blk_len;
 
-            # copy indptr
-            indptr_shape = f_in['index_0_indptr'].shape
-            indptr_dtype = f_in['index_0_indptr'].dtype
-            indptr_out = f_out.create_dataset('index_0_indptr', shape=indptr_shape, dtype=indptr_dtype)
-            
-            for i_chunks in range(0, indptr_shape[0], chunk_size):
-                end = min(i_chunks + chunk_size, indptr_shape[0])
-                indptr_out[i_chunks:end] = f_in['index_0_indptr'][i_chunks:end]
+                    /* Build bo table if dense */
+                    if (cur_hits > sparse_threshold) {
+                        if (cur_ne > bo_cap) {
+                            bo_cap = cur_ne + 256;
+                            free(bo);
+                            bo = (uint32_t*)malloc(bo_cap * 4);
+                            if (!bo) goto done;
+                        }
+                        build_bo_fast(blk, blk_len, cur_lb, cur_ne, bo, cur_maxpos);
+                    }
 
-            # copy data
-            data_shape = f_in['index_0_data'].shape
-            data_dtype = f_in['index_0_data'].dtype
-            data_out = f_out.create_dataset('index_0_data', shape=data_shape, dtype=data_dtype)
-            
-            for i_chunks in range(0, data_shape[0], chunk_size):
-                end = min(i_chunks + chunk_size, data_shape[0])
-                data_out[i_chunks:end] = f_in['index_0_data'][i_chunks:end]
+                    /* Process all hits for this bucket */
+                    uint64_t h_start = bkt_hit_start[bidx];
+                    for (uint32_t h = 0; h < cur_hits; h++) {
+                        uint64_t idx = sort_order[h_start + h];
+                        uint32_t pos = hit_spos[idx];
+                        uint32_t dl  = hit_dl[idx];
 
-            if 'spatial_coord' in f_in:
-                f_out.create_dataset('spatial_coord', data=f_in['spatial_coord'], dtype='float32')
+                        if (pos >= cur_ne) continue;
 
-        # remove the temporary file (which has the wrong file structure). 
-        # TODO: another strategy? we need to have plenty of storage for this! (anyway we have it)
-        os.remove(f'{file_out_tmp}-r.h5')
-        os.remove(f'{file_out_tmp}-m.h5')
+                        uint32_t byte_off;
+                        if (cur_hits > sparse_threshold) {
+                            byte_off = bo[pos];
+                        } else {
+                            byte_off = scan_to_byte_offset(blk, blk_len, cur_lb, pos);
+                        }
+                        if (byte_off >= (uint32_t)blk_len) continue;
+                        if (cells_used + dl > out_cells_cap) goto done;
+                        if (dl > tmp_dd_cap) continue;
 
-    def get_project_id(self, cell_id):
-        """Extract project ID from a cell ID."""
-        if self.HAS_MERGED_PROJECTS:
-            return cell_id >> self.PROJECT_ID_SHIFT
-        
-        return cell_id
-        
-    def get_cell_id(self, cell_id):
-        """Extract cell ID without project ID."""
-        if self.HAS_MERGED_PROJECTS:
-            return cell_id & self.CELL_ID_MASK
+                        int decoded = decode_kmer_cells_fast(
+                            blk, blk_len, byte_off, dl, tmp_dd);
+                        if (decoded <= 0) continue;
 
-        return cell_id
+                        uint64_t cell_start = cells_used;
+                        out_cells[cells_used++] = tmp_dd[0];
+                        for (int j = 1; j < decoded; j++) {
+                            if (tmp_dd[j] != tmp_dd[j-1])
+                                out_cells[cells_used++] = tmp_dd[j];
+                        }
+                        if (cells_used > cell_start) {
+                            out_km[n_results]          = hit_km[idx];
+                            out_offsets[n_results + 1] = cells_used;
+                            n_results++;
+                        } else {
+                            cells_used = cell_start;
+                        }
+                    }
+                }
 
-    def write(self):
-        cdef vector[pair[uint64_t, uint32_t]].iterator first = self._iter_seqs.begin()
-        cdef vector[pair[uint64_t, uint32_t]].iterator last = self._iter_seqs.end()
-        sort(first, last, &compare_indexed_value)
-        
-        self.process_kmer(self._iter_seqs)
+                /* Return slot to free list */
+                free_slots[n_free++] = slot_id;
+            }
+            io_uring_cq_advance(&ring, reaped);
+        }
 
-        self._n_kmers_processed = 0
-        self._iter_seqs.clear()
+    done:
+        *bytes_read_out = bytes_read;
+        free(bo);
+        for (int s = 0; s < QD; s++) free(slots[s].buf);
+        free(slots);
+        free(free_slots);
+        io_uring_queue_exit(&ring);
+        return (int)n_results;
+    }
 
-    cdef unordered_map[uint64_t, vector[uint32_t]] _find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
-        cdef:
-            unordered_map[uint64_t, vector[uint32_t]] vals = unordered_map[uint64_t, vector[uint32_t]]()
-            pair[uint64_t, uint64_t] _indptr
-            uint64_t kmer
-            np.ndarray _res
-            uint32_t _res_item
-            vector[uint32_t] _set
+    #else  /* non-Linux stub — serial pread fallback */
 
-        # TODO: move _data outside of here? (for maybe some performance gain when calling _find_kmer repeatedly?)
-        # _data = self.index[f'index_{chunk_id}_data']
-        _data = self.__index[f'index_{chunk_id}_data']
+    typedef struct { uint8_t* buf; uint32_t bidx; uint32_t buf_sz; } UringSlot;
 
-        # TODO: move iterator out of here (at find_kmer)
-        if self.verbose:
-            iterator = track(kmers, description=f'Counting kmers at chunk {chunk_id}')
-        else:
-            iterator = kmers
+    static int
+    uring_read_decode_all(
+        int fd,
+        const uint64_t* bkt_dbo, const uint32_t* bkt_dbs,
+        const uint32_t* bkt_pool_off, const uint32_t* bkt_ne,
+        const uint32_t* bkt_hit_count, const uint32_t* bkt_max_hit_pos,
+        const uint32_t* lb_pool, uint64_t n_bkts,
+        const uint64_t* sort_order,
+        const uint64_t* hit_km, const uint32_t* hit_bidx,
+        const uint32_t* hit_spos, const uint32_t* hit_dl, uint64_t n_hits,
+        const uint64_t* bkt_hit_start, const uint32_t* bkt_hit_cnt,
+        uint32_t sparse_threshold,
+        uint64_t* out_km, uint32_t* out_cells, uint64_t* out_offsets,
+        uint64_t out_cells_cap, uint32_t* tmp_dd, uint32_t tmp_dd_cap,
+        uint64_t* bytes_read_out)
+    {
+        /* Find max bucket size */
+        uint32_t max_bsz = 0;
+        for (uint64_t i = 0; i < n_bkts; i++) {
+            if (bkt_dbs[i] > max_bsz) max_bsz = bkt_dbs[i];
+        }
+        uint8_t* buf = (uint8_t*)malloc(max_bsz > 0 ? max_bsz : 1);
+        if (!buf) return -1;
 
-        for kmer in iterator:
-            _indptr = self._index_backed[kmer]
-            if ((_indptr.second - _indptr.first) >= count_at_most) or ((_indptr.second - _indptr.first) <= count_at_least):
-                continue
-            
-            vals[kmer] = np.unique(np.asarray(_data[_indptr.first:_indptr.second], dtype=np.uint32))
+        uint64_t n_results = 0, cells_used = 0, bytes_read = 0;
+        out_offsets[0] = 0;
+        uint32_t bo_cap = 4096;
+        uint32_t* bo = (uint32_t*)malloc(bo_cap * 4);
+        if (!bo) { free(buf); return -1; }
 
-        return vals
+        for (uint64_t bidx = 0; bidx < n_bkts; bidx++) {
+            uint32_t dsz = bkt_dbs[bidx];
+            if (dsz == 0 || bkt_hit_cnt[bidx] == 0) continue;
+            ssize_t rd = pread(fd, buf, dsz, bkt_dbo[bidx]);
+            if (rd <= 0) continue;
+            bytes_read += dsz;
+
+            const uint8_t* blk = buf;
+            int blk_len = (int)dsz;
+            const uint32_t* cur_lb = lb_pool + bkt_pool_off[bidx];
+            uint32_t cur_ne = bkt_ne[bidx];
+            uint32_t cur_hits = bkt_hit_cnt[bidx];
+
+            if (cur_hits > sparse_threshold) {
+                if (cur_ne > bo_cap) {
+                    bo_cap = cur_ne + 256; free(bo);
+                    bo = (uint32_t*)malloc(bo_cap * 4);
+                    if (!bo) { free(buf); return -1; }
+                }
+                build_bo_fast(blk, blk_len, cur_lb, cur_ne, bo, bkt_max_hit_pos[bidx]);
+            }
+
+            uint64_t h_start = bkt_hit_start[bidx];
+            for (uint32_t h = 0; h < cur_hits; h++) {
+                uint64_t idx = sort_order[h_start + h];
+                uint32_t pos = hit_spos[idx]; uint32_t dl = hit_dl[idx];
+                if (pos >= cur_ne) continue;
+                uint32_t byte_off = (cur_hits > sparse_threshold)
+                    ? bo[pos] : scan_to_byte_offset(blk, blk_len, cur_lb, pos);
+                if (byte_off >= (uint32_t)blk_len) continue;
+                if (cells_used + dl > out_cells_cap || dl > tmp_dd_cap) continue;
+                int decoded = decode_kmer_cells_fast(blk, blk_len, byte_off, dl, tmp_dd);
+                if (decoded <= 0) continue;
+                uint64_t cell_start = cells_used;
+                out_cells[cells_used++] = tmp_dd[0];
+                for (int j = 1; j < decoded; j++)
+                    if (tmp_dd[j] != tmp_dd[j-1]) out_cells[cells_used++] = tmp_dd[j];
+                if (cells_used > cell_start) {
+                    out_km[n_results] = hit_km[idx];
+                    out_offsets[n_results + 1] = cells_used;
+                    n_results++;
+                } else { cells_used = cell_start; }
+            }
+        }
+        *bytes_read_out = bytes_read;
+        free(bo); free(buf);
+        return (int)n_results;
+    }
+    #endif /* __linux__ */
     
-    cdef vector[pair[uint64_t, pair[uint64_t, uint64_t]]] _batch_find_in_hierarchy(self, 
-        vector[uint64_t]& kmers, int chunk_id):
-        """Optimized hierarchical search using linear scanning"""
-        cdef:
-            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] results
-            size_t current_pos = 0
-            size_t i, kmer_idx = 0
-            size_t num_kmers = kmers.size()
-            size_t chunk_size = 4096 * 256 * 10  # L2 cache-friendly
-            uint64_t current_kmer
-            np.ndarray level_data
-            uint64_t[::1] level_view
-            size_t level_size, indices_size
-            size_t range_start, range_end
-            
-        results.reserve(num_kmers)
-        indices_size = len(self.__index[f'index_{chunk_id}_indices'])
-        
-        for current_level in range(len(self.hierarchical_sizes) - 1, -1, -1):
-            level_data = self.index[f"hierarchical_{chunk_id}_level_{current_level}"][:]
-            level_view = level_data  # to mem view
-            level_size = level_view.shape[0]
-            current_pos = 0
-            kmer_idx = 0
-            
-            while kmer_idx < num_kmers:
-                chunk_end = min(kmer_idx + chunk_size, num_kmers)
-                
-                while kmer_idx < chunk_end:
-                    current_kmer = kmers[kmer_idx]
-                    
-                    while current_pos < level_size and level_view[current_pos] < current_kmer:
-                        current_pos += 1
-                    
-                    if current_level == 0:
-                        range_start = max(0, current_pos - 1) * self.page_size
-                        range_end = min((current_pos + 1) * self.page_size, indices_size)
-                        
-                        results.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](
-                            current_kmer,
-                            pair[uint64_t, uint64_t](range_start, range_end)
-                        ))
-                        
-                    kmer_idx += 1
-                    
-                    if current_pos >= level_size:
-                        current_pos = level_size - 1
-                
-                if kmer_idx % (chunk_size * 8) == 0:
-                    PyErr_CheckSignals()
-
-            if results.size() == num_kmers:
-                break
-                
-        return results
-
-    cdef vector[pair[uint64_t, size_t]] _find_exact_indices(self,
-        vector[pair[uint64_t, pair[uint64_t, uint64_t]]]& valid_ranges,
-        object indices_obj) except *:
-        """
-        Find exact indices using batched processing.
-        """
-        cdef:
-            vector[pair[uint64_t, size_t]] exact_indices
-            size_t i = 0
-            size_t total_ranges = valid_ranges.size()
-            size_t indices_size = indices_obj.shape[0]
-            
-        exact_indices.reserve(total_ranges)
-        
-        for i in range(total_ranges):
-            start_pos = valid_ranges[i].second.first
-            end_pos = valid_ranges[i].second.second
-            
-            if start_pos >= end_pos or start_pos >= indices_size:
-                continue
-
-            end_pos = min(end_pos, indices_size)
-            
-            indices_chunk = indices_obj[start_pos:end_pos]
-            
-            self._optimize_search_ranges_chunk(
-                &valid_ranges,
-                i,
-                1,
-                exact_indices,
-                indices_chunk,
-                start_pos
-            )
-        
-        return exact_indices
-
-    cdef void _optimize_search_ranges_chunk(self,
-            const vector[pair[uint64_t, pair[uint64_t, uint64_t]]]* ranges_ptr,
-            size_t range_start,
-            size_t range_count,
-            vector[pair[uint64_t, size_t]]& exact_indices,
-            const uint64_t[::1] indices_view,
-            size_t chunk_start) nogil:
-        """
-        Process a chunk of indices using dual-pointer approach.
-        """
-        cdef:
-            size_t range_idx = 0
-            size_t arr_idx = 0
-            size_t arr_size = indices_view.shape[0]
-            uint64_t current_kmer, current_value
-            size_t i
-
-        while range_idx < range_count:
-            current_kmer = deref(ranges_ptr)[range_start + range_idx].first
-            
-            arr_idx = 0
-            for i in range(arr_size):
-                if indices_view[i] == current_kmer:
-                    exact_indices.push_back(pair[uint64_t, size_t](
-                        current_kmer, i + chunk_start))
-                    break
-
-            range_idx += 1
-
-    cdef unordered_map[uint64_t, vector[uint32_t]] _find_kmer_constrained_memory(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0):
-        """Find kmers using binary search with optimized batch processing."""
-        cdef:
-            unordered_map[uint64_t, vector[uint32_t]] vals = unordered_map[uint64_t, vector[uint32_t]]()
-            vector[uint64_t] kmer_vec
-            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
-            vector[pair[uint64_t, size_t]] exact_indices  # Store kmer and its exact index
-            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] data_ranges
-            uint64_t kmer, start_idx, end_idx, data_start, data_end
-            vector[uint32_t] _set
-            int exact_idx
-            double t0, t1
-            size_t i, batch_size = 4096*256 # fit in L2/L3 cache
-            size_t max_chunk_size = 4096*256
-            size_t max_indptr_chunk_size = 1024
-            size_t REASONABLE_DISTANCE = 100_000
-            np.ndarray big_indices_chunk, big_data_chunk
-            
-        # Load full arrays once
-        _indices = self.__index[f'index_{chunk_id}_indices']
-        _indptr = self.__index[f'index_{chunk_id}_indptr']
-        _data = self.__index[f'index_{chunk_id}_data']
-
-        if self.verbose:
-            iterator = track(kmers, description=f'Processing kmers at chunk {chunk_id}')
-        else:
-            iterator = kmers
-
-        # Phase 1: Find all index ranges using batch hierarchy search
-        t0 = time.time()
-        for kmer in iterator:
-            kmer_vec.push_back(kmer)
-        
-        valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
-        t1 = time.time()
-        if self.verbose:
-            logging.info(f"Time finding hierarchical ranges: {t1-t0:.2f}s")
-
-        # Phase 2: Process indices with linear scan
-        t1 = time.time()
-        if self.verbose:
-            logging.info(f"Time finding hierarchical ranges: {t1-t0:.2f}s")
-
-        # Phase 2: Process indices with linear scan
-        t0 = time.time()
-        exact_indices = self._find_exact_indices(
-            valid_ranges,
-            self.__index[f'index_{chunk_id}_indices']
-        )
-        
-        t1 = time.time()
-        if self.verbose:
-            logging.info(f"Time processing indices: {t1-t0:.2f}s")
-
-        # Phase 3: Batch process indptr lookups
-        t0 = time.time()
-        data_ranges.reserve(exact_indices.size())
-        
-        # process indptr in larger chunks
-        i = 0
-        while i < exact_indices.size():
-            min_pos = exact_indices[i].second
-            max_pos = exact_indices[i].second
-            current_chunk_size = 2
-            chunk_end = i + 1
-
-            while (chunk_end < exact_indices.size()):
-                next_pos = exact_indices[chunk_end].second
-                potential_max = max(max_pos, next_pos)
-                potential_min = min(min_pos, next_pos)
-
-                potential_chunk_size = (potential_max - potential_min + 2)
-
-                if potential_chunk_size > max_indptr_chunk_size:
-                    break
-                
-                min_pos = potential_min
-                max_pos = potential_max
-                current_chunk_size = potential_chunk_size
-                chunk_end += 1
-            
-            indptr_chunk = _indptr[min_pos:max_pos + 2]
-            
-            for j in range(i, chunk_end):
-                kmer = exact_indices[j].first
-                pos = exact_indices[j].second - min_pos
-                
-                data_start = indptr_chunk[pos]
-                data_end = indptr_chunk[pos + 1] if pos + 1 < len(indptr_chunk) else len(_data)
-                
-                if ((data_end - data_start) < count_at_most and 
-                    (data_end - data_start) > count_at_least):
-                    data_ranges.push_back(pair[uint64_t, pair[uint64_t, uint64_t]](
-                        kmer,
-                        pair[uint64_t, uint64_t](data_start, data_end)
-                    ))
-
-            i = chunk_end
-        
-        t1 = time.time()
-        if self.verbose:
-            logging.info(f"Time processing indptr: {t1-t0:.2f}s")
-
-        # Phase 4: Batch process data lookups
-        t0 = time.time()
-        
-        i = 0
-        while i < data_ranges.size():
-            min_start = data_ranges[i].second.first
-            max_end = data_ranges[i].second.second
-            current_chunk_size = max_end - min_start
-            chunk_end = i + 1
-
-            # group ranges for efficiency
-            while (chunk_end < data_ranges.size()):
-                next_range_size = data_ranges[chunk_end].second.second - data_ranges[chunk_end].second.first
-                
-                # we don't add more to the chunk if exceed size
-                if current_chunk_size + next_range_size > max_chunk_size:
-                    break
-                
-                # Update max_end and total size
-                max_end = max(max_end, data_ranges[chunk_end].second.second)
-                current_chunk_size += next_range_size
-                chunk_end += 1
-                
-            # load (possibly grouped) data chunk
-            big_data_chunk = _data[min_start:max_end]
-            
-            # process ranges in chunk
-            for j in range(i, chunk_end):
-                kmer = data_ranges[j].first
-                start = data_ranges[j].second.first - min_start
-                end = data_ranges[j].second.second - min_start
-                
-                vals[kmer] = np.unique(np.asarray(big_data_chunk[start:end], dtype=np.uint32))
-
-            i = chunk_end
-        
-        t1 = time.time()
-        if self.verbose:
-            logging.info(f"Time processing data: {t1-t0:.2f}s")
-
-        return vals
-
-    cdef unordered_map[uint64_t, vector[uint32_t]] _find_kmer_adaptive(self, 
-        np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, 
-        uint32_t chunk_id=0, bint use_batched=False):
-        cdef:
-            unordered_map[uint64_t, vector[uint32_t]] vals = unordered_map[uint64_t, vector[uint32_t]]()
-            vector[uint64_t] kmer_vec
-            vector[pair[uint64_t, pair[uint64_t, uint64_t]]] valid_ranges
-            vector[pair[uint64_t, size_t]] exact_indices
-            uint64_t kmer
-            vector[uint32_t] _set
-            double t0, t1
-            size_t batch_size = 4096*256
-            size_t total_kmers = len(kmers)
-            size_t index_size
-            vector[uint64_t] starts
-            vector[uint64_t] ends
-            vector[uint64_t] filtered_kmers
-            size_t start_idx, end_idx
-            
-        _indices = self.__index[f'index_{chunk_id}_indices']
-        _indptr = self.__index[f'index_{chunk_id}_indptr']
-        _data = self.__index[f'index_{chunk_id}_data']
-        index_size = len(_indices)
-
-        if self.verbose:
-            iterator = track(kmers, description=f'Processing kmers at chunk {chunk_id}')
-        else:
-            iterator = kmers
-
-        # phase 1 same from _constrained_memory approach
-        # find all index ranges using batch hierarchy search
-        # TODO: do not repeat
-        for kmer in iterator:
-            kmer_vec.push_back(kmer)
-        
-        valid_ranges = self._batch_find_in_hierarchy(kmer_vec, chunk_id)
-        
-        # batch mode based on k-mers relative to index size or to the number of k-mers
-        # in the case of very large indices
-        # we only detect if it is False. When True, we force to True
-        # if use_batched == False:
-        #     use_batched = (
-        #         (total_kmers > min(index_size * 0.001, 500_000))
-        #     )
-        # we disable automatic batch mode detection for now... 
-        
-        if self.verbose:
-            logging.info(f"Strategy selected: {'batched' if use_batched else 'direct'}")
-        
-        if not use_batched:
-            starts.reserve(exact_indices.size())
-            ends.reserve(exact_indices.size())
-            
-            t0 = time.time()
-            exact_indices = self._find_exact_indices(valid_ranges, _indices)
-            t1 = time.time()
-            
-            if self.verbose:
-                logging.info(f"Time processing indices: {t1-t0:.2f}s")
-            
-            t0 = time.time()
-            slice_requests = []
-
-            # get all indptr values at once, then (meta)data
-            for i in range(exact_indices.size()):
-                idx = exact_indices[i].second
-                kmer = exact_indices[i].first
-                
-                start_idx = _indptr[idx]
-                if idx + 1 == len(_indptr):
-                    end_idx = len(_data) - 1
-                else:
-                    end_idx = _indptr[idx + 1]
-                
-                if ((end_idx - start_idx) < count_at_most and 
-                    (end_idx - start_idx) > count_at_least):
-                    starts.push_back(start_idx)
-                    ends.push_back(end_idx)
-                    slice_requests.append((start_idx, end_idx, kmer))
-                    filtered_kmers.push_back(kmer)
-
-            t1 = time.time()
-            if self.verbose:
-                logging.info(f"Time processing indptr: {t1-t0:.2f}s")
-            
-            if hasattr(_data, 'get_multiple_slices'):
-                t0 = time.time()
-                results = _data.get_multiple_slices(slice_requests)
-                
-                # Convert results to required format
-                for kmer in filtered_kmers:
-                    if kmer in results:
-                        vals[kmer] = np.unique(results[kmer])
-                
-                t1 = time.time()
-                if self.verbose:
-                    logging.info(f"Time processing data (batched): {t1-t0:.2f}s")
-            else:
-                t0 = time.time()
-                for i in range(starts.size()):
-                    kmer = filtered_kmers[i]
-                    start_idx = starts[i]
-                    end_idx = ends[i]
-                    
-                    vals[kmer] = np.unique(np.asarray(_data[start_idx:end_idx], dtype=np.uint32))
-
-                t1 = time.time()
-                if self.verbose:
-                    logging.info(f"Time processing data: {t1-t0:.2f}s")
-
-        else:
-            return self._find_kmer_constrained_memory(kmers, count_at_most, count_at_least, chunk_id)
-            
-        return vals
-        
-    cdef unordered_map[uint64_t, vector[uint32_t]] find_kmer(self, np.ndarray kmers, uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint use_batched=False):
-        """Enhanced find_kmer to support both standard and hierarchical approaches."""
-        if not self.using_hierarchical:
-            return self._find_kmer(kmers, count_at_most, count_at_least, chunk_id)
-        else:
-            return self._find_kmer_adaptive(kmers, count_at_most, count_at_least, chunk_id, use_batched)
-
-    cdef void _load_index_to_memory(self, int chunk_id = 0, size_t chunk_size=50_000_000, uint64_t count_at_most=10_000, uint32_t count_at_least=10):
-        cdef:
-            np.ndarray _indices_chunk, _indptr_chunk
-            size_t counts
-            size_t i = 0, start = 0, end = 0
-            size_t total_length, chunk_end
-
-        if self.n_chunks > 1:
-            logging.warning(f"Cannot process data split into more than 1 chunk. Processing chunk 0 out of {self.n_chunks}")
-
-        total_length = len(self.__index[f'index_{chunk_id}_indices'])
-
-        while start < total_length - 1:
-            end = min(start + chunk_size, total_length)
-            chunk_end = min(end + 1, total_length)
-
-            if chunk_end == end:
-                end = end - 1
-
-            _indices_chunk = self.__index[f'index_{chunk_id}_indices'][start:end]
-            _indptr_chunk = self.__index[f'index_{chunk_id}_indptr'][start:chunk_end]
-
-            for i in range(len(_indices_chunk)):
-                counts = _indptr_chunk[i+1] - _indptr_chunk[i]
-                # we will not query them anyway, so we can make the in-memory index more lightweight
-                if counts >= count_at_most or counts <= count_at_least:
-                    continue
-                self._index_backed[_indices_chunk[i]] = pair[uint64_t, uint64_t](_indptr_chunk[i], _indptr_chunk[i+1])
-
-            start = end
-
-        if end == total_length:
-            last_index = total_length - 1
-            self._index_backed[self.__index[f'index_{chunk_id}_indices'][last_index]] = pair[uint64_t, uint64_t](
-                self.__index[f'index_{chunk_id}_indptr'][last_index],
-                total_length
-            )
-
-    cdef void _load_index_to_constrained_memory(self, int chunk_id=0, int max_mem_bytes=0):
-        """Initialize hierarchical index structure if it doesn't exist."""
-        cdef:
-            str level_name = f"hierarchical_{chunk_id}_level_0"
-            str sizes_name = f"hierarchical_{chunk_id}_sizes"
-            np.ndarray sizes_array
-            size_t i
-        
-        if level_name not in self.index:
-            if self.verbose:
-                logging.info("Creating hierarchical index")
-            self._create_hierarchical_index(chunk_id)
-        else:
-            # Load existing hierarchical sizes
-            if self.verbose:
-                logging.info("Loading existing hierarchical index")
-            sizes_array = self.index[sizes_name][:]
-            self.hierarchical_sizes.clear()
-            for i in range(len(sizes_array)):
-                self.hierarchical_sizes.push_back(sizes_array[i])
-        
-        self.using_hierarchical = True
-
-    def load_index_to_memory(self, chunk_id: int = 0, chunk_size: int = 50_000_000, max_mem: str = None, force: bool = False, uint64_t count_at_most=10_000, uint32_t count_at_least=10):
-        max_mem_bytes = convert_to_bytes(max_mem) if max_mem is not None else 0
-
-        if (not self._index_backed.empty() or self.using_hierarchical) and not force:
-            return
-        
-        # we make sure to clear both backed and constrained index
-        # in case we load different modes at different times
-        self._index_backed.clear()
-        self.using_hierarchical = False
-
-        if max_mem_bytes <= 0:
-            self._load_index_to_memory(chunk_id, chunk_size, count_at_most, count_at_least)
-        else:
-            self._load_index_to_constrained_memory(chunk_id, max_mem_bytes)
-
-    def set_background_model(self, BackgroundModel background_model):
-        self.background_model = background_model
-
-    def get_whole_sliding_sequence(self, string, k):
-        return [string[i:] for i in range(k) if len(string[i:]) >= k]
-
-    def get_whole_sliding_sequence_chunk(self, string, sliding_size):
-        n = len(string)
-        all_sliding = []
-    
-        for i in range(0, n - sliding_size + 1):
-            sliding_string = string[i:i+sliding_size]
-            all_sliding.append(sliding_string)
-
-        return all_sliding
-
-    def where(self, sequence: Union[str, List[str], List[List[str]]], sliding_size: int=128, pct_threshold: float=0.65, 
-            count_at_most: int=10_000, count_at_least: int=10, chunk_id: int = 0, single_count: bool = False, 
-            max_mem: object = '1M', force_reload: bool = False, use_background_model: bool = True, use_batched: bool = False, *args, **kwargs):
-        """
-        Locate spatial positions where a sequence or set of sequences appear.
-        
-        Parameters:
-            sequence (Union[str, List[str], List[List[str]]]): Query sequence(s) to search for.
-                                                            If List[List[str]], each sublist represents isoforms
-                                                            of the same gene that should be quantified together.
-            sliding_size (int): Size of sliding window for k-mer generation. 
-                                When < 0, will not use sliding windows but the whole sequence, and should be set to -(read_length)
-            pct_threshold (float): Minimum percentage of matching k-mers required
-            count_at_most (int): Maximum count threshold for k-mer consideration
-            count_at_least (int): Minimum count threshold for k-mer consideration
-            chunk_id (int): Index chunk to search in
-            single_count (bool): Whether to count each match only once
-            max_mem (str): Maximum memory constraint
-            force_reload (bool): Force index reload
-            use_background_model (bool): Use background model for filtering
-            use_batched (bool): For lazy loading, whether to use batching. When False, it detects automatically. When True, it forces to batched.
-
-        Returns:
-            List[Tuple]: List of tuples, one per group (or single tuple if input is str/List[str]), each containing:
-                - np.ndarray: Spatial locations where sequences were found
-                - np.ndarray: Count of occurrences at each location
-                - List: Matching details for sequence positions
-        """
-
-        return self._where(sequence, sliding_size, pct_threshold, count_at_most, count_at_least, chunk_id, single_count,
-                                  max_mem, force_reload, use_background_model, use_batched)    
-
-    cdef object _where(self, object sequence, int sliding_size=128, float pct_threshold=0.65, 
-        uint64_t count_at_most=10_000, uint32_t count_at_least=10, uint32_t chunk_id=0, bint single_count=False, 
-        object max_mem='1M', bint force_reload=False, bint use_background_model=True, bint use_batched=False):
-        cdef:
-            list sequence_groups = []
-            FastKmerProcessor processor
-            np.ndarray all_kmer_list
-            unordered_map[uint64_t, vector[uint32_t]] current_kmers
-            list results = []
-            float CONST_THRESHOLD
-            int BACKGROUND_THRESHOLD = 1
-            uint32_t max_cell_id = self.n_spatial
-            list seq_matches = [[0, 1]]
-            uint32_t kmers_per_read
-            uint32_t _sliding_size
-            uint64_t kmer_val
-            bint is_above_cutoff
-            uint32_t i, j, idx_kmer, value, idx
-            bint use_vector
-            Py_ssize_t num_groups
-            Py_ssize_t gkl_len
-            vector[pair[uint32_t, uint32_t]] cell_counts
-            vector[uint32_t] cell_counts_updated
-            unordered_map[uint32_t, pair[uint32_t, uint32_t]] primary_map
-            unordered_map[uint32_t, uint32_t] secondary_map
-            vector[uint32_t] values
-            vector[uint32_t].iterator it
-            unordered_map[uint32_t, pair[uint32_t, uint32_t]].iterator map_it 
-            unordered_map[uint32_t, uint32_t].iterator sec_it
-            np.ndarray[np.uint32_t, ndim=1] kmer_locations
-            np.ndarray[np.uint32_t, ndim=1] kmer_count
-            object iterator, subseq, group, seq, split_sliding_sequences
-            vector[uint32_t]* values_ptr
-            vector[uint32_t].iterator end_it
-
-        # Input validation
-        if pct_threshold < 0 or pct_threshold > 1:
-            raise ValueError("`pct_threshold` must be a valid value between 0 and 1")
-
-        # Normalize input into sequence groups
-        sequence_groups = []
-        if isinstance(sequence, str):
-            sequence_groups = [[sequence]]
-        elif isinstance(sequence, list) and all(isinstance(s, str) for s in sequence):
-            sequence_groups = [sequence]
-        elif isinstance(sequence, list) and all(isinstance(s, list) for s in sequence):
-            sequence_groups = sequence
-        else:
-            raise ValueError("sequence must be str, List[str], or List[List[str]]")
-
-        # Process k-mers from sequences
-        processor = FastKmerProcessor(self.kmer_size, True, self.kmer_size)
-        all_kmer_list = processor.process_sequences(sequence_groups)
-
-        if self.verbose:
-            logging.info(f"Will process {len(all_kmer_list)} {self.kmer_size}-mers across all sequence groups")
-
-        if len(all_kmer_list) == 0:
-            return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * len(sequence_groups)
-
-        # Load index and find kmers
-        self.load_index_to_memory(
-            chunk_id=chunk_id, 
-            max_mem=max_mem, 
-            force=force_reload, 
-            count_at_most=count_at_most, 
-            count_at_least=count_at_least
-        )
-        
-        # Find all k-mers
-        current_kmers = self.find_kmer(
-            all_kmer_list, 
-            count_at_most=count_at_most, 
-            count_at_least=count_at_least, 
-            chunk_id=chunk_id, 
-            use_batched=use_batched
-        )
-
-        if self.verbose:
-            logging.info(f"Found {len(current_kmers)} {self.kmer_size}-mers across all sequence groups that pass filters")
-
-        num_groups = len(sequence_groups)
-
-        # Process each sequence group
-        for i in range(num_groups):
-            group = sequence_groups[i]
-            
-            # TODO: this is slow, though. Takes 2 minutes for 10,000 sequences. There's room for improvement.
-            # Prepare the sliding sequences for this group
-            split_sliding_sequences = set()
-            for seq in group:
-                _sliding_size = sliding_size if sliding_size > 0 else len(seq) - self.kmer_size
-                split_sliding_sequences.update(set(self.get_whole_sliding_sequence_chunk(seq, _sliding_size)))
-            
-            if self.verbose:
-                iterator = track(list(split_sliding_sequences), description=f'Counting occurrences at kmers for group')
-            else:
-                iterator = list(split_sliding_sequences)
-            
-            # Setup for vector or map approach
-            use_vector = max_cell_id < 100000000
-            primary_map.clear()
-            secondary_map.clear()
-            
-            if use_vector:
-                cell_counts.clear()
-                cell_counts.resize(max_cell_id + 1, pair[uint32_t, uint32_t](0, 0))
-                cell_counts_updated.clear()
-                cell_counts_updated.reserve(max_cell_id // 10)
-
-            # Process each subsequence
-            for subseq in iterator:
-                # if PyErr_CheckSignals() != 0:  # Check for interrupts
-                #     raise KeyboardInterrupt("Operation interrupted")
-                    
-                # Calculate sliding size and constants
-                _sliding_size = sliding_size if sliding_size > 0 else len(subseq)
-                
-                CONST_THRESHOLD = (sliding_size//self.kmer_size) * pct_threshold
-                if sliding_size <= 0:
-                    CONST_THRESHOLD = (abs(sliding_size)//self.kmer_size) * pct_threshold
-                
-                kmers_per_read = <uint32_t>(_sliding_size//self.kmer_size)
-                group_kmer_list = get_kmers_numeric(subseq, self.kmer_size, remove_noncomplex=True)
-                gkl_len = len(group_kmer_list)
-                
-                # Process k-mers within this subsequence
-                for idx_kmer in range(gkl_len):
-                    kmer_val = group_kmer_list[idx_kmer]
-
-                    if kmer_val == 0 or current_kmers.find(kmer_val) == current_kmers.end():
-                        continue
-
-                    if use_background_model and self.background_model.is_mer_above_cutoff(kmer_val, BACKGROUND_THRESHOLD):
-                        continue
-                    
-                    values_ptr = &current_kmers[kmer_val]
-                    
-                    it = values_ptr.begin()
-                    end_it = values_ptr.end()
-                    
-                    with nogil:
-                        while it != end_it:
-                            value = deref(it)
-                            
-                            if use_vector and value < max_cell_id:
-                                if cell_counts[value].first == 0:
-                                    cell_counts_updated.push_back(value)
-                                
-                                cell_counts[value].first += 1
-                                cell_counts[value].second = idx_kmer
-
-                                cell_counts[value].first = min(cell_counts[value].first, kmers_per_read)
-                            elif not use_vector:
-                                if primary_map.find(value) == primary_map.end():
-                                    primary_map[value].first = 1
-                                else:
-                                    primary_map[value].first += 1
-                                
-                                primary_map[value].second = idx_kmer
-                                primary_map[value].first = min(primary_map[value].first, kmers_per_read)
-                                    
-                            inc(it)
-                    
-                    # Only update secondary_map at end of read or batch
-                    if ((idx_kmer + 1) < kmers_per_read) and ((idx_kmer + 1) < gkl_len):
-                        continue
-                    
-                    # Update secondary_map
-                    with nogil:
-                        if use_vector:
-                            for j in range(cell_counts_updated.size()):
-                                value = cell_counts_updated[j]
-                                if secondary_map.find(value) == secondary_map.end() and cell_counts[value].first > CONST_THRESHOLD:
-                                    secondary_map[value] = 1
-                                elif cell_counts[value].first > CONST_THRESHOLD and not single_count:
-                                    cell_counts[value].first = 0
-                                    secondary_map[value] += 1
-                                
-                                if cell_counts[value].second - idx_kmer > 0 and cell_counts[value].first > 0:
-                                    cell_counts[value].first = <int32_t>(cell_counts[value].first) - 1
-                        else:
-                            map_it = primary_map.begin()
-                            while map_it != primary_map.end():
-                                value = deref(map_it).first
-                                if secondary_map.find(value) == secondary_map.end() and primary_map[value].first > CONST_THRESHOLD:
-                                    secondary_map[value] = 1
-                                elif primary_map[value].first > CONST_THRESHOLD and not single_count:
-                                    primary_map[value].first = 0
-                                    secondary_map[value] += 1
-                                
-                                if primary_map[value].second - idx_kmer > 0 and primary_map[value].first > 0:
-                                    primary_map[value].first = <int32_t>(primary_map[value].first) - 1
-                                    
-                                inc(map_it)
-
-                if use_vector:
-                    for j in range(cell_counts_updated.size()):
-                        value = cell_counts_updated[j]
-                        cell_counts[value] = pair[uint32_t, uint32_t](0, 0)
-                    cell_counts_updated.clear()
-                else:
-                    primary_map.clear()
-            
-            # Convert results to numpy arrays
-            kmer_locations = np.empty(secondary_map.size(), dtype=np.uint32)
-            kmer_count = np.empty(secondary_map.size(), dtype=np.uint32)
-            
-            idx = 0
-            sec_it = secondary_map.begin()
-            while sec_it != secondary_map.end():
-                kmer_locations[idx] = deref(sec_it).first
-                kmer_count[idx] = deref(sec_it).second
-                idx += 1
-                inc(sec_it)
-            
-            results.append((kmer_locations, kmer_count, seq_matches))
-        
-        return results
-
-cdef struct LineData:
-    float x
-    float y
-    uint64_t cell_bc
-
-# TODO: rename and reorganize to BarcodeIndex
-# TODO: then there's a SpatialIndex class inherited from BarcodeIndex
-# TODO: this also gets the flavor, and chooses the reader based on that
-cdef class SpatialIndex:
     """
-    Manages spatial coordinates and their associated cell barcodes.
+    void prefetch_range(const void* addr, size_t len) nogil
+    void hint_sequential(const void* addr, size_t len) nogil
+    void release_range(const void* addr, size_t len) nogil
+    void CPU_PREFETCH(const void* addr) nogil
+    enum: INITIAL_BUCKET_CAPACITY
+    enum: MAX_DATA_PER_BUCKET
 
-    Provides efficient lookup and storage of spatial positions indexed by cell barcodes.
-    Supports both standard spatial transcriptomics and STOmics data formats.
+    uint32_t decomp_suffix_into(
+        const uint8_t* buf, int buf_len,
+        uint32_t* suf_out, uint32_t* len_out) nogil
+
+    # NEW: early-stop variant — decodes lengths only up to stop_at index
+    uint32_t decomp_suffix_into_upto(
+        const uint8_t* buf, int buf_len,
+        uint32_t* suf_out, uint32_t* len_out,
+        uint32_t stop_at) nogil
+
+    # Two-phase suffix decode: suffix array only, then lengths on demand
+    uint32_t decomp_suffixes_only(
+        const uint8_t* buf, int buf_len,
+        uint32_t* suf_out,
+        int* len_section_pos_out) nogil
+
+    void decode_lengths_upto(
+        const uint8_t* buf, int buf_len,
+        int len_pos,
+        uint32_t* len_out,
+        uint32_t stop_at) nogil
+
+    void build_bo_fast(
+        const uint8_t* blk, int blk_len,
+        const uint32_t* lb, uint32_t ne,
+        uint32_t* bo, uint32_t stop_at) nogil
+
+    # NEW: direct scan to a single byte offset — avoids full bo table for sparse hits
+    uint32_t scan_to_byte_offset(
+        const uint8_t* blk, int blk_len,
+        const uint32_t* lb, uint32_t pos) nogil
+
+    int decode_kmer_cells_fast(
+        const uint8_t* blk, int blk_len,
+        uint32_t byte_off, uint32_t cell_count,
+        uint32_t* out) nogil
+
+    int uring_read_decode_all(
+        int fd,
+        const uint64_t* bkt_dbo,
+        const uint32_t* bkt_dbs,
+        const uint32_t* bkt_pool_off,
+        const uint32_t* bkt_ne,
+        const uint32_t* bkt_hit_count,
+        const uint32_t* bkt_max_hit_pos,
+        const uint32_t* lb_pool,
+        uint64_t n_bkts,
+        const uint64_t* sort_order,
+        const uint64_t* hit_km,
+        const uint32_t* hit_bidx,
+        const uint32_t* hit_spos,
+        const uint32_t* hit_dl,
+        uint64_t n_hits,
+        const uint64_t* bkt_hit_start,
+        const uint32_t* bkt_hit_cnt,
+        uint32_t sparse_threshold,
+        uint64_t* out_km,
+        uint32_t* out_cells,
+        uint64_t* out_offsets,
+        uint64_t  out_cells_cap,
+        uint32_t* tmp_dd,
+        uint32_t  tmp_dd_cap,
+        uint64_t* bytes_read_out) nogil
+
+# ── Open-addressing hash table for fast cell ID remap ─────────────────────────
+# Power-of-2 table with linear probing.  Keys are original cell IDs (uint32_t).
+# Values are compact IDs (uint32_t).  Empty sentinel = 0xFFFFFFFF.
+# Table size is 2× the expected unique count (load factor ≤ 0.5).
+cdef extern from *:
     """
-    cdef:
-        map[uint64_t, uint32_t] index
-        vector[pair[float, float]] coords
-        vector[pair[uint16_t, uint16_t]] coords_stomics
+    #include <string.h>
+    #include <stdlib.h>
+    #include <stdint.h>
+
+    /* ── Open-addressing hash map: uint32 → uint32 ─────────────────────── */
+    typedef struct {
+        uint32_t* keys;       /* 0xFFFFFFFF = empty */
+        uint32_t* vals;
+        uint32_t  mask;       /* table_size - 1, always power-of-2 */
+        uint32_t  n_unique;   /* number of distinct keys inserted */
+    } OAHash32;
+
+    static inline void oahash_init(OAHash32* h, uint32_t expected) {
+        /* Round up to next power of 2, then 2× for load factor ≤ 0.5 */
+        uint32_t sz = 1;
+        while (sz < expected * 2 + 16) sz <<= 1;
+        h->keys = (uint32_t*)malloc((size_t)sz * 4);
+        h->vals = (uint32_t*)malloc((size_t)sz * 4);
+        h->mask = sz - 1;
+        h->n_unique = 0;
+        memset(h->keys, 0xFF, (size_t)sz * 4);  /* fill with sentinel */
+    }
+
+    static inline void oahash_free(OAHash32* h) {
+        free(h->keys); free(h->vals);
+        h->keys = NULL; h->vals = NULL;
+    }
+
+    /* Insert-or-lookup.  Returns compact ID for `key`. */
+    static inline uint32_t oahash_insert(OAHash32* h, uint32_t key) {
+        uint32_t idx = (key * 2654435761u) & h->mask;  /* Knuth multiplicative hash */
+        while (1) {
+            uint32_t k = h->keys[idx];
+            if (k == key) return h->vals[idx];          /* already present */
+            if (k == 0xFFFFFFFFu) {                     /* empty slot */
+                h->keys[idx] = key;
+                h->vals[idx] = h->n_unique;
+                return h->n_unique++;
+            }
+            idx = (idx + 1) & h->mask;
+        }
+    }
+
+    /* Lookup only (no insert).  Returns compact ID, or 0xFFFFFFFF if missing. */
+    static inline uint32_t oahash_lookup(const OAHash32* h, uint32_t key) {
+        uint32_t idx = (key * 2654435761u) & h->mask;
+        while (1) {
+            uint32_t k = h->keys[idx];
+            if (k == key) return h->vals[idx];
+            if (k == 0xFFFFFFFFu) return 0xFFFFFFFFu;
+            idx = (idx + 1) & h->mask;
+        }
+    }
+
+    /* ── Binary search on sorted uint64 array ──────────────────────────── */
+    static inline int64_t bsearch_u64(const uint64_t* arr, int64_t n, uint64_t target) {
+        int64_t lo = 0, hi = n - 1, mid;
+        while (lo <= hi) {
+            mid = (lo + hi) >> 1;
+            if (arr[mid] == target) return mid;
+            else if (arr[mid] < target) lo = mid + 1;
+            else hi = mid - 1;
+        }
+        return -1;
+    }
+
+    /* ── Remap a flat cell array in-place using OAHash32 ───────────────── */
+    static inline uint32_t remap_cells_flat(
+        uint32_t* __restrict__ cells, uint64_t n_cells,
+        OAHash32* h)
+    {
+        for (uint64_t i = 0; i < n_cells; i++) {
+            cells[i] = oahash_insert(h, cells[i]);
+        }
+        return h->n_unique;
+    }
+    """
+    ctypedef struct OAHash32:
+        uint32_t* keys
+        uint32_t* vals
+        uint32_t  mask
+        uint32_t  n_unique
+
+    void oahash_init(OAHash32* h, uint32_t expected) nogil
+    void oahash_free(OAHash32* h) nogil
+    uint32_t oahash_insert(OAHash32* h, uint32_t key) nogil
+    uint32_t oahash_lookup(const OAHash32* h, uint32_t key) nogil
+    int64_t bsearch_u64(const uint64_t* arr, int64_t n, uint64_t target) nogil
+    uint32_t remap_cells_flat(uint32_t* cells, uint64_t n_cells, OAHash32* h) nogil
+
+
+cdef uint32_t MAGIC = 0x4D4C5650
+cdef uint32_t VERSION = 2
+
+# Threshold for sparse-hit path in phase2.
+# Buckets with <= this many hits use scan_to_byte_offset per hit.
+# Buckets with more hits use build_bo_fast (amortises the full scan).
+# Value of 4 means: 1-4 hits → sparse path, 5+ hits → dense path.
+# Given ~99% of buckets are single-hit, almost all buckets use sparse path.
+DEF SPARSE_HIT_THRESHOLD = 4
+
+cdef bint compare_kmer_cell(const pair[uint64_t, uint32_t]& a,
+                             const pair[uint64_t, uint32_t]& b) nogil:
+    if a.first != b.first: return a.first < b.first
+    return a.second < b.second
+
+
+# ── LEB128 helpers (kept for write path) ──────────────────────────────────────
+cdef inline int _encode_varint(uint32_t val, uint8_t* buf) nogil:
+    cdef int n = 0
+    while val >= 0x80:
+        buf[n] = <uint8_t>((val & 0x7F) | 0x80); n += 1; val >>= 7
+    buf[n] = <uint8_t>(val); n += 1
+    return n
+
+cdef inline uint32_t _decode_varint(const uint8_t* buf, int* bytes_read) nogil:
+    cdef uint32_t val = 0, shift = 0
+    cdef int n = 0
+    cdef uint8_t b
+    while True:
+        b = buf[n]; n += 1
+        val |= (<uint32_t>(b & 0x7F)) << shift
+        if (b & 0x80) == 0: break
+        shift += 7
+        if shift >= 35: break
+    bytes_read[0] = n
+    return val
+
+cdef inline int _skip_n_varints_fast(const uint8_t* p, int max_bytes,
+                                      uint32_t count) nogil:
+    cdef int pos = 0
+    cdef uint32_t found = 0
+    while found < count and pos < max_bytes:
+        if (p[pos] & 0x80) == 0: found += 1
+        pos += 1
+    return pos
+
+
+# ── PrefixIndex ────────────────────────────────────────────────────────────────
+cdef class PrefixIndex:
 
     def __cinit__(self):
-        self.index = map[uint64_t, uint32_t]()
-        self.coords = vector[pair[float, float]]()
-        self.coords_stomics = vector[pair[uint16_t, uint16_t]]()
+        self.pi_suffix_offsets = NULL; self.pi_data_offsets = NULL
+        self.pi_data_sizes = NULL; self.suffix_mmap = NULL
+        self.data_mmap = NULL; self.data_size = 0
+        self.data_fd = -1; self.is_open = False
+        self._last_query_times = {}
+        self._csr_mode = False
+        self._csr_km = None
+        self._csr_cells = None
+        self._csr_offsets = None
+        self._csr_n_results = 0
 
-    cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
-        self.index[cell_bc] = i
+    def __dealloc__(self): self.close()
 
-    def lookup(self, uint64_t key):
-        """Python-accessible barcode lookup. Returns 0 if not found."""
-        return self.get_key(key)
+    def open(self, str index_dir, str mode='r'):
+        self.index_dir = index_dir
+        self.pi_path      = os.path.join(index_dir, 'pi.bin')
+        self.suffix_path  = os.path.join(index_dir, 'suffixes.bin')
+        self.data_path    = os.path.join(index_dir, 'data.bin')
+        self.meta_path    = os.path.join(index_dir, 'meta.json')
+        if not os.path.exists(self.meta_path):
+            raise FileNotFoundError(f"Not found: {self.meta_path}")
+        with open(self.meta_path, 'r') as f:
+            meta = json.load(f)
+        self.l_prefix    = meta['l_prefix']
+        self.l_suffix    = meta['l_suffix']
+        self.kmer_size   = meta['kmer_size']
+        self.n_kmers     = meta.get('n_kmers', 0)
+        self.n_cells     = meta.get('n_cells', 0)
+        self.n_prefixes  = 1 << (2 * self.l_prefix)
+        self.rshift      = 2 * self.l_suffix
+        self.suffix_mask = (1 << (2 * self.l_suffix)) - 1
 
-    def get_coords(self):
-        cdef np.ndarray[np.float32_t, ndim=2] arr = np.empty((self.coords.size(), 2), dtype=np.float32)
-        cdef size_t i
-        for i in range(self.coords.size()):
-            arr[i, 0] = self.coords[i].first
-            arr[i, 1] = self.coords[i].second
-        return arr
+        pi_mm = np.memmap(self.pi_path, dtype=np.uint8, mode='r')
+        self._pi_arr_ref = pi_mm
+        cdef const unsigned char* pp = <const unsigned char*>(<np.ndarray>pi_mm).data
+        cdef uint64_t oss = self.n_prefixes * 8
+        self.pi_suffix_offsets = <uint64_t*>(pp)
+        self.pi_data_offsets   = <uint64_t*>(pp + oss)
+        self.pi_data_sizes     = <uint32_t*>(pp + 2 * oss)
 
-    def num_items(self):
-        return self.index.size()
+        cdef uint64_t ss = os.path.getsize(self.suffix_path)
+        if ss > 0:
+            suf_mm = np.memmap(self.suffix_path, dtype=np.uint8, mode='r')
+            self._suf_arr_ref = suf_mm
+            self.suffix_mmap = <const unsigned char*>(<np.ndarray>suf_mm).data
+        else:
+            self.suffix_mmap = NULL; self._suf_arr_ref = None
 
-    cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
-        return self.index[key]
+        cdef uint64_t ds = os.path.getsize(self.data_path)
+        self.data_size = ds
+        if ds > 0:
+            dat_mm = np.memmap(self.data_path, dtype=np.uint8, mode='r')
+            self._dat_arr_ref = dat_mm
+            self.data_mmap = <const unsigned char*>(<np.ndarray>dat_mm).data
+        else:
+            self.data_mmap = NULL; self._dat_arr_ref = None
 
-    def save_binary(self, str filename):
-        cdef FILE* file = fopen(filename.encode('ascii'), "wb")
-        if file == NULL:
-            raise IOError(f"Cannot open file {filename} for writing")
+        self.data_file_obj = None; self.data_fd = -1; self.is_open = True
+        logging.info(f"Opened prefix index: {self.n_kmers:,} kmers, "
+                     f"l_prefix={self.l_prefix}, data={ds/1e9:.1f}GB")
 
-        # Write size of the map
-        cdef size_t size = self.index.size()
-        fwrite(&size, sizeof(size_t), 1, file)
+    def close(self):
+        self._pi_arr_ref = None; self._suf_arr_ref = None; self._dat_arr_ref = None
+        self.pi_suffix_offsets = NULL; self.pi_data_offsets = NULL
+        self.pi_data_sizes = NULL; self.suffix_mmap = NULL
+        self.data_mmap = NULL; self.data_fd = -1; self.is_open = False
 
-        # Write contents: key, x, y
+    @property
+    def is_loaded(self): return self.is_open
+
+    # ── legacy scalar decomp (kept for build/merge path) ──────────────────
+    cdef int _decompress_suffix_bucket(self, uint64_t so, uint32_t* s,
+                                        uint64_t* d, uint32_t* l, uint32_t capacity):
+        cdef const unsigned char* p = self.suffix_mmap + so
+        cdef uint32_t n, i, prev_suf, delta, cum_offset
+        cdef int br
+        memcpy(&n, p, 4); p += 4
+        if n > capacity: return -<int>n
+        if n > 0:
+            memcpy(&prev_suf, p, 4); p += 4
+            s[0] = prev_suf
+            for i in range(1, n):
+                delta = _decode_varint(<const uint8_t*>p, &br); p += br
+                prev_suf += delta; s[i] = prev_suf
+            cum_offset = 0
+            for i in range(n):
+                l[i] = _decode_varint(<const uint8_t*>p, &br); p += br
+                d[i] = <uint64_t>cum_offset
+                cum_offset += l[i]
+        return <int>n
+
+    cdef const uint8_t* _get_compressed_data_ptr(self, uint64_t off,
+                                                   uint32_t sz) nogil:
+        if self.data_mmap != NULL and off + sz <= self.data_size:
+            return <const uint8_t*>(self.data_mmap + off)
+        return NULL
+
+    cdef int _skip_n_varints(self, const uint8_t* p, int max_bytes,
+                              uint32_t count) nogil:
+        return _skip_n_varints_fast(p, max_bytes, count)
+
+    cdef int _decode_data_block(self, const uint8_t* compressed, int compressed_size,
+                                 uint32_t* lengths, int n_entries,
+                                 uint32_t* out, uint32_t cap):
+        cdef int br, pos = 0
+        cdef uint32_t i, j, total = 0, prev_cell, delta, cell_count
+        for i in range(n_entries):
+            cell_count = lengths[i]
+            if total + cell_count > cap: break
+            if cell_count > 0 and pos + 4 <= compressed_size:
+                memcpy(&prev_cell, &compressed[pos], 4); pos += 4
+                out[total] = prev_cell; total += 1
+                for j in range(1, cell_count):
+                    if pos >= compressed_size: break
+                    delta = _decode_varint(&compressed[pos], &br); pos += br
+                    prev_cell += delta; out[total] = prev_cell; total += 1
+        return <int>total
+
+    cdef int _binary_search_u32(self, const uint32_t* a, int n, uint32_t t):
+        cdef int lo = 0, hi = n - 1, mid
+        while lo <= hi:
+            mid = (lo + hi) >> 1
+            if a[mid] == t: return mid
+            elif a[mid] < t: lo = mid + 1
+            else: hi = mid - 1
+        return -1
+
+    cdef int _decode_single_kmer_data(self, const uint8_t* p, int max_bytes,
+                                       uint32_t cell_count,
+                                       uint32_t* out) nogil:
+        return decode_kmer_cells_fast(p, max_bytes, 0, cell_count, out)
+
+    cdef int _stream_lookup_and_decode(self, uint64_t so, uint32_t target_suffix,
+                                        uint32_t cam, uint32_t cal,
+                                        const uint8_t* data_block, int data_bytes,
+                                        uint32_t* out, uint32_t out_cap) nogil:
+        cdef const unsigned char* p = self.suffix_mmap + so
+        cdef uint32_t n, i, j, prev_suf, delta, length_i, target_length
+        cdef int br, found_pos = -1
+        memcpy(&n, p, 4); p += 4
+        if n == 0: return 0
+        memcpy(&prev_suf, p, 4); p += 4
+        if prev_suf == target_suffix: found_pos = 0
+        elif prev_suf > target_suffix: return 0
+        else:
+            for i in range(1, n):
+                delta = _decode_varint(<const uint8_t*>p, &br); p += br
+                prev_suf += delta
+                if prev_suf == target_suffix: found_pos = <int>i; break
+                elif prev_suf > target_suffix: return 0
+            if found_pos < 0: return 0
+        for i in range(<uint32_t>(found_pos + 1), n):
+            _decode_varint(<const uint8_t*>p, &br); p += br
+        cdef int data_pos = 0
+        for i in range(<uint32_t>found_pos):
+            length_i = _decode_varint(<const uint8_t*>p, &br); p += br
+            if length_i > 0 and data_pos + 4 <= data_bytes:
+                data_pos += 4
+                for j in range(1, length_i):
+                    if data_pos >= data_bytes: break
+                    _decode_varint(&data_block[data_pos], &br); data_pos += br
+        target_length = _decode_varint(<const uint8_t*>p, &br)
+        if target_length >= cam or target_length <= cal: return 0
+        if target_length == 0: return 0
+        if target_length > out_cap: return 0
+        return decode_kmer_cells_fast(data_block, data_bytes,
+                                      <uint32_t>data_pos, target_length, out)
+
+    # ── FAST BATCH QUERY ──────────────────────────────────────────────────────
+    cdef unordered_map[uint64_t, vector[uint32_t]] query_batch(
+            self, uint64_t* qk, uint64_t nq,
+            uint32_t cam, uint32_t cal):
+        """
+        Optimised 6-step batch query.
+
+        Optimisations vs previous version:
+          • Step 3 (suf_decomp): decomp_suffix_into_upto() — length array decoded
+            only up to the deepest hit position per bucket, not the full N entries.
+            For zero-hit buckets the length section is skipped entirely.
+            Expected saving: ~30-50% of suf_decomp time.
+
+          • Step 3+4 interleaving: binary search happens immediately after suffix
+            decode, BEFORE length decode, so we know max_hit_pos before we start
+            the length scan. This enables the early-stop in decomp_suffix_into_upto.
+
+          • Step 6 (phase2): for buckets with <= SPARSE_HIT_THRESHOLD hits,
+            scan_to_byte_offset() replaces build_bo_fast(). This scans forward
+            only as far as needed for each individual hit, rather than building
+            a full byte-offset table up to max_spos. For the ~99% single-hit
+            buckets this is the dominant saving. For dense buckets (5+ hits)
+            build_bo_fast is still used (amortises full scan cost).
+
+          • Step 5: io_uring batch read (unchanged from previous version).
+          • Step 3 capacity retry: only re-decompresses failed buckets.
+        """
+        cdef unordered_map[uint64_t, vector[uint32_t]] res
+        if self.pi_suffix_offsets == NULL or self.suffix_mmap == NULL or nq == 0:
+            return res
+
+        # ── declarations ──────────────────────────────────────────────────────
+        cdef double t0_total = time.perf_counter()
+        cdef double t0
+        cdef double acc_suf_read = 0.0, acc_suf = 0.0, acc_bsearch = 0.0
+        cdef double acc_dat_read = 0.0, acc_phase2 = 0.0
+        cdef double t_total
+        cdef uint64_t n_suf_bytes = 0, n_dat_bytes = 0, n_buckets_touched = 0
+
+        cdef uint64_t i, j, km, pf, so, dbo, qi, qj
+        cdef uint64_t bki, ob
+        cdef uint32_t sv, dbs, dl, ki
+        cdef int pos, ne, ne_ret, decoded
+        cdef vector[uint32_t] cl
+        cdef bint any_hit
+
+        # CSR mode locals
+        cdef np.ndarray _csr_km_arr, _csr_offsets_arr, _csr_cells_arr
+        cdef uint64_t _total_cells
+
+        # step 1
+        cdef uint64_t bkt_cap = min(nq + 256, <uint64_t>16777216)
+        cdef uint64_t n_bkts = 0
+        cdef uint64_t* bkt_so   = <uint64_t*>malloc(bkt_cap * 8)
+        cdef uint64_t* bkt_dbo  = <uint64_t*>malloc(bkt_cap * 8)
+        cdef uint32_t* bkt_dbs  = <uint32_t*>malloc(bkt_cap * 4)
+        cdef uint32_t* bkt_ne   = <uint32_t*>malloc(bkt_cap * 4)
+        cdef uint32_t* bkt_peek = <uint32_t*>malloc(bkt_cap * 4)
+        cdef unordered_map[uint64_t, uint32_t] dbo_to_bidx
+        cdef uint32_t peek_ne_val
+
+        # step 2/3
+        cdef uint32_t suf_sz = 0
+        cdef uint32_t* bkt_suf_sz = NULL
+
+        # step 3 — suffix-only pool (lengths decoded on-demand, see below)
+        cdef uint32_t* bkt_pool_off = NULL
+        cdef uint64_t  pool_total   = 0
+        cdef uint32_t* sb_pool      = NULL   # suffix arrays (full, always decoded)
+
+        # ── NEW: two-phase suf_decomp
+        # lb_pool filled lazily: only for hit buckets, only up to max_hit_pos.
+        cdef uint32_t* lb_pool      = NULL
+        cdef int*      bkt_len_sec  = NULL   # byte offset of length section per bucket
+        cdef uint32_t  actual_ne
+
+        # step 3+4 interleaved structures
+        # max_hit_pos[bki] = deepest suffix array index hit in bucket bki.
+        # Used as stop_at argument to decomp_suffix_into_upto.
+        # Initialised to 0xFFFFFFFF (= no hits = skip length decode entirely).
+        cdef uint32_t* bkt_max_hit_pos = NULL
+
+        # step 4
+        cdef uint64_t hit_cap = min(nq * 4, <uint64_t>4194304)
+        cdef uint64_t n_hits = 0
+        cdef uint64_t* hit_km   = NULL
+        cdef uint32_t* hit_bidx = NULL
+        cdef uint32_t* hit_spos = NULL
+        cdef uint32_t* hit_dl   = NULL
+        cdef uint32_t  bidx
+        cdef uint32_t* sb_ptr  = NULL
+        cdef uint32_t* lb_ptr2 = NULL
+        cdef uint32_t* lb_ptr3 = NULL
+
+        # step 4 — provisional hits (suffix match, before length filter)
+        cdef uint64_t  prov_cap  = 0
+        cdef uint64_t  n_prov    = 0
+        cdef uint64_t* prov_km   = NULL
+        cdef uint32_t* prov_bidx = NULL
+        cdef uint32_t* prov_spos = NULL
+
+        # step 4 — per-bucket hit count (for sparse/dense decision in phase2)
+        cdef uint32_t* bkt_hit_count = NULL
+
+        # step 5+6 — unified uring read+decode pipeline
+        cdef uint64_t* p2_km         = NULL
+        cdef uint32_t* p2_cells      = NULL
+        cdef uint64_t* p2_offsets    = NULL
+        cdef uint64_t  p2_cells_cap  = 0
+        cdef uint32_t  dd_cap        = 65536
+        cdef uint32_t* dd            = NULL
+        cdef uint64_t  idx2, hi
+        cdef uint64_t  r_start, r_end, rr
+        cdef int       p2_n_results  = 0
+        cdef uint64_t  total_dl      = 0
+        cdef uint64_t* so_v_ptr      = NULL
+        cdef uint64_t* bkt_hit_start = NULL
+        cdef uint32_t* bkt_hit_cnt   = NULL
+        cdef uint64_t  bytes_rd      = 0
+        cdef int       data_fd       = -1
+        cdef uint64_t  running       = 0
+
+        cdef uint64_t[:] suf_order
+        cdef uint64_t[:] dat_order
+        cdef uint64_t[:] sk_v
+        cdef uint64_t[:] so_v
+
+        # ── STEP 1: collect unique buckets + peek entry counts ───────────
+        if not bkt_so or not bkt_dbo or not bkt_dbs or not bkt_ne or not bkt_peek:
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne); free(bkt_peek)
+            raise MemoryError()
+
+        qi = 0
+        while qi < nq:
+            pf = qk[qi] >> self.rshift
+            qj = qi + 1
+            while qj < nq and (qk[qj] >> self.rshift) == pf: qj += 1
+            if pf < self.n_prefixes:
+                so  = self.pi_suffix_offsets[pf]
+                dbo = self.pi_data_offsets[pf]
+                dbs = self.pi_data_sizes[pf]
+                if so > 0 and dbs > 0 and dbo_to_bidx.find(dbo) == dbo_to_bidx.end():
+                    if n_bkts >= bkt_cap:
+                        bkt_cap *= 2
+                        bkt_so   = <uint64_t*>realloc(bkt_so,   bkt_cap * 8)
+                        bkt_dbo  = <uint64_t*>realloc(bkt_dbo,  bkt_cap * 8)
+                        bkt_dbs  = <uint32_t*>realloc(bkt_dbs,  bkt_cap * 4)
+                        bkt_ne   = <uint32_t*>realloc(bkt_ne,   bkt_cap * 4)
+                        bkt_peek = <uint32_t*>realloc(bkt_peek, bkt_cap * 4)
+                        if not bkt_so or not bkt_dbo or not bkt_dbs \
+                                or not bkt_ne or not bkt_peek:
+                            free(bkt_so); free(bkt_dbo); free(bkt_dbs)
+                            free(bkt_ne); free(bkt_peek)
+                            raise MemoryError()
+                    memcpy(&peek_ne_val, self.suffix_mmap + so, 4)
+                    dbo_to_bidx[dbo] = <uint32_t>n_bkts
+                    bkt_so[n_bkts]   = so
+                    bkt_dbo[n_bkts]  = dbo
+                    bkt_dbs[n_bkts]  = dbs
+                    bkt_ne[n_bkts]   = 0
+                    bkt_peek[n_bkts] = peek_ne_val
+                    n_bkts += 1
+            qi = qj
+
+        if n_bkts == 0:
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne); free(bkt_peek)
+            self._last_query_times = {
+                'n_kmers_in': int(nq), 'n_buckets_touched': 0, 'n_hits': 0,
+                't_suf_read': 0.0, 't_suffix_decomp': 0.0, 't_bsearch': 0.0,
+                't_dat_read': 0.0, 't_phase2': 0.0,
+                't_total': time.perf_counter() - t0_total,
+                'n_suf_bytes': 0, 'n_dat_bytes': 0,
+            }
+            return res
+
+        # ── STEP 2: madvise suffix regions ───────────────────────────────────
+        t0 = time.perf_counter()
+
+        so_arr_np  = np.asarray(<uint64_t[:n_bkts]>bkt_so)
+        suf_order  = np.argsort(so_arr_np, kind='stable').astype(np.uint64)
+
+        bkt_suf_sz = <uint32_t*>malloc(n_bkts * 4)
+        if not bkt_suf_sz:
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne); free(bkt_peek)
+            raise MemoryError()
+        for bki in range(n_bkts):
+            bkt_suf_sz[bki] = 8 + 10 * bkt_peek[bki]
+
+        with nogil:
+            for bki in range(n_bkts):
+                ob = suf_order[bki]
+                prefetch_range(<const void*>(self.suffix_mmap + bkt_so[ob]),
+                               <size_t>bkt_suf_sz[ob])
+        acc_suf_read += time.perf_counter() - t0
+
+        # ── STEP 3+4 INTERLEAVED: suffix decode + binary search + early-stop lengths
+        #
+        # Key change vs previous version:
+        #
+        # Previously:
+        #   Step 3: decomp ALL suffixes + ALL lengths for all buckets → pools
+        #   Step 4: binary search sb_pool for each query kmer
+        #
+        # Now:
+        #   For each bucket:
+        #     (a) Decode suffix array only (decomp_suffix_into_upto with stop_at=0xFFFFFFFF
+        #         for suffix part, then we stop before lengths)
+        #     (b) Binary-search for all query kmers hitting this bucket
+        #     (c) Compute max_hit_pos = max of all hit positions found
+        #     (d) Decode lengths only 0..max_hit_pos via decomp_suffix_into_upto
+        #
+        # For zero-hit buckets (the majority in many query patterns):
+        #   Length decoding is skipped entirely — the suffix scan was necessary
+        #   for the search, but its result was "not found".
+        #
+        # We need to restructure slightly: build a per-bucket query list first,
+        # then process bucket by bucket. We already group queries by prefix in
+        # Step 1's qi/qj loop, but here we need per-bucket sorted suffix targets.
+        #
+        # Implementation: allocate bkt_max_hit_pos[], do suffix-only decode pass,
+        # do the binary search pass (same as old Step 4), record max hit pos per
+        # bucket, then do a second pass to fill lb_pool up to max_hit_pos.
+        #
+        # This two-sub-pass approach avoids restructuring the query loop and keeps
+        # the binary search code identical to before.
+        # ─────────────────────────────────────────────────────────────────────
+
+        t0 = time.perf_counter()
+
+        bkt_pool_off    = <uint32_t*>malloc(n_bkts * 4)
+        bkt_max_hit_pos = <uint32_t*>malloc(n_bkts * 4)
+        bkt_hit_count   = <uint32_t*>malloc(n_bkts * 4)
+        bkt_len_sec     = <int*>malloc(n_bkts * 4)
+        if not bkt_pool_off or not bkt_max_hit_pos or not bkt_hit_count or not bkt_len_sec:
+            free(bkt_suf_sz)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne); free(bkt_peek)
+            free(bkt_pool_off); free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
+            raise MemoryError()
+
+        pool_total = 0
+        for bki in range(n_bkts):
+            bkt_pool_off[bki]    = <uint32_t>pool_total
+            bkt_max_hit_pos[bki] = 0xFFFFFFFF
+            bkt_hit_count[bki]   = 0
+            bkt_len_sec[bki]     = 0
+            pool_total += bkt_peek[bki]
+
+        sb_pool = <uint32_t*>malloc((pool_total + 1) * 4)
+        lb_pool = <uint32_t*>malloc((pool_total + 1) * 4)
+        if not sb_pool or not lb_pool:
+            free(bkt_suf_sz)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne); free(bkt_peek)
+            free(bkt_pool_off); free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
+            free(sb_pool); free(lb_pool)
+            raise MemoryError()
+
+        # ── Phase A: decode suffix arrays only (no lengths) ──────────────────
+        # decomp_suffixes_only decodes only the suffix delta varints, not lengths.
+        # bkt_len_sec[bki] stores the byte offset where lengths begin so
+        # Phase C can resume from there without re-parsing suffixes.
+        with nogil:
+            for bki in range(n_bkts):
+                actual_ne = decomp_suffixes_only(
+                    <const uint8_t*>(self.suffix_mmap + bkt_so[bki]),
+                    <int>bkt_suf_sz[bki],
+                    sb_pool + bkt_pool_off[bki],
+                    &bkt_len_sec[bki])
+                bkt_ne[bki] = actual_ne
+
+        with nogil:
+            for bki in range(n_bkts):
+                release_range(<const void*>(self.suffix_mmap + bkt_so[bki]),
+                              <size_t>bkt_suf_sz[bki])
+        free(bkt_suf_sz)
+        free(bkt_peek)
+        acc_suf += time.perf_counter() - t0
+
+        # ── STEP 4a: binary search using suffix arrays only ───────────────────
+        # Record provisional hits (suffix match) — no count filter yet since
+        # lengths not decoded. We record (km, bidx, spos) and defer dl lookup.
+        t0 = time.perf_counter()
+
+        # Provisional hit storage: bidx + spos only (no dl yet)
+        prov_cap = min(nq * 4, <uint64_t>4194304)
+        n_prov   = 0
+        prov_km   = <uint64_t*>malloc(prov_cap * 8)
+        prov_bidx = <uint32_t*>malloc(prov_cap * 4)
+        prov_spos = <uint32_t*>malloc(prov_cap * 4)
+
+        hit_km   = <uint64_t*>malloc(hit_cap * 8)
+        hit_bidx = <uint32_t*>malloc(hit_cap * 4)
+        hit_spos = <uint32_t*>malloc(hit_cap * 4)
+        hit_dl   = <uint32_t*>malloc(hit_cap * 4)
+
+        if not prov_km or not prov_bidx or not prov_spos or                 not hit_km or not hit_bidx or not hit_spos or not hit_dl:
+            free(prov_km); free(prov_bidx); free(prov_spos)
+            free(sb_pool); free(lb_pool); free(bkt_pool_off)
+            free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+            free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            raise MemoryError()
+
+        qi = 0
+        while qi < nq:
+            pf = qk[qi] >> self.rshift
+            qj = qi + 1
+            while qj < nq and (qk[qj] >> self.rshift) == pf: qj += 1
+            if pf >= self.n_prefixes: qi = qj; continue
+            dbo = self.pi_data_offsets[pf]
+            if self.pi_data_sizes[pf] == 0: qi = qj; continue
+            if dbo_to_bidx.find(dbo) == dbo_to_bidx.end(): qi = qj; continue
+            bidx = dbo_to_bidx[dbo]
+            ne   = <int>bkt_ne[bidx]
+            if ne <= 0: qi = qj; continue
+            sb_ptr = sb_pool + bkt_pool_off[bidx]
+            for i in range(qi, qj):
+                km = qk[i]
+                sv = <uint32_t>(km & self.suffix_mask)
+                pos = self._binary_search_u32(sb_ptr, ne, sv)
+                if pos < 0: continue
+                # Track max hit position per bucket for Phase C length decode
+                if bkt_max_hit_pos[bidx] == 0xFFFFFFFF or <uint32_t>pos > bkt_max_hit_pos[bidx]:
+                    bkt_max_hit_pos[bidx] = <uint32_t>pos
+                if n_prov >= prov_cap:
+                    prov_cap *= 2
+                    prov_km   = <uint64_t*>realloc(prov_km,   prov_cap * 8)
+                    prov_bidx = <uint32_t*>realloc(prov_bidx, prov_cap * 4)
+                    prov_spos = <uint32_t*>realloc(prov_spos, prov_cap * 4)
+                    if not prov_km or not prov_bidx or not prov_spos:
+                        free(prov_km); free(prov_bidx); free(prov_spos)
+                        free(sb_pool); free(lb_pool); free(bkt_pool_off)
+                        free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
+                        free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+                        free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+                        raise MemoryError()
+                prov_km[n_prov]   = km
+                prov_bidx[n_prov] = bidx
+                prov_spos[n_prov] = <uint32_t>pos
+                n_prov += 1
+            qi = qj
+
+        free(sb_pool)
+
+        # ── Phase C: decode lengths for hit buckets only, up to max_hit_pos ──
+        # One pass over all hit buckets — zero-hit buckets skipped entirely.
+        # All lengths decoded in one contiguous nogil block (no per-hit Python).
+        with nogil:
+            for bki in range(n_bkts):
+                if bkt_max_hit_pos[bki] != <uint32_t>0xFFFFFFFF:
+                    decode_lengths_upto(
+                        <const uint8_t*>(self.suffix_mmap + bkt_so[bki]),
+                        65536,
+                        bkt_len_sec[bki],
+                        lb_pool + bkt_pool_off[bki],
+                        bkt_max_hit_pos[bki])
+        free(bkt_len_sec)
+
+        # ── Step 4b: apply count filter using now-decoded lengths ─────────────
+        for i in range(n_prov):
+            bidx = prov_bidx[i]
+            pos  = <int>prov_spos[i]
+            lb_ptr3 = lb_pool + bkt_pool_off[bidx]
+            dl = lb_ptr3[pos]
+            if dl >= cam or dl <= cal: continue
+            if bkt_hit_count[bidx] == 0: n_buckets_touched += 1
+            bkt_hit_count[bidx] += 1
+            if n_hits >= hit_cap:
+                hit_cap *= 2
+                hit_km   = <uint64_t*>realloc(hit_km,   hit_cap * 8)
+                hit_bidx = <uint32_t*>realloc(hit_bidx, hit_cap * 4)
+                hit_spos = <uint32_t*>realloc(hit_spos, hit_cap * 4)
+                hit_dl   = <uint32_t*>realloc(hit_dl,   hit_cap * 4)
+                if not hit_km or not hit_bidx or not hit_spos or not hit_dl:
+                    free(prov_km); free(prov_bidx); free(prov_spos)
+                    free(lb_pool); free(bkt_pool_off)
+                    free(bkt_max_hit_pos); free(bkt_hit_count)
+                    free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+                    free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+                    raise MemoryError()
+            hit_km[n_hits]   = prov_km[i]
+            hit_bidx[n_hits] = bidx
+            hit_spos[n_hits] = prov_spos[i]
+            hit_dl[n_hits]   = dl
+            n_hits += 1
+
+        free(prov_km); free(prov_bidx); free(prov_spos)
+        acc_bsearch += time.perf_counter() - t0
+
+        if n_hits == 0:
+            free(lb_pool); free(bkt_pool_off)
+            free(bkt_max_hit_pos); free(bkt_hit_count)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+            free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            self._last_query_times = {
+                'n_kmers_in': int(nq), 'n_buckets_touched': 0, 'n_hits': 0,
+                't_suf_read': acc_suf_read, 't_suffix_decomp': acc_suf,
+                't_bsearch': acc_bsearch, 't_dat_read': 0.0, 't_phase2': 0.0,
+                't_total': time.perf_counter() - t0_total,
+                'n_suf_bytes': int(n_suf_bytes), 'n_dat_bytes': 0,
+            }
+            return res
+
+        # ── STEPS 5+6: unified io_uring read + decode pipeline ───────────────
+        #
+        # Key insight: the old design read ALL 10GB into dat_heap, then scanned
+        # ALL 10GB again in phase2 — 20GB memory traffic for 10GB of data.
+        #
+        # New design: uring_read_decode_all() uses a QD=64 sliding window where
+        # each io_uring completion immediately triggers decode of that bucket's
+        # hits. Peak memory = QD * max_bucket_size (~10MB). NVMe stays saturated
+        # throughout because we always have 64 outstanding I/Os while CPU decodes.
+        #
+        # The function needs hits pre-indexed by bucket: bkt_hit_start[bidx] and
+        # bkt_hit_cnt[bidx] tell it where in sort_order to find each bucket's hits.
+        t0 = time.perf_counter()
+
+        # Build sort_order sorted by (bidx<<32|spos)
+        sort_keys_np = np.empty(n_hits, dtype=np.uint64)
+        sk_v = sort_keys_np
+        for hi in range(n_hits):
+            sk_v[hi] = (<uint64_t>hit_bidx[hi] << 32) | <uint64_t>hit_spos[hi]
+        so_v = np.argsort(sort_keys_np, kind='stable').astype(np.uint64)
+        so_v_ptr = <uint64_t*>&so_v[0]
+
+        # Build bkt_hit_start / bkt_hit_cnt from sorted order
+        bkt_hit_start = <uint64_t*>malloc(n_bkts * 8)
+        bkt_hit_cnt   = <uint32_t*>malloc(n_bkts * 4)
+        if not bkt_hit_start or not bkt_hit_cnt:
+            free(bkt_hit_start); free(bkt_hit_cnt)
+            free(lb_pool); free(bkt_pool_off)
+            free(bkt_max_hit_pos); free(bkt_hit_count)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+            free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            raise MemoryError()
+        memset(bkt_hit_start, 0, n_bkts * 8)
+        memset(bkt_hit_cnt,   0, n_bkts * 4)
+        # First pass: count hits per bucket
+        for hi in range(n_hits):
+            bkt_hit_cnt[hit_bidx[so_v_ptr[hi]]] += 1
+        # Second pass: compute start offsets (prefix sum)
+        running = 0
+        for bki in range(n_bkts):
+            bkt_hit_start[bki] = running
+            running += bkt_hit_cnt[bki]
+
+        # Allocate output buffers
+        total_dl = 0
+        for hi in range(n_hits):
+            total_dl += hit_dl[hi]
+        p2_km      = <uint64_t*>malloc(n_hits * 8)
+        p2_offsets = <uint64_t*>malloc((n_hits + 1) * 8)
+        p2_cells_cap = total_dl if total_dl > 0 else 1
+        p2_cells   = <uint32_t*>malloc(p2_cells_cap * 4)
+        dd         = <uint32_t*>malloc(dd_cap * 4)
+        if not p2_km or not p2_offsets or not p2_cells or not dd:
+            free(p2_km); free(p2_offsets); free(p2_cells); free(dd)
+            free(bkt_hit_start); free(bkt_hit_cnt)
+            free(lb_pool); free(bkt_pool_off)
+            free(bkt_max_hit_pos); free(bkt_hit_count)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+            free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            raise MemoryError()
+
+        try:
+            data_fd = os.open(self.data_path, os.O_RDONLY)
+        except OSError as e:
+            free(p2_km); free(p2_offsets); free(p2_cells); free(dd)
+            free(bkt_hit_start); free(bkt_hit_cnt)
+            free(lb_pool); free(bkt_pool_off)
+            free(bkt_max_hit_pos); free(bkt_hit_count)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+            free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            raise
+
+        bytes_rd = 0
+        with nogil:
+            p2_n_results = uring_read_decode_all(
+                data_fd,
+                bkt_dbo, bkt_dbs,
+                bkt_pool_off, bkt_ne,
+                bkt_hit_count, bkt_max_hit_pos,
+                lb_pool, n_bkts,
+                so_v_ptr,
+                hit_km, hit_bidx, hit_spos, hit_dl, n_hits,
+                bkt_hit_start, bkt_hit_cnt,
+                SPARSE_HIT_THRESHOLD,
+                p2_km, p2_cells, p2_offsets, p2_cells_cap,
+                dd, dd_cap,
+                &bytes_rd)
+        os.close(data_fd)
+        n_dat_bytes = bytes_rd
+
+        acc_dat_read += time.perf_counter() - t0
+
+        free(bkt_hit_start); free(bkt_hit_cnt)
+
+        if p2_n_results < 0:
+            free(p2_km); free(p2_offsets); free(p2_cells); free(dd)
+            free(lb_pool); free(bkt_pool_off)
+            free(bkt_max_hit_pos); free(bkt_hit_count)
+            free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+            free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            raise RuntimeError(f"uring_read_decode_all failed: {p2_n_results}")
+
+        t0 = time.perf_counter()
+
+        # ── CSR mode: copy p2 arrays into numpy and skip map build ────────
+        if self._csr_mode:
+            _csr_km_arr = np.empty(p2_n_results, dtype=np.uint64)
+            _csr_offsets_arr = np.empty(p2_n_results + 1, dtype=np.uint64)
+            _total_cells = p2_offsets[p2_n_results] if p2_n_results > 0 else 0
+            _csr_cells_arr = np.empty(_total_cells, dtype=np.uint32)
+            if p2_n_results > 0:
+                memcpy(<void*>(<np.ndarray>_csr_km_arr).data, p2_km, p2_n_results * 8)
+                memcpy(<void*>(<np.ndarray>_csr_offsets_arr).data, p2_offsets, (p2_n_results + 1) * 8)
+                memcpy(<void*>(<np.ndarray>_csr_cells_arr).data, p2_cells, _total_cells * 4)
+            else:
+                (<np.ndarray>_csr_offsets_arr)[0] = 0
+            self._csr_km = _csr_km_arr
+            self._csr_cells = _csr_cells_arr
+            self._csr_offsets = _csr_offsets_arr
+            self._csr_n_results = int(p2_n_results)
+        else:
+            # Build res{} — one pass, vector::assign is a single memcpy per result
+            for rr in range(<uint64_t>p2_n_results):
+                r_start = p2_offsets[rr]
+                r_end   = p2_offsets[rr + 1]
+                if r_end <= r_start: continue
+                cl.assign(p2_cells + r_start, p2_cells + r_end)
+                res[p2_km[rr]] = cl
+
+        acc_phase2 += time.perf_counter() - t0
+
+        free(dd); free(p2_km); free(p2_offsets); free(p2_cells)
+        free(lb_pool); free(bkt_pool_off)
+        free(bkt_max_hit_pos); free(bkt_hit_count)
+        free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
+        free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+
+        t_total = time.perf_counter() - t0_total
+        self._last_query_times = {
+            'n_kmers_in':        int(nq),
+            'n_buckets_touched': int(n_buckets_touched),
+            'n_hits':            int(n_hits),
+            'n_suf_bytes':       int(n_suf_bytes),
+            'n_dat_bytes':       int(n_dat_bytes),
+            't_suf_read':        acc_suf_read,
+            't_suffix_decomp':   acc_suf,
+            't_bsearch':         acc_bsearch,
+            't_dat_read':        acc_dat_read,
+            't_phase2':          acc_phase2,
+            't_total':           t_total,
+            't_unaccounted':     t_total - acc_suf_read - acc_suf - acc_bsearch
+                                         - acc_dat_read - acc_phase2,
+        }
+        return res
+
+    def query(self, np.ndarray[np.uint64_t, ndim=1] kmers,
+              uint32_t count_at_most=10000, uint32_t count_at_least=10):
+        if not self.is_open: raise RuntimeError("Not open")
+        if len(kmers) == 0 or self.n_kmers == 0: return {}
+        cdef np.ndarray[np.uint64_t, ndim=1] sk = np.sort(kmers)
+        cdef unordered_map[uint64_t, vector[uint32_t]] rr = self.query_batch(
+            <uint64_t*>sk.data, <uint64_t>len(sk), count_at_most, count_at_least)
+        t = self._last_query_times
+        if t:
+            logging.info(
+                f"query_batch timing | kmers_in={t.get('n_kmers_in',0):,} "
+                f"buckets={t.get('n_buckets_touched',0):,} hits={t.get('n_hits',0):,} "
+                f"suf={t.get('n_suf_bytes',0)/1e6:.1f}MB dat={t.get('n_dat_bytes',0)/1e6:.1f}MB | "
+                f"suf_read={t.get('t_suf_read',0)*1000:.1f}ms "
+                f"suf_decomp={t.get('t_suffix_decomp',0)*1000:.1f}ms "
+                f"bsearch={t.get('t_bsearch',0)*1000:.1f}ms "
+                f"dat_read={t.get('t_dat_read',0)*1000:.1f}ms "
+                f"phase2={t.get('t_phase2',0)*1000:.1f}ms "
+                f"unaccounted={t.get('t_unaccounted',0)*1000:.1f}ms "
+                f"total={t.get('t_total',0)*1000:.1f}ms"
+            )
+        cdef unordered_map[uint64_t, vector[uint32_t]].iterator it = rr.begin()
         cdef uint64_t key
-        cdef float x, y
-        cdef map[uint64_t, uint32_t].iterator it = self.index.begin()
-        cdef map[uint64_t, uint32_t].iterator end = self.index.end()
-        while it != end:
-            key = move(deref(it).first)
-            x = self.coords[deref(it).second].first
-            y = self.coords[deref(it).second].second
-            fwrite(&key, sizeof(uint64_t), 1, file)
-            fwrite(&x, sizeof(float), 1, file)
-            fwrite(&y, sizeof(float), 1, file)
-            it += 1  # Correctly increment the iterator
+        cdef vector[uint32_t] vals
+        cdef dict r = {}
+        cdef size_t vs
+        while it != rr.end():
+            key = deref(it).first; vals = deref(it).second; vs = vals.size()
+            a = np.empty(vs, dtype=np.uint32)
+            if vs > 0: memcpy(<void*>(<np.ndarray>a).data, &vals[0], vs * 4)
+            r[key] = a; inc(it)
+        return r
 
-        fclose(file)
+    cdef unordered_map[uint64_t, vector[uint32_t]] find_kmer_c(
+            self, np.ndarray kmers, uint64_t cam, uint32_t cal):
+        cdef np.ndarray[np.uint64_t, ndim=1] sk = np.sort(
+            kmers.astype(np.uint64))
+        cdef unordered_map[uint64_t, vector[uint32_t]] rr = self.query_batch(
+            <uint64_t*>sk.data, <uint64_t>len(sk), <uint32_t>cam, cal)
+        t = self._last_query_times
+        if t:
+            logging.info(
+                f"query_batch timing | kmers_in={t.get('n_kmers_in',0):,} "
+                f"buckets={t.get('n_buckets_touched',0):,} hits={t.get('n_hits',0):,} "
+                f"suf={t.get('n_suf_bytes',0)/1e6:.1f}MB dat={t.get('n_dat_bytes',0)/1e6:.1f}MB | "
+                f"suf_read={t.get('t_suf_read',0)*1000:.1f}ms "
+                f"suf_decomp={t.get('t_suffix_decomp',0)*1000:.1f}ms "
+                f"bsearch={t.get('t_bsearch',0)*1000:.1f}ms "
+                f"dat_read={t.get('t_dat_read',0)*1000:.1f}ms "
+                f"phase2={t.get('t_phase2',0)*1000:.1f}ms "
+                f"unaccounted={t.get('t_unaccounted',0)*1000:.1f}ms "
+                f"total={t.get('t_total',0)*1000:.1f}ms"
+            )
+        return rr
 
-    def load_binary(self, str filename):
-        cdef FILE* file = fopen(filename.encode('ascii'), "rb")
-        if file == NULL:
-            raise IOError(f"Cannot open file {filename} for reading")
+    def query_batch_csr(self, np.ndarray[np.uint64_t, ndim=1] kmers,
+                        uint32_t count_at_most=10000, uint32_t count_at_least=10):
+        """Query returning CSR arrays instead of unordered_map.
 
-        # Read size of the map
-        cdef size_t size
-        fread(&size, sizeof(size_t), 1, file)
+        Returns (kmer_keys, cell_data, cell_indptr, orig_cell_ids, N_unique) where:
+          kmer_keys[N_found]       — sorted kmer values (uint64)
+          cell_data[total_cells]   — flat packed remapped cell IDs (uint32)
+          cell_indptr[N_found+1]   — CSR offsets (uint64)
+          orig_cell_ids[N_unique]  — compact_id → original cell ID mapping
+          N_unique                 — number of unique cells
 
-        # Clear existing structures and read new contents
-        self.index.clear()
-        self.coords.clear()
+        Uses _csr_mode flag to bypass unordered_map construction inside query_batch.
+        """
+        if not self.is_open: raise RuntimeError("Not open")
+        if len(kmers) == 0:
+            return (np.empty(0, dtype=np.uint64),
+                    np.empty(0, dtype=np.uint32),
+                    np.zeros(1, dtype=np.uint64),
+                    np.empty(0, dtype=np.uint32), 0)
+        cdef np.ndarray[np.uint64_t, ndim=1] sk = np.sort(kmers)
 
-        cdef uint64_t key
-        cdef float x, y
-        cdef uint32_t i
-        for i in range(size):
-            fread(&key, sizeof(uint64_t), 1, file)
-            fread(&x, sizeof(float), 1, file)
-            fread(&y, sizeof(float), 1, file)
-            self.index[key] = i
-            self.coords.push_back(pair[float, float](x, y))
+        # Set CSR mode flag — query_batch will store p2 arrays instead of building map
+        self._csr_mode = True
+        try:
+            self.query_batch(
+                <uint64_t*>sk.data, <uint64_t>len(sk), count_at_most, count_at_least)
+        finally:
+            self._csr_mode = False
 
-        fclose(file)
+        # Retrieve the raw p2 arrays stored by query_batch
+        cdef int p2_n = self._csr_n_results
+        if p2_n == 0:
+            self._csr_km = None; self._csr_cells = None; self._csr_offsets = None
+            return (np.empty(0, dtype=np.uint64),
+                    np.empty(0, dtype=np.uint32),
+                    np.zeros(1, dtype=np.uint64),
+                    np.empty(0, dtype=np.uint32), 0)
 
-    # the STOmics data provides .bin files that are almost what we expect
-    # in our SpatialIndex, but can be stored more efficiently
-    # This works for the standard size of 1x1cm, has not been tested for other
-    # e.g., support for 13x13cm chips
-    def load_binary_stomics(self, str filename, int barcode_length = 25):
-        if barcode_length <= 0 or barcode_length > 32:
-            raise ValueError("Barcode length must be between 1 and 32 base pairs")
+        cdef double t0 = time.perf_counter()
 
-        cdef FILE* file = fopen(filename.encode('ascii'), "rb")
-        if file == NULL:
-            raise IOError(f"Cannot open file {filename} for reading")
+        cdef np.ndarray[np.uint64_t, ndim=1] raw_km = self._csr_km
+        cdef np.ndarray[np.uint32_t, ndim=1] raw_cells = self._csr_cells
+        cdef np.ndarray[np.uint64_t, ndim=1] raw_offsets = self._csr_offsets
+        self._csr_km = None; self._csr_cells = None; self._csr_offsets = None
 
-        # Clear existing structures and read new contents
-        self.index.clear()
-        self.coords.clear()
+        cdef uint64_t n_found = <uint64_t>p2_n
+        cdef uint64_t total_cells = raw_offsets[n_found]
 
-        cdef uint64_t key, reversed_barcode
-        cdef uint32_t x, y
-        cdef uint32_t i = 0
+        # Sort kmer_keys and reorder cells+indptr to match
+        cdef np.ndarray sort_idx = np.argsort(raw_km)
+        cdef np.ndarray[np.uint64_t, ndim=1] kmer_keys = raw_km[sort_idx]
 
+        cdef np.ndarray[np.uint64_t, ndim=1] cell_indptr = np.empty(n_found + 1, dtype=np.uint64)
+        cdef np.ndarray[np.uint32_t, ndim=1] cell_data = np.empty(total_cells, dtype=np.uint32)
+        cdef uint64_t* ni_ptr = <uint64_t*>cell_indptr.data
+        cdef uint32_t* nc_ptr = <uint32_t*>cell_data.data
+        cdef uint64_t* ro_ptr = <uint64_t*>raw_offsets.data
+        cdef uint32_t* rc_ptr = <uint32_t*>raw_cells.data
+        cdef uint64_t new_off = 0, old_ki, seg_start, seg_len, ki
+        cdef int64_t[:] sort_idx_v = sort_idx.astype(np.int64)
+        ni_ptr[0] = 0
+        for ki in range(n_found):
+            old_ki = sort_idx_v[ki]
+            seg_start = ro_ptr[old_ki]
+            seg_len = ro_ptr[old_ki + 1] - seg_start
+            if seg_len > 0:
+                memcpy(nc_ptr + new_off, rc_ptr + seg_start, seg_len * 4)
+            new_off += seg_len
+            ni_ptr[ki + 1] = new_off
+
+        # Remap cell IDs to compact range using OAHash
+        cdef OAHash32 h
+        cdef uint32_t hash_expect = <uint32_t>min(total_cells, <uint64_t>8388608)
+        oahash_init(&h, hash_expect)
+        cdef uint32_t n_unique
+        with nogil:
+            n_unique = remap_cells_flat(nc_ptr, total_cells, &h)
+
+        # Build orig_cell_ids: compact_id → original
+        cdef np.ndarray[np.uint32_t, ndim=1] orig_cell_ids = np.empty(n_unique, dtype=np.uint32)
+        cdef uint32_t* oc_ptr = <uint32_t*>orig_cell_ids.data
+        cdef uint32_t tbl_i, tbl_sz = h.mask + 1
+        for tbl_i in range(tbl_sz):
+            if h.keys[tbl_i] != 0xFFFFFFFF:
+                oc_ptr[h.vals[tbl_i]] = h.keys[tbl_i]
+        oahash_free(&h)
+
+        logging.info(f"query_batch_csr: {n_found:,} kmers, {total_cells:,} cell refs, "
+                     f"{n_unique:,} unique cells, csr_build={time.perf_counter()-t0:.3f}s")
+
+        return (kmer_keys, cell_data, cell_indptr, orig_cell_ids, int(n_unique))
+
+    def iterate_all_kmers(self, bint verbose=False):
+        """Iterate through ALL kmers, yielding CSR-compatible arrays."""
+        if not self.is_open: raise RuntimeError("Not open")
+        cdef:
+            uint64_t pf, kmer_val
+            uint32_t buf_cap = INITIAL_BUCKET_CAPACITY
+            uint32_t* sb = <uint32_t*>malloc(buf_cap * 4)
+            uint64_t* db = <uint64_t*>malloc(buf_cap * 8)
+            uint32_t* lb = <uint32_t*>malloc(buf_cap * 4)
+            uint32_t data_buf_cap = MAX_DATA_PER_BUCKET
+            uint32_t* dd = <uint32_t*>malloc(data_buf_cap * 4)
+            int ne, nd, raw_bytes
+            uint32_t needed, i, ds, dl, total_cells
+            uint64_t so, dbo
+            uint32_t dbs
+            vector[uint64_t] all_indices
+            vector[uint64_t] all_indptr
+            vector[uint32_t] all_data
+            uint64_t data_pos = 0
+
+        if not sb or not db or not lb or not dd:
+            free(sb); free(db); free(lb); free(dd)
+            raise MemoryError()
+
+        all_indptr.push_back(0)
+
+        try:
+            for pf in range(self.n_prefixes):
+                so = self.pi_suffix_offsets[pf]
+                if so == 0: continue
+
+                ne = self._decompress_suffix_bucket(so, sb, db, lb, buf_cap)
+                if ne < 0:
+                    needed = <uint32_t>(-ne); free(sb); free(db); free(lb)
+                    buf_cap = needed + 1024
+                    sb = <uint32_t*>malloc(buf_cap * 4)
+                    db = <uint64_t*>malloc(buf_cap * 8)
+                    lb = <uint32_t*>malloc(buf_cap * 4)
+                    if not sb or not db or not lb:
+                        free(sb); free(db); free(lb); free(dd)
+                        raise MemoryError()
+                    ne = self._decompress_suffix_bucket(so, sb, db, lb, buf_cap)
+                if ne <= 0: continue
+
+                dbo = self.pi_data_offsets[pf]
+                dbs = self.pi_data_sizes[pf]
+                nd = 0
+                if dbs > 0:
+                    total_cells = 0
+                    for i in range(<uint32_t>ne): total_cells += lb[i]
+                    if total_cells > data_buf_cap:
+                        data_buf_cap = total_cells + 1024
+                        free(dd)
+                        dd = <uint32_t*>malloc(data_buf_cap * 4)
+                        if not dd:
+                            free(sb); free(db); free(lb); free(dd)
+                            raise MemoryError()
+                    if self.data_mmap != NULL and dbo + dbs <= self.data_size:
+                        nd = self._decode_data_block(
+                            <const uint8_t*>(self.data_mmap + dbo),
+                            <int>dbs, lb, ne, dd, data_buf_cap)
+                    else:
+                        nd = 0
+
+                for i in range(<uint32_t>ne):
+                    kmer_val = (<uint64_t>pf << self.rshift) | <uint64_t>sb[i]
+                    ds = <uint32_t>db[i]; dl = lb[i]
+                    all_indices.push_back(kmer_val)
+                    if nd > 0 and ds + dl <= <uint32_t>nd:
+                        for j in range(dl):
+                            all_data.push_back(dd[ds + j])
+                    data_pos += dl
+                    all_indptr.push_back(data_pos)
+
+                if verbose and pf % 1000000 == 0 and pf > 0:
+                    logging.info(f"  Iterated {pf:,}/{self.n_prefixes:,} prefixes, "
+                                 f"{all_indices.size():,} kmers, {all_data.size():,} cells")
+                    PyErr_CheckSignals()
+
+        finally:
+            free(sb); free(db); free(lb); free(dd)
+
+        cdef np.ndarray[np.uint64_t, ndim=1] out_indices = np.empty(
+            all_indices.size(), dtype=np.uint64)
+        cdef np.ndarray[np.uint64_t, ndim=1] out_indptr = np.empty(
+            all_indptr.size(), dtype=np.uint64)
+        cdef np.ndarray[np.uint32_t, ndim=1] out_data = np.empty(
+            all_data.size(), dtype=np.uint32)
+
+        if all_indices.size() > 0:
+            memcpy(<void*>out_indices.data, &all_indices[0], all_indices.size() * 8)
+        if all_indptr.size() > 0:
+            memcpy(<void*>out_indptr.data, &all_indptr[0], all_indptr.size() * 8)
+        if all_data.size() > 0:
+            memcpy(<void*>out_data.data, &all_data[0], all_data.size() * 4)
+
+        if verbose:
+            logging.info(f"  Total: {all_indices.size():,} kmers, "
+                         f"{all_data.size():,} cell entries")
+        return out_indices, out_indptr, out_data
+
+
+cdef class PrefixIndexBuilder:
+    def __cinit__(self, str output_dir, int kmer_size=24, int l_prefix=12, int jump_amount=0, bint verbose=False):
+        self.output_dir = output_dir; self.kmer_size = kmer_size; self.l_prefix = l_prefix
+        self.l_suffix = kmer_size - l_prefix; self.jump_amount = kmer_size if jump_amount==0 else jump_amount
+        self.n_prefixes = 1 << (2*l_prefix); self.rshift = 2*self.l_suffix
+        self.suffix_mask = (1 << (2*self.l_suffix)) - 1; self.verbose = verbose; self.buffer_count = 0
+        if not os.path.exists(output_dir): os.makedirs(output_dir)
+    cdef void _sort_buffer(self): stdsort(self.buffer.begin(), self.buffer.end(), &compare_kmer_cell)
+    cdef void _write_buffer_to_chunk(self, str chunk_path):
+        cdef FILE* f = fopen(chunk_path.encode('utf-8'), "wb")
+        cdef uint64_t n=self.buffer.size(), i, kv
+        cdef uint32_t cv
+        if f == NULL: raise IOError(f"Cannot open {chunk_path}")
+        fwrite(&n, 8, 1, f)
+        for i in range(n):
+            kv=self.buffer[i].first; cv=self.buffer[i].second
+            fwrite(&kv, 8, 1, f); fwrite(&cv, 4, 1, f)
+        fclose(f)
+    def write_chunk(self, str chunk_path=None):
+        if self.buffer.size()==0: return None
+        if chunk_path is None: chunk_path = os.path.join(self.output_dir, f'chunk_{self.buffer_count}.bin')
+        self._sort_buffer(); self._write_buffer_to_chunk(chunk_path)
+        self.buffer.clear(); self.buffer_count = 0; return chunk_path
+    def add_pairs(self, np.ndarray[np.uint64_t, ndim=1] kmers, np.ndarray[np.uint32_t, ndim=1] cell_ids):
+        cdef uint64_t n=len(kmers), i
+        cdef pair[uint64_t, uint32_t] item
+        for i in range(n): item.first=kmers[i]; item.second=cell_ids[i]; self.buffer.push_back(item)
+        self.buffer_count += n
+    cdef inline void add_kmer_cell(self, uint64_t kmer, uint32_t cell_id):
+        cdef pair[uint64_t, uint32_t] item
+        item.first=kmer; item.second=cell_id; self.buffer.push_back(item); self.buffer_count+=1
+
+
+# ===================== Flush bucket — delta-varint compressed =====================
+cdef void _flush_bucket_c(uint64_t pc, vector[pair[uint32_t, uint32_t]]& pairs,
+    FILE* sfh, FILE* dfh, uint64_t* swp, uint64_t* dwp,
+    uint64_t* pso, uint64_t* pdo, uint32_t* pds, uint64_t* tk, uint64_t* nb):
+    cdef size_t n=pairs.size(), i
+    cdef uint32_t cs, ps=0xFFFFFFFF, cc, pc2=0xFFFFFFFF, cnt=0, ne
+    cdef vector[uint32_t] su, dl, ac
+    cdef uint8_t* vbuf
+    cdef int64_t vpos, dpos
+    cdef int vn
+    cdef uint32_t first_suf, prev_suf
+    cdef uint8_t* dbuf
+    cdef uint32_t cell_idx, prev_cell, j_cell
+
+    for i in range(n):
+        cs=pairs[i].first; cc=pairs[i].second
+        if cs!=ps:
+            if ps!=0xFFFFFFFF: dl.push_back(cnt); tk[0]+=1
+            su.push_back(cs); cnt=0; ps=cs; pc2=0xFFFFFFFF
+        if cc!=pc2: ac.push_back(cc); cnt+=1; pc2=cc
+    if ps!=0xFFFFFFFF: dl.push_back(cnt); tk[0]+=1
+    ne=<uint32_t>su.size()
+    if ne==0: return
+
+    vbuf = <uint8_t*>malloc(<size_t>ne * 10 + 8)
+    if vbuf == NULL: nb[0] += 1; return
+    vpos = 0
+
+    memcpy(&vbuf[vpos], &ne, 4); vpos += 4
+    first_suf = su[0]
+    memcpy(&vbuf[vpos], &first_suf, 4); vpos += 4
+    prev_suf = first_suf
+    for i in range(1, ne):
+        vn = _encode_varint(su[i] - prev_suf, &vbuf[vpos]); vpos += vn
+        prev_suf = su[i]
+    for i in range(ne):
+        vn = _encode_varint(dl[i], &vbuf[vpos]); vpos += vn
+
+    pso[pc] = swp[0]
+    fwrite(vbuf, 1, <size_t>vpos, sfh); swp[0] += <uint64_t>vpos
+    free(vbuf)
+
+    if ac.size() > 0:
+        dbuf = <uint8_t*>malloc(ac.size() * 5 + <size_t>ne * 4)
+        if dbuf == NULL: return
+        dpos = 0
+        cell_idx = 0
+
+        for i in range(ne):
+            prev_cell = ac[cell_idx]
+            memcpy(&dbuf[dpos], &prev_cell, 4); dpos += 4
+            cell_idx += 1
+            for j_cell in range(1, dl[i]):
+                vn = _encode_varint(ac[cell_idx] - prev_cell, &dbuf[dpos]); dpos += vn
+                prev_cell = ac[cell_idx]; cell_idx += 1
+
+        pdo[pc] = dwp[0]; pds[pc] = <uint32_t>dpos
+        fwrite(dbuf, 1, <size_t>dpos, dfh); dwp[0] += <uint64_t>dpos
+        free(dbuf)
+
+    nb[0] += 1
+
+
+# ===================== FASTQ processing + direct radix build =====================
+from malva.fastq_processing cimport KmerFastqParser, SequenceFastqParser
+
+cdef void _write_sorted_chunk(uint64_t* ak, uint32_t* ac, uint64_t n, str chunk_path):
+    """Sort (kmer, cell) pairs by kmer then cell, write to binary chunk file."""
+    cdef vector[pair[uint64_t, uint32_t]] pairs
+    cdef uint64_t i
+    cdef double ts
+    ts = time.time()
+    logging.info(f"    Copying {n:,} pairs...")
+    pairs.reserve(n)
+    for i in range(n):
+        pairs.push_back(pair[uint64_t, uint32_t](ak[i], ac[i]))
+    logging.info(f"    Sorting {n:,} pairs...")
+    stdsort(pairs.begin(), pairs.end(), &compare_kmer_cell)
+    logging.info(f"    Sorted in {time.time()-ts:.1f}s, writing to disk...")
+    cdef FILE* f = fopen(chunk_path.encode('utf-8'), "wb")
+    if f == NULL: raise IOError(f"Cannot open {chunk_path}")
+    fwrite(&n, 8, 1, f)
+    cdef uint64_t kv
+    cdef uint32_t cv
+    for i in range(n):
+        kv = pairs[i].first; cv = pairs[i].second
+        fwrite(&kv, 8, 1, f); fwrite(&cv, 4, 1, f)
+    fclose(f)
+    logging.info(f"    Chunk written in {time.time()-ts:.1f}s total")
+
+def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
+    int kmer_size=24, int l_prefix=12, int jump_amount=0, int trim_start=0, int trim_end=28,
+    int chunksize=100000000, int n_report=10000000, int threads=1, bint is_bulk=False):
+    """Read FASTQ, build index. Uses radix build for single chunk, k-way merge for multiple."""
+    from malva.xopen import xopen
+    cdef:
+        int BUF=4096*1024
+        SequenceFastqParser ir1
+        KmerFastqParser ir2
+        uint64_t r1bc
+        vector[uint64_t] r2k
+        uint32_t cid
+        int ns=0
+        size_t i
+        uint64_t* ak = NULL
+        uint32_t* ac = NULL
+        uint64_t tp=0, cap=50000000
+        int chunk_num = 0
+    if jump_amount==0: jump_amount=kmer_size
+    ak=<uint64_t*>malloc(cap*8); ac=<uint32_t*>malloc(cap*4)
+    if ak==NULL or ac==NULL: free(ak);free(ac); raise MemoryError()
+    cdef double t0=time.time(), dt
+
+    chunk_dir = os.path.join(output_dir, '_chunks')
+    os.makedirs(chunk_dir, exist_ok=True)
+    chunk_paths = []
+    cdef uint64_t total_pairs = 0
+
+    if is_bulk:
+        cid=<uint32_t>int(reads_in[0])
+        ir2=KmerFastqParser(xopen(reads_in[1],"rb",threads=max(threads//2,1)),BUF,kmer_size=kmer_size,jump_amount=jump_amount)
         while True:
-            if fread(&key, sizeof(uint64_t), 1, file) != 1:
-                break
-            fread(&x, sizeof(uint32_t), 1, file)
-            fread(&y, sizeof(uint32_t), 1, file)
+            try: r2k=ir2.next()
+            except StopIteration: break
+            ns+=1
+            for i in range(r2k.size()):
+                if tp>=cap:
+                    cap=cap*2; ak=<uint64_t*>realloc(ak,cap*8); ac=<uint32_t*>realloc(ac,cap*4)
+                    if ak==NULL or ac==NULL: raise MemoryError()
+                ak[tp]=r2k[i]; ac[tp]=cid; tp+=1
+            if tp >= <uint64_t>chunksize:
+                cp = os.path.join(chunk_dir, f'chunk_{chunk_num}.bin')
+                logging.info(f"  Writing chunk {chunk_num} ({tp:,} pairs, total {total_pairs+tp:,})")
+                _write_sorted_chunk(ak, ac, tp, cp)
+                total_pairs += tp; chunk_paths.append(cp); chunk_num += 1; tp = 0
+                t0 = time.time()
+            if ns%n_report==0:
+                dt=time.time()-t0
+                if dt > 0:
+                    logging.info(f"  Read {ns:,} seqs, {total_pairs+tp:,} total pairs ({n_report/dt:,.0f} reads/s)")
+                t0=time.time()
+    else:
+        ir1=SequenceFastqParser(xopen(reads_in[0],"rb",threads=max(threads//2,1)),BUF,trim_start=trim_start,trim_end=trim_end)
+        ir2=KmerFastqParser(xopen(reads_in[1],"rb",threads=max(threads//2,1)),BUF,kmer_size=kmer_size,jump_amount=jump_amount)
+        while True:
+            try: r2k=ir2.next(); r1bc=ir1.next()
+            except StopIteration: break
+            cid=spatial_index.lookup(r1bc)
+            if cid==0: ns+=1; continue
+            ns+=1
+            for i in range(r2k.size()):
+                if tp>=cap:
+                    cap=cap*2; ak=<uint64_t*>realloc(ak,cap*8); ac=<uint32_t*>realloc(ac,cap*4)
+                    if ak==NULL or ac==NULL: raise MemoryError()
+                ak[tp]=r2k[i]; ac[tp]=cid; tp+=1
+            if tp >= <uint64_t>chunksize:
+                cp = os.path.join(chunk_dir, f'chunk_{chunk_num}.bin')
+                logging.info(f"  Writing chunk {chunk_num} ({tp:,} pairs, total {total_pairs+tp:,})")
+                _write_sorted_chunk(ak, ac, tp, cp)
+                total_pairs += tp; chunk_paths.append(cp); chunk_num += 1; tp = 0
+                t0 = time.time()
+            if ns%n_report==0:
+                dt=time.time()-t0
+                if dt > 0:
+                    logging.info(f"  Read {ns:,} seqs, {total_pairs+tp:,} total pairs ({n_report/dt:,.0f} reads/s)")
+                t0=time.time()
 
-            reversed_barcode = self.reverse_barcode(key, barcode_length)
-            self.index[reversed_barcode] = i
-            self.coords_stomics.push_back(pair[uint16_t, uint16_t](<uint16_t>x, <uint16_t>y))
-            i += 1
-            
-        fclose(file)
+    logging.info(f"Read {ns:,} sequences total, {total_pairs+tp:,} pairs, {chunk_num} chunks written")
 
-    cdef uint64_t reverse_barcode(self, uint64_t barcode, int barcode_length):
-        cdef uint64_t reversed_barcode = 0
-        cdef int i
+    if tp == 0 and chunk_num == 0:
+        free(ak); free(ac)
+        _write_empty_index(output_dir, kmer_size, l_prefix, kmer_size - l_prefix, 0)
+        return []
 
-        for i in range(barcode_length):
-            reversed_barcode = (reversed_barcode << 2) | (barcode & 0b11)
-            barcode >>= 2
+    if chunk_num == 0:
+        logging.info(f"Single chunk with {tp:,} pairs — using radix build")
+        _build_index_radix(ak, ac, tp, output_dir, kmer_size, l_prefix, 0)
+        return []
+    else:
+        if tp > 0:
+            cp = os.path.join(chunk_dir, f'chunk_{chunk_num}.bin')
+            logging.info(f"  Writing final chunk {chunk_num} ({tp:,} pairs)")
+            _write_sorted_chunk(ak, ac, tp, cp)
+            chunk_paths.append(cp)
+        free(ak); free(ac)
+        logging.info(f"Written {len(chunk_paths)} chunks — will merge")
+        return chunk_paths
 
-        return reversed_barcode
-
-    def get_coords_stomics(self):
-        cdef np.ndarray[np.uint16_t, ndim=2] arr = np.empty((self.coords_stomics.size(), 2), dtype=np.uint16)
-        cdef size_t i
-        for i in range(self.coords_stomics.size()):
-            arr[i, 0] = self.coords_stomics[i].first
-            arr[i, 1] = self.coords_stomics[i].second
-        return arr
-
-cdef void process_line(const char* line, int line_length, LineData* data, bint encode = True) noexcept nogil:
-    cdef int field = 0
-    cdef int start = 0
-    cdef int i
-    cdef char c
-    cdef char[64] kmer
-    for i in range(line_length):
-        c = line[i]
-        if c == b',' or c == b'\t' or c == b'\n':
-            if field == 0:  # cell_bc
-                memcpy(kmer, &line[start], i - start)
-                kmer[i - start] = b'\0'
-                if encode:
-                    with gil:
-                        data.cell_bc = encode_kmer(kmer.decode("ascii")[:i])
-            elif field == 1:  # x coordinate
-                data.x = atof(&line[start])
-            elif field == 2:  # y coordinate
-                data.y = atof(&line[start])
-                break
-            field += 1
-            start = i + 1
-
-def create_spatial_index(str spatial_barcode_file):
-    """
-    Create a spatial index from a barcode coordinate file.
-
-    Parameters:
-        spatial_barcode_file (str): Path to file containing barcode coordinates
-
-    Returns:
-        SpatialIndex: Index mapping barcodes to spatial coordinates
-
-    Processes a CSV/TSV file containing cell barcodes and their x,y coordinates
-    to build an efficient lookup structure.
-    """
-    cdef:
-        SpatialIndex sindex = SpatialIndex()
-        FILE* file
-        char* line = NULL
-        size_t len = 0
-        ssize_t read
-        LineData data
-        vector[pair[float, float]] coords
-        uint32_t line_count = 0 # cannot index more than 4 billion locations/cells
-        Py_ssize_t report_interval = 10000000
-
-    logging.info("Starting spatial index creation...")
-
-    file = fopen(spatial_barcode_file.encode('ascii'), "r")
-    if file == NULL:
-        raise IOError(f"Cannot open file {spatial_barcode_file} for reading")
-
-    getline(&line, &len, file)
-
-    while True:
-        read = getline(&line, &len, file)
-        if read == -1:
-            break
-        process_line(line, read, &data)
-        
-        coords.push_back(pair[float, float](data.x, data.y))
-        sindex.add(data.cell_bc, line_count)
-
-        line_count += 1
-        if line_count % report_interval == 0:
+cdef void _build_index_radix(uint64_t* ak, uint32_t* ac, uint64_t tp, str output_dir, int kmer_size, int l_prefix, uint64_t n_cells):
+    cdef int l_suffix=kmer_size-l_prefix
+    cdef uint64_t np2=1<<(2*l_prefix), rshift=2*l_suffix, smask=(1<<(2*l_suffix))-1
+    cdef uint64_t i, pc, tk=0, nb=0
+    cdef double t0=time.time(), t1, t2, t3, now
+    logging.info(f"Radix partition {tp:,} entries -> {np2:,} prefixes...")
+    cdef uint32_t* cnt=<uint32_t*>malloc(np2*4)
+    if cnt==NULL: free(ak);free(ac); raise MemoryError()
+    memset(cnt,0,np2*4)
+    for i in range(tp): cnt[ak[i]>>rshift]+=1
+    t1=time.time(); logging.info(f"  Count: {t1-t0:.2f}s")
+    cdef uint64_t* ofs=<uint64_t*>malloc(np2*8)
+    cdef uint64_t* wp=<uint64_t*>malloc(np2*8)
+    if ofs==NULL or wp==NULL: free(cnt);free(ofs);free(wp);free(ak);free(ac); raise MemoryError()
+    ofs[0]=0; wp[0]=0
+    for i in range(1,np2): ofs[i]=ofs[i-1]+cnt[i-1]; wp[i]=ofs[i]
+    cdef uint32_t* ps=<uint32_t*>malloc(tp*4)
+    cdef uint32_t* pcc=<uint32_t*>malloc(tp*4)
+    if ps==NULL or pcc==NULL: free(cnt);free(ofs);free(wp);free(ps);free(pcc);free(ak);free(ac); raise MemoryError()
+    cdef uint64_t w
+    for i in range(tp):
+        pc=ak[i]>>rshift; w=wp[pc]; ps[w]=<uint32_t>(ak[i]&smask); pcc[w]=ac[i]; wp[pc]=w+1
+    t2=time.time(); logging.info(f"  Scatter: {t2-t1:.2f}s")
+    free(ak); free(ac); free(wp)
+    pp=os.path.join(output_dir,'pi.bin'); sp=os.path.join(output_dir,'suffixes.bin')
+    dp=os.path.join(output_dir,'data.bin'); mp=os.path.join(output_dir,'meta.json')
+    cdef np.ndarray[np.uint64_t,ndim=1] pis=np.zeros(np2,dtype=np.uint64)
+    cdef np.ndarray[np.uint64_t,ndim=1] pid=np.zeros(np2,dtype=np.uint64)
+    cdef np.ndarray[np.uint32_t,ndim=1] pidsz=np.zeros(np2,dtype=np.uint32)
+    cdef FILE* sfh=fopen(sp.encode('utf-8'),"wb")
+    cdef FILE* dfh=fopen(dp.encode('utf-8'),"wb")
+    if sfh==NULL or dfh==NULL: raise IOError("Cannot open output")
+    cdef uint32_t z=0
+    fwrite(&z,4,1,sfh)
+    cdef uint64_t swp=4, dwp=0
+    cdef vector[pair[uint32_t,uint32_t]] bp
+    cdef uint64_t bs
+    cdef uint32_t j
+    cdef double last_rpt = t2
+    for i in range(np2):
+        if cnt[i]==0: continue
+        bs=ofs[i]; bp.clear(); bp.reserve(cnt[i])
+        for j in range(cnt[i]): bp.push_back(pair[uint32_t,uint32_t](ps[bs+j],pcc[bs+j]))
+        stdsort(bp.begin(),bp.end())
+        _flush_bucket_c(i,bp,sfh,dfh,&swp,&dwp,<uint64_t*>pis.data,<uint64_t*>pid.data,<uint32_t*>pidsz.data,&tk,&nb)
+        if i%500000==0 and i>0:
+            now = time.time()
+            if now - last_rpt > 5.0:
+                logging.info(f"  Write: {i:,}/{np2:,} prefixes ({100.0*i/np2:.1f}%), {tk:,} kmers, {nb:,} buckets")
+                last_rpt = now
             PyErr_CheckSignals()
-            logging.info(f"Processed {line_count:,} spatial barcodes.")
+    t3=time.time(); logging.info(f"  Sort+write: {t3-t2:.2f}s")
+    fclose(sfh); fclose(dfh); free(cnt); free(ofs); free(ps); free(pcc)
+    with open(pp,'wb') as f: f.write(pis.tobytes()); f.write(pid.tobytes()); f.write(pidsz.tobytes())
+    meta={'magic':int(MAGIC),'version':int(VERSION),'kmer_size':kmer_size,'l_prefix':l_prefix,'l_suffix':l_suffix,'n_kmers':int(tk),'n_cells':int(n_cells),'n_prefixes':int(np2),'n_buckets_written':int(nb)}
+    with open(mp,'w') as f: json.dump(meta,f,indent=2)
+    logging.info(f"Build: {tk:,} kmers, {nb:,} buckets ({time.time()-t0:.1f}s)")
+    logging.info(f"  PI:{os.path.getsize(pp)/1e6:.1f}MB Suf:{os.path.getsize(sp)/1e6:.1f}MB Data:{os.path.getsize(dp)/1e6:.1f}MB")
 
-    # we also set the actual coordinate values
-    sindex.coords = coords
 
-    free(line)
-    fclose(file)
+# ===================== ChunkReader + build_from_sorted_chunks =====================
+cdef struct ChunkReader:
+    FILE* fh
+    uint64_t remaining, current_kmer
+    uint32_t current_cell
+    bint valid
+cdef bint chunk_reader_next(ChunkReader* cr) nogil:
+    cdef uint64_t kv
+    cdef uint32_t cv
+    if cr.remaining==0: cr.valid=False; return False
+    if fread(&kv,8,1,cr.fh)!=1: cr.valid=False; return False
+    if fread(&cv,4,1,cr.fh)!=1: cr.valid=False; return False
+    cr.current_kmer=kv; cr.current_cell=cv; cr.remaining-=1; cr.valid=True; return True
 
-    logging.info(f"Spatial index creation completed.")
+def build_from_sorted_chunks(list chunk_paths, str output_dir, int kmer_size=24, int l_prefix=12, uint64_t n_cells=0, bint verbose=False):
+    cdef int ls=kmer_size-l_prefix, nc=len(chunk_paths), i, mi, ac2=0
+    cdef uint64_t np2=1<<(2*l_prefix), rshift=2*ls, smask=(1<<(2*ls))-1
+    cdef uint64_t tk=0,nb=0,mk,nc2,kv,pc,ep=0
+    cdef uint32_t mc,sc,cv,cp2=0xFFFFFFFF
+    cdef uint64_t cpp=0xFFFFFFFFFFFFFFFF
+    cdef uint64_t total_entries = 0
+    logger=logging.getLogger("PrefixIndex.build")
+    if not os.path.exists(output_dir): os.makedirs(output_dir)
+    pp=os.path.join(output_dir,'pi.bin'); sp=os.path.join(output_dir,'suffixes.bin')
+    dp=os.path.join(output_dir,'data.bin'); mp=os.path.join(output_dir,'meta.json')
+    logger.info(f"Building from {nc} chunks, kmer_size={kmer_size}, l_prefix={l_prefix}")
+    cdef ChunkReader* rd=<ChunkReader*>malloc(nc*sizeof(ChunkReader))
+    if rd==NULL: raise MemoryError()
+    for i in range(nc):
+        pb=chunk_paths[i].encode('utf-8'); rd[i].fh=fopen(pb,"rb")
+        if rd[i].fh==NULL: raise IOError(f"Cannot open {chunk_paths[i]}")
+        fread(&nc2,8,1,rd[i].fh); rd[i].remaining=nc2; rd[i].valid=False
+        total_entries += nc2
+        if chunk_reader_next(&rd[i]): ac2+=1
+        logger.info(f"  Chunk {i}: {nc2:,} entries")
+    logger.info(f"Opened {ac2} chunks, {total_entries:,} total entries to merge")
+    cdef np.ndarray[np.uint64_t,ndim=1] pis=np.zeros(np2,dtype=np.uint64)
+    cdef np.ndarray[np.uint64_t,ndim=1] pid=np.zeros(np2,dtype=np.uint64)
+    cdef np.ndarray[np.uint32_t,ndim=1] pidsz=np.zeros(np2,dtype=np.uint32)
+    cdef FILE* sfh=fopen(sp.encode('utf-8'),"wb")
+    cdef FILE* dfh=fopen(dp.encode('utf-8'),"wb")
+    cdef uint32_t z=0
+    fwrite(&z,4,1,sfh)
+    cdef uint64_t swp=4,dwp=0
+    cdef vector[pair[uint32_t,uint32_t]] bp
+    cdef double t0=time.time(), last_report=t0, now
+    while ac2>0:
+        mk=0xFFFFFFFFFFFFFFFF; mi=-1
+        for i in range(nc):
+            if rd[i].valid:
+                if rd[i].current_kmer<mk or (rd[i].current_kmer==mk and rd[i].current_cell<mc):
+                    mk=rd[i].current_kmer; mc=rd[i].current_cell; mi=i
+        if mi<0: break
+        kv=rd[mi].current_kmer; cv=rd[mi].current_cell; pc=kv>>rshift; sc=<uint32_t>(kv&smask)
+        if pc!=cpp:
+            if cpp!=0xFFFFFFFFFFFFFFFF and bp.size()>0:
+                _flush_bucket_c(cpp,bp,sfh,dfh,&swp,&dwp,<uint64_t*>pis.data,<uint64_t*>pid.data,<uint32_t*>pidsz.data,&tk,&nb)
+            cpp=pc; bp.clear()
+        bp.push_back(pair[uint32_t,uint32_t](sc,cv))
+        if not chunk_reader_next(&rd[mi]): ac2-=1
+        ep+=1
+        if ep % 1000000 == 0:
+            now = time.time()
+            if now - last_report > 5.0:
+                pct = 100.0 * ep / total_entries if total_entries > 0 else 0
+                rate = ep / (now - t0) / 1e6
+                logger.info(f"  Merged {ep:,}/{total_entries:,} ({pct:.1f}%) "
+                           f"{tk:,} kmers, {nb:,} buckets, {rate:.1f}M/s")
+                last_report = now
+                PyErr_CheckSignals()
+    if cpp!=0xFFFFFFFFFFFFFFFF and bp.size()>0:
+        _flush_bucket_c(cpp,bp,sfh,dfh,&swp,&dwp,<uint64_t*>pis.data,<uint64_t*>pid.data,<uint32_t*>pidsz.data,&tk,&nb)
+    fclose(sfh); fclose(dfh)
+    for i in range(nc):
+        if rd[i].fh!=NULL: fclose(rd[i].fh)
+    free(rd)
+    with open(pp,'wb') as f: f.write(pis.tobytes()); f.write(pid.tobytes()); f.write(pidsz.tobytes())
+    meta={'magic':int(MAGIC),'version':int(VERSION),'kmer_size':kmer_size,'l_prefix':l_prefix,'l_suffix':ls,'n_kmers':int(tk),'n_cells':int(n_cells),'n_prefixes':int(np2),'n_buckets_written':int(nb)}
+    with open(mp,'w') as f: json.dump(meta,f,indent=2)
+    logger.info(f"Merge complete: {tk:,} kmers, {nb:,} buckets ({time.time()-t0:.1f}s)")
+    logger.info(f"  PI:{os.path.getsize(pp)/1e6:.1f}MB Suf:{os.path.getsize(sp)/1e6:.1f}MB Data:{os.path.getsize(dp)/1e6:.1f}MB")
 
-    return sindex
 
-cdef void process_line_whitelist(const char* line, int line_length, LineData* data) noexcept nogil:
-    cdef int start = 0
-    cdef int i
-    cdef char c
-    cdef char[64] kmer
+# ===================== Write empty index =====================
+def _write_empty_index(str od, int ks, int lp, int ls, uint64_t nc):
+    np2=1<<(2*lp); pi=np.zeros(np2,dtype=np.uint64)
+    with open(os.path.join(od,'pi.bin'),'wb') as f: f.write(pi.tobytes()); f.write(pi.tobytes()); f.write(np.zeros(np2,dtype=np.uint32).tobytes())
+    with open(os.path.join(od,'suffixes.bin'),'wb') as f: f.write(b'\x00\x00\x00\x00')
+    with open(os.path.join(od,'data.bin'),'wb') as f: pass
+    with open(os.path.join(od,'meta.json'),'w') as f: json.dump({'magic':0x4D4C5650,'version':2,'kmer_size':ks,'l_prefix':lp,'l_suffix':ls,'n_kmers':0,'n_cells':int(nc),'n_prefixes':int(np2),'n_buckets_written':0},f,indent=2)
 
-    for i in range(line_length):
-        c = line[i]
-        if c == b'\n':
-            memcpy(kmer, &line[0], i)
-            kmer[i] = b'\0'
-            with gil:
-                data.cell_bc = encode_kmer(kmer.decode("ascii")[:i])
 
-def create_singlecell_index(str whitelist_file):
+# ===================== Merge multiple prefix indices =====================
+def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=False, dict project_mapping=None,
+    int project_id_shift=23, uint32_t cell_id_mask=0x007FFFFF, bint verbose=False):
+    logger=logging.getLogger("PrefixIndex.merge")
+    cdef uint32_t merge_buf_cap = INITIAL_BUCKET_CAPACITY
+    cdef uint32_t* sb=<uint32_t*>malloc(merge_buf_cap*4)
+    cdef uint64_t* dob=<uint64_t*>malloc(merge_buf_cap*8)
+    cdef uint32_t* dlb=<uint32_t*>malloc(merge_buf_cap*4)
+    cdef uint32_t merge_data_cap = MAX_DATA_PER_BUCKET
+    cdef uint32_t* ddb_dec=<uint32_t*>malloc(merge_data_cap*4)
+    cdef int raw_bytes2
+    cdef uint32_t total_cells2
+    if not sb or not dob or not dlb or not ddb_dec: free(sb);free(dob);free(dlb);free(ddb_dec); raise MemoryError()
+    indices=[]
+    for d in index_dirs: p=PrefixIndex(); p.open(d); indices.append(p)
+    if len(indices)==0: free(sb);free(dob);free(dlb);free(ddb_dec); raise ValueError("No indices")
+    ks=indices[0].kmer_size; lp=indices[0].l_prefix; ls=indices[0].l_suffix; np2=indices[0].n_prefixes
+    if not os.path.exists(output_dir): os.makedirs(output_dir)
+    pp=os.path.join(output_dir,'pi.bin'); sp=os.path.join(output_dir,'suffixes.bin')
+    dp2=os.path.join(output_dir,'data.bin'); mp=os.path.join(output_dir,'meta.json')
+    cdef np.ndarray[np.uint64_t,ndim=1] oso=np.zeros(np2,dtype=np.uint64)
+    cdef np.ndarray[np.uint64_t,ndim=1] odo=np.zeros(np2,dtype=np.uint64)
+    cdef np.ndarray[np.uint32_t,ndim=1] ods=np.zeros(np2,dtype=np.uint32)
+    cdef FILE* sfh=fopen(sp.encode('utf-8'),"wb")
+    cdef FILE* dfh=fopen(dp2.encode('utf-8'),"wb")
+    cdef uint32_t zv=0
+    fwrite(&zv,4,1,sfh)
+    cdef uint64_t swp2=4,dwp2=0,tk2=0,nb2=0
+    cdef double t02=time.time()
+    cdef int ne2,j2,k2,nd2
+    cdef uint32_t sc2,ds2,dlv2,cvm2,needed2
+    cdef uint64_t sov2,dbo2
+    cdef uint32_t dbsv2
+    cdef vector[pair[uint32_t,uint32_t]] mp2
+    try:
+        for pc2 in range(np2):
+            if verbose and pc2%500000==0 and pc2>0:
+                dt2=time.time()-t02; logger.info(f"  {pc2:,}/{np2:,} ({100.0*pc2/np2:.1f}%) {tk2:,} kmers {dt2:.1f}s"); PyErr_CheckSignals()
+            mp2.clear()
+            for ii, po in enumerate(indices):
+                pi=<PrefixIndex>po; sov2=pi.pi_suffix_offsets[pc2]
+                if sov2==0: continue
+                ne2=pi._decompress_suffix_bucket(sov2,sb,dob,dlb,merge_buf_cap)
+                if ne2 < 0:
+                    needed2 = <uint32_t>(-ne2); free(sb); free(dob); free(dlb)
+                    merge_buf_cap = needed2 + 1024
+                    sb=<uint32_t*>malloc(merge_buf_cap*4); dob=<uint64_t*>malloc(merge_buf_cap*8); dlb=<uint32_t*>malloc(merge_buf_cap*4)
+                    if not sb or not dob or not dlb: free(sb);free(dob);free(dlb);free(ddb_dec); raise MemoryError()
+                    ne2=pi._decompress_suffix_bucket(sov2,sb,dob,dlb,merge_buf_cap)
+                if ne2<=0: continue
+                dbo2=pi.pi_data_offsets[pc2]; dbsv2=pi.pi_data_sizes[pc2]; nd2=0
+                if dbsv2>0:
+                    total_cells2 = 0
+                    for j2 in range(ne2):
+                        total_cells2 += dlb[j2]
+                    if total_cells2 > merge_data_cap:
+                        merge_data_cap = total_cells2 + 1024
+                        free(ddb_dec)
+                        ddb_dec = <uint32_t*>malloc(merge_data_cap*4)
+                        if not ddb_dec:
+                            free(sb);free(dob);free(dlb);free(ddb_dec); raise MemoryError()
+                    if pi.data_mmap != NULL and dbo2 + dbsv2 <= pi.data_size:
+                        nd2 = pi._decode_data_block(<const uint8_t*>(pi.data_mmap + dbo2), <int>dbsv2, dlb, ne2, ddb_dec, merge_data_cap)
+                    else:
+                        nd2 = 0
+                for j2 in range(ne2):
+                    sc2=sb[j2]; ds2=<uint32_t>dob[j2]; dlv2=dlb[j2]
+                    for k2 in range(dlv2):
+                        if (ds2+k2) < <uint32_t>nd2:
+                            cvm2=ddb_dec[ds2+k2]
+                            if merge_projects and project_mapping is not None:
+                                pid2=project_mapping.get(ii,(0,''))[0]
+                                cvm2=(cvm2&cell_id_mask)|(<uint32_t>pid2<<project_id_shift)
+                            mp2.push_back(pair[uint32_t,uint32_t](sc2,cvm2))
+            if mp2.size()==0: continue
+            stdsort(mp2.begin(),mp2.end())
+            _flush_bucket_c(pc2,mp2,sfh,dfh,&swp2,&dwp2,<uint64_t*>oso.data,<uint64_t*>odo.data,<uint32_t*>ods.data,&tk2,&nb2)
+    finally: free(sb);free(dob);free(dlb);free(ddb_dec)
+    fclose(sfh); fclose(dfh)
+    with open(pp,'wb') as f: f.write(oso.tobytes()); f.write(odo.tobytes()); f.write(ods.tobytes())
+    tnc=sum(p.n_cells for p in indices)
+    meta={'magic':int(MAGIC),'version':int(VERSION),'kmer_size':ks,'l_prefix':lp,'l_suffix':ls,'n_kmers':int(tk2),'n_cells':int(tnc),'n_prefixes':int(np2),'merge_projects':merge_projects,'project_id_shift':project_id_shift,'cell_id_mask':int(cell_id_mask)}
+    if project_mapping: meta['project_mapping']={str(kk):v for kk,v in project_mapping.items()}
+    with open(mp,'w') as f: json.dump(meta,f,indent=2)
+    for p in indices: p.close()
+    logger.info(f"Merge: {tk2:,} kmers from {len(indices)} indices in {time.time()-t02:.1f}s")
+
+
+# ===================== Fast quantify_where =====================
+from malva.fastq_processing cimport FastKmerProcessor
+from malva.kmer_processing import get_kmers_numeric
+
+# ── Inline C kmer encoder for the counting loop ──────────────────────────────
+cdef extern from *:
     """
-    Create an index from a single-cell barcode whitelist.
+    #include <stdint.h>
+    #include <string.h>
 
-    Parameters:
-        whitelist_file (str): Path to file containing valid cell barcodes
+    /* C++ compatible base encoding table — initialized at startup */
+    static int QW_BASE_ENC_storage[256];
+    static const int* QW_BASE_ENC = QW_BASE_ENC_storage;
+    static struct _QW_Init {
+        _QW_Init() {
+            for (int i = 0; i < 256; i++) QW_BASE_ENC_storage[i] = 4;
+            QW_BASE_ENC_storage[(unsigned char)'A'] = 0;
+            QW_BASE_ENC_storage[(unsigned char)'C'] = 1;
+            QW_BASE_ENC_storage[(unsigned char)'T'] = 2;
+            QW_BASE_ENC_storage[(unsigned char)'U'] = 2;
+            QW_BASE_ENC_storage[(unsigned char)'G'] = 3;
+            QW_BASE_ENC_storage[(unsigned char)'N'] = 3;
+        }
+    } _qw_init;
 
-    Returns:
-        SpatialIndex: Index containing valid cell barcodes
+    /* Encode non-overlapping kmers from seq[0..seq_len) into out[].
+     * Writes 0 for kmers containing 'N'.  Returns number of kmers written. */
+    static inline int encode_nonoverlapping_kmers(
+        const char* seq, int seq_len, int k,
+        uint64_t* out, int out_cap)
+    {
+        int n = 0;
+        for (int i = 0; i + k <= seq_len && n < out_cap; i += k) {
+            uint64_t val = 0;
+            int has_n = 0;
+            for (int j = 0; j < k; j++) {
+                int b = QW_BASE_ENC[(unsigned char)seq[i + j]];
+                if (b == 4) { has_n = 1; }  /* invalid base */
+                val = (val << 2) | (b & 3);
+            }
+            /* Check for N: BASE_ENC['N'] = 3 = BASE_ENC['G'], so we
+             * need explicit N check */
+            if (has_n) {
+                /* Scan for actual N */
+                has_n = 0;
+                for (int j = 0; j < k; j++) {
+                    if (seq[i+j] == 'N') { has_n = 1; break; }
+                }
+            }
+            out[n++] = has_n ? 0 : val;
+        }
+        /* Handle tail kmer if sequence doesn't divide evenly */
+        int tail_start = (seq_len / k) * k;
+        int tail_len = seq_len - tail_start;
+        if (tail_len > 0 && tail_len < k && n < out_cap && tail_start >= k) {
+            /* Take overlapping nucleotides from previous kmer */
+            int start = seq_len - k;
+            uint64_t val = 0;
+            int has_n2 = 0;
+            for (int j = 0; j < k; j++) {
+                unsigned char c = seq[start + j];
+                if (c == 'N') has_n2 = 1;
+                int b = QW_BASE_ENC[c];
+                val = (val << 2) | (b & 3);
+            }
+            out[n++] = has_n2 ? 0 : val;
+        }
+        return n;
+    }
+    """
+    int encode_nonoverlapping_kmers(
+        const char* seq, int seq_len, int k,
+        uint64_t* out, int out_cap) nogil
 
-    Processes a whitelist file containing one barcode per line to create
-    a lookup structure for valid cell identifiers.
+def quantify_where(
+    PrefixIndex index, list sequence_groups, int kmer_size,
+    int sliding_size=128, float pct_threshold=0.65,
+    uint32_t count_at_most=10000, uint32_t count_at_least=10,
+    uint32_t max_cell_id=0, bint single_count=False,
+    object background_model=None, bint use_background_model=True,
+    bint verbose=False,
+):
+    """Fast quantification using CSR arrays + open-addressing hash remap.
+
+    Optimisations vs previous version:
+      1. query_batch_csr() returns flat CSR arrays — no unordered_map of vectors,
+         no 67K heap allocations, no 128M cell copies into fragmented storage.
+      2. OAHash32 remap — open-addressing with linear probing replaces
+         std::unordered_map. 2-3× faster per lookup, sequential access on flat array.
+      3. Binary search on sorted kmer_keys[] replaces unordered_map.find() in the
+         counting loop. kmer_keys (540KB) fits L2 cache; 17 comparisons vs hash probe.
+      4. C-level kmer extraction in counting loop — encode_nonoverlapping_kmers()
+         replaces Python get_kmers_numeric() calls (eliminates ~57K Python→C transitions).
+      5. Sequential cell_data access — CSR layout gives cache-friendly sequential reads
+         instead of pointer-chasing through fragmented vector storage.
     """
     cdef:
-        SpatialIndex sindex = SpatialIndex()
-        FILE* file
-        char* line = NULL
-        size_t len = 0
-        ssize_t read
-        LineData data
-        uint32_t line_count = 0
-        Py_ssize_t report_interval = 10000000
+        FastKmerProcessor processor
+        np.ndarray all_kmer_list
+        list results = []
+        float CONST_THRESHOLD
+        int BACKGROUND_THRESHOLD = 1
+        list seq_matches = [[0, 1]]
+        uint32_t kmers_per_read, _sliding_size
+        uint64_t kmer_val
+        uint32_t i, j, idx_kmer, value, idx
+        Py_ssize_t num_groups, gkl_len
+        np.ndarray[np.uint32_t, ndim=1] kmer_locations, kmer_count
+        object subseq, group, seq, split_sliding_sequences
+        double t_start, t_phase
+        uint32_t* cc
+        uint32_t* cl_ki
+        uint32_t* sc
+        uint32_t* cu
+        uint32_t  cu_n
+        uint32_t* sd
+        uint32_t  sd_n
+        uint32_t  n_unique_cells, compact_id, orig_id
+        uint32_t  c_val, kpr
+        float     thresh_f
+        # CSR arrays
+        np.ndarray[np.uint64_t, ndim=1] csr_keys, csr_indptr
+        np.ndarray[np.uint32_t, ndim=1] csr_cells, csr_orig
+        uint64_t* csr_keys_ptr
+        uint32_t* csr_cells_ptr
+        uint64_t* csr_indptr_ptr
+        uint32_t* csr_orig_ptr
+        int64_t   csr_n_keys, csr_idx
+        uint64_t  cell_start, cell_end
+        # C kmer buffer
+        uint64_t* kmer_buf
+        int       kmer_buf_cap, n_encoded
+        const char* subseq_c
+        int       subseq_len, max_kmers
 
-    logging.info("Starting spatial index creation...")
+    t_start = time.time()
+    processor = FastKmerProcessor(kmer_size, True, kmer_size)
+    all_kmer_list = processor.process_sequences(sequence_groups)
+    num_groups = len(sequence_groups)
 
-    file = fopen(whitelist_file.encode('ascii'), "r")
-    if file == NULL:
-        raise IOError(f"Cannot open file {whitelist_file} for reading")
+    if verbose:
+        t_phase = time.time()
+        logging.info(f"  Parsed {len(all_kmer_list):,} unique kmers from {num_groups} groups in {t_phase-t_start:.2f}s")
 
-    getline(&line, &len, file)
+    if len(all_kmer_list) == 0:
+        return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * num_groups
 
-    while True:
-        read = getline(&line, &len, file)
-        if read == -1:
-            break
-        process_line_whitelist(line, read, &data)
-        
-        sindex.add(data.cell_bc, line_count + 1) # avoid zero index
+    t_phase = time.time()
 
-        line_count += 1
-        if line_count % report_interval == 0:
-            PyErr_CheckSignals()
-            logging.info(f"Processed {line_count:,} spatial barcodes.")
+    # ── Step 1: query_batch_csr — returns sorted CSR + remapped cell IDs ──
+    csr_result = (<PrefixIndex>index).query_batch_csr(
+        np.asarray(all_kmer_list, dtype=np.uint64),
+        count_at_most=count_at_most, count_at_least=count_at_least)
+    csr_keys   = csr_result[0]
+    csr_cells  = csr_result[1]
+    csr_indptr = csr_result[2]
+    csr_orig   = csr_result[3]
+    n_unique_cells = csr_result[4]
 
-    logging.info(f"Processed {line_count:,} spatial barcodes.")
+    t = (<PrefixIndex>index)._last_query_times
+    if t:
+        logging.info(
+            f"query_batch timing | kmers_in={t.get('n_kmers_in',0):,} "
+            f"buckets={t.get('n_buckets_touched',0):,} hits={t.get('n_hits',0):,} "
+            f"suf={t.get('n_suf_bytes',0)/1e6:.1f}MB dat={t.get('n_dat_bytes',0)/1e6:.1f}MB | "
+            f"suf_read={t.get('t_suf_read',0)*1000:.1f}ms "
+            f"suf_decomp={t.get('t_suffix_decomp',0)*1000:.1f}ms "
+            f"bsearch={t.get('t_bsearch',0)*1000:.1f}ms "
+            f"dat_read={t.get('t_dat_read',0)*1000:.1f}ms "
+            f"phase2={t.get('t_phase2',0)*1000:.1f}ms "
+            f"unaccounted={t.get('t_unaccounted',0)*1000:.1f}ms "
+            f"total={t.get('t_total',0)*1000:.1f}ms"
+        )
 
-    free(line)
-    fclose(file)
+    csr_n_keys = len(csr_keys)
 
-    logging.info(f"Spatial index creation completed.")
+    if verbose:
+        logging.info(f"  Queried index: {csr_n_keys:,}/{len(all_kmer_list):,} kmers found "
+                     f"(count_at_least={count_at_least}, count_at_most={count_at_most}) in {time.time()-t_phase:.2f}s")
+        logging.info(f"  Remapped {n_unique_cells:,} unique cells (max_cell_id={max_cell_id:,})")
 
-    return sindex
+    if csr_n_keys == 0:
+        return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * num_groups
 
-cdef class BackgroundModel:
+    t_phase = time.time()
+
+    # Get raw pointers for nogil access
+    csr_keys_ptr   = <uint64_t*>csr_keys.data
+    csr_cells_ptr  = <uint32_t*>csr_cells.data
+    csr_indptr_ptr = <uint64_t*>csr_indptr.data
+    csr_orig_ptr   = <uint32_t*>csr_orig.data
+
+    # ── Step 2: allocate counting arrays (indexed by compact cell ID) ─────
+    cc    = <uint32_t*>malloc((n_unique_cells + 1) * 4)
+    cl_ki = <uint32_t*>malloc((n_unique_cells + 1) * 4)
+    sc    = <uint32_t*>malloc((n_unique_cells + 1) * 4)
+    cu    = <uint32_t*>malloc((n_unique_cells + 1) * 4)
+    sd    = <uint32_t*>malloc((n_unique_cells + 1) * 4)
+    kmer_buf_cap = 1024
+    kmer_buf = <uint64_t*>malloc(kmer_buf_cap * 8)
+    if not cc or not cl_ki or not sc or not cu or not sd or not kmer_buf:
+        free(cc); free(cl_ki); free(sc); free(cu); free(sd); free(kmer_buf)
+        raise MemoryError()
+    memset(cc,    0, (n_unique_cells + 1) * 4)
+    memset(cl_ki, 0, (n_unique_cells + 1) * 4)
+    memset(sc,    0, (n_unique_cells + 1) * 4)
+
+    # ── Step 3: cell counting using CSR + binary search ───────────────────
+    try:
+        for i in range(num_groups):
+            group = sequence_groups[i]
+
+            split_sliding_sequences = set()
+            for seq in group:
+                _sliding_size = sliding_size if sliding_size > 0 else len(seq) - kmer_size
+                for si in range(0, len(seq) - _sliding_size + 1):
+                    split_sliding_sequences.add(seq[si:si + _sliding_size])
+
+            sd_n = 0
+
+            for subseq in split_sliding_sequences:
+                _sliding_size = sliding_size if sliding_size > 0 else len(subseq)
+                CONST_THRESHOLD = (sliding_size // kmer_size) * pct_threshold
+                if sliding_size <= 0:
+                    CONST_THRESHOLD = (abs(sliding_size) // kmer_size) * pct_threshold
+                kmers_per_read = <uint32_t>(_sliding_size // kmer_size)
+                kpr = kmers_per_read
+                thresh_f = CONST_THRESHOLD
+
+                # C-level kmer extraction — replaces Python get_kmers_numeric
+                subseq_bytes = subseq.encode('ascii') if isinstance(subseq, str) else subseq
+                subseq_c = subseq_bytes
+                subseq_len = len(subseq_bytes)
+                if subseq_len < kmer_size:
+                    continue
+                # Ensure kmer buffer is large enough
+                max_kmers = subseq_len // kmer_size + 2
+                if max_kmers > kmer_buf_cap:
+                    kmer_buf_cap = max_kmers + 64
+                    free(kmer_buf)
+                    kmer_buf = <uint64_t*>malloc(kmer_buf_cap * 8)
+                    if not kmer_buf:
+                        free(cc); free(cl_ki); free(sc); free(cu); free(sd)
+                        raise MemoryError()
+
+                n_encoded = encode_nonoverlapping_kmers(
+                    subseq_c, subseq_len, kmer_size, kmer_buf, kmer_buf_cap)
+                gkl_len = n_encoded
+                if gkl_len == 0: continue
+
+                if use_background_model and background_model is not None:
+                    for idx_kmer in range(gkl_len):
+                        if kmer_buf[idx_kmer] != 0 and \
+                                background_model.is_mer_above_cutoff(kmer_buf[idx_kmer], BACKGROUND_THRESHOLD):
+                            kmer_buf[idx_kmer] = 0
+
+                cu_n = 0
+
+                with nogil:
+                    for idx_kmer in range(gkl_len):
+                        kmer_val = kmer_buf[idx_kmer]
+                        if kmer_val == 0: continue
+
+                        # Binary search on sorted kmer_keys — replaces hash map lookup
+                        csr_idx = bsearch_u64(csr_keys_ptr, csr_n_keys, kmer_val)
+                        if csr_idx < 0: continue
+
+                        # Iterate cells from CSR — sequential memory access
+                        cell_start = csr_indptr_ptr[csr_idx]
+                        cell_end   = csr_indptr_ptr[csr_idx + 1]
+                        for j in range(<uint32_t>(cell_end - cell_start)):
+                            c_val = csr_cells_ptr[cell_start + j]
+                            if cc[c_val] == 0:
+                                cu[cu_n] = c_val
+                                cu_n += 1
+                            cc[c_val] += 1
+                            cl_ki[c_val] = idx_kmer
+                            if cc[c_val] > kpr:
+                                cc[c_val] = kpr
+
+                        if ((<uint32_t>(idx_kmer + 1)) < kpr) and (idx_kmer + 1 < gkl_len):
+                            continue
+
+                        for j in range(cu_n):
+                            c_val = cu[j]
+                            if cc[c_val] > <uint32_t>thresh_f:
+                                if sc[c_val] == 0:
+                                    sd[sd_n] = c_val
+                                    sd_n += 1
+                                    sc[c_val] = 1
+                                elif not single_count:
+                                    cc[c_val] = 0
+                                    sc[c_val] += 1
+                            if cl_ki[c_val] - idx_kmer > 0 and cc[c_val] > 0:
+                                cc[c_val] -= 1
+
+                with nogil:
+                    for j in range(cu_n):
+                        c_val = cu[j]
+                        cc[c_val] = 0
+                        cl_ki[c_val] = 0
+
+            kmer_locations = np.empty(sd_n, dtype=np.uint32)
+            kmer_count     = np.empty(sd_n, dtype=np.uint32)
+            for idx in range(sd_n):
+                c_val = sd[idx]
+                kmer_locations[idx] = csr_orig_ptr[c_val]
+                kmer_count[idx]     = sc[c_val]
+            results.append((kmer_locations, kmer_count, seq_matches))
+
+            with nogil:
+                for j in range(sd_n):
+                    sc[sd[j]] = 0
+            sd_n = 0
+
+    finally:
+        free(cc); free(cl_ki); free(sc); free(cu); free(sd); free(kmer_buf)
+
+    if verbose:
+        logging.info(f"  Cell counting for {num_groups} groups completed in {time.time()-t_phase:.2f}s "
+                     f"(total {time.time()-t_start:.2f}s)")
+
+    return results
+
+
+# ===================== Fast HDF5-to-prefix converter (Cython) =====================
+def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
+    str output_dir, int kmer_size=24, int l_prefix=12, uint64_t n_cells=0,
+    int chunk_size=5000000, bint verbose=True):
     """
-    Models background k-mer frequencies for filtering common sequences.
-
-    Maintains counts of k-mer occurrences in reference sequences to identify
-    and filter out highly abundant or common k-mers during searches.
-
-    Attributes:
-        total_mers (int): Total number of k-mers processed
-        kmer_size (int): Length of k-mers being counted
-        verbose (bool): Whether to print detailed logging information
+    Convert HDF5 index arrays to prefix-bucketed compressed format.
+    All heavy work in C — zero Python calls in the inner loop.
     """
     cdef:
-        map[uint64_t, uint16_t] model
-        size_t total_mers
-        size_t kmer_size
-        bint verbose
+        int l_suffix = kmer_size - l_prefix
+        uint64_t n_prefixes = 1 << (2 * l_prefix)
+        uint64_t rshift_val = 2 * l_suffix
+        uint64_t suffix_mask_val = (1 << (2 * l_suffix)) - 1
+        uint64_t total_indices = len(indices_ds)
+        uint64_t total_indptr = len(indptr_ds)
+        uint64_t total_data = len(data_ds)
+        uint64_t tk = 0, nb = 0
+        uint64_t pos, end_pos, i, j
+        uint64_t kmer_val, prefix_code, cur_prefix = 0xFFFFFFFFFFFFFFFF
+        uint32_t suffix_code, cc, prev_cc
+        int64_t n_in
+        vector[pair[uint32_t, uint32_t]] bucket_pairs
+        uint64_t* idx_ptr
+        uint64_t* ip_start_ptr
+        uint64_t* ip_end_ptr
+        uint32_t* data_ptr
+        int64_t ds_min, ds_max, ds, de
+        uint64_t data_block_len
+        # Typed references to keep numpy arrays alive while raw pointers are in use.
+        # Without these, Cython may release the Python objects early, allowing GC
+        # to free the backing buffer → dangling pointer → SIGSEGV under memory pressure.
+        np.ndarray indices_arr, indptr_arr, ends_arr, data_block
+        int64_t reduced_n
+        uint64_t max_pairs_per_chunk
+        uint64_t max_bucket_pairs
+        int64_t effective_chunk_size
+        int64_t win_start, win_end, win_ds, win_de
 
-    def __cinit__(self, int kmer_size, bint verbose = True):
-        self.model = map[uint64_t, uint16_t]()
-        self.total_mers = 0
-        self.kmer_size = kmer_size
-        self.verbose = verbose
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
-    def create_from_reference(self, str filename, bint consecutive_genes = True):
-        """
-        Build background model from a reference sequence file.
+    pp = os.path.join(output_dir, 'pi.bin')
+    sp = os.path.join(output_dir, 'suffixes.bin')
+    dp = os.path.join(output_dir, 'data.bin')
+    mp = os.path.join(output_dir, 'meta.json')
 
-        Parameters:
-            filename (str): Path to reference sequence file
-            consecutive_genes (bool): Whether to group consecutive genes
+    cdef np.ndarray[np.uint64_t, ndim=1] pis = np.zeros(n_prefixes, dtype=np.uint64)
+    cdef np.ndarray[np.uint64_t, ndim=1] pid = np.zeros(n_prefixes, dtype=np.uint64)
+    cdef np.ndarray[np.uint32_t, ndim=1] pidsz = np.zeros(n_prefixes, dtype=np.uint32)
 
-        Processes reference sequences to count k-mer frequencies,
-        optionally combining counts for consecutive genes with same name.
-        """
-        from malva.reader import iterate_fasta
-        from malva.utils import check_file_exists
+    cdef FILE* sfh = fopen(sp.encode('utf-8'), "wb")
+    cdef FILE* dfh = fopen(dp.encode('utf-8'), "wb")
+    if sfh == NULL or dfh == NULL:
+        raise IOError("Cannot open output files")
 
-        cdef:
-            map[uint64_t, uint16_t] temp_model
-            map[uint64_t, uint16_t].iterator it
-            map[uint64_t, uint16_t].iterator end
-            str current_gene = ""
-            uint64_t key
+    cdef uint32_t z = 0
+    fwrite(&z, 4, 1, sfh)
+    cdef uint64_t swp = 4, dwp = 0
+    cdef double t0 = time.time(), last_report = t0, now, dt
 
-        check_file_exists(filename, except_when=False)
+    # Adaptive chunk size: if cells-per-kmer is high, reduce chunk_size to
+    # cap peak memory.  bucket_pairs holds (suffix, cell) pairs — 8 bytes each.
+    # data_block holds cell IDs — 4 bytes each.  Peak memory per chunk iteration
+    # is roughly: data_block + bucket_pairs ≈ 2 × data_block_size.
+    # Cap at ~2GB combined → max ~250M cell references per chunk.
+    max_pairs_per_chunk = 250000000  # 250M pairs = ~2GB
 
-        if self.verbose:
-            iterator = track(iterate_fasta(filename), description=f'Computing background {self.kmer_size}-mer')
+    # Hard cap on bucket_pairs size.  When a single prefix accumulates more
+    # than this many (suffix, cell) pairs, further cells are dropped.  This
+    # prevents unbounded vector growth for pathological kmers (e.g. poly-A
+    # sequences matching hundreds of millions of cells).  Such kmers always
+    # exceed count_at_most during querying and are filtered out, so the
+    # truncation has no practical effect on results.
+    max_bucket_pairs = max_pairs_per_chunk
+
+    effective_chunk_size = chunk_size
+
+    pos = 0
+    while pos < total_indices:
+        end_pos = min(pos + effective_chunk_size, total_indices)
+
+        indices_arr = np.ascontiguousarray(indices_ds[pos:end_pos], dtype=np.uint64)
+        ip_end_val = min(end_pos + 1, total_indptr)
+        indptr_arr = np.ascontiguousarray(indptr_ds[pos:ip_end_val], dtype=np.uint64)
+
+        n_in = len(indices_arr)
+        idx_ptr = <uint64_t*>(<np.ndarray>indices_arr).data
+        ip_start_ptr = <uint64_t*>(<np.ndarray>indptr_arr).data
+
+        ends_arr = np.empty(n_in, dtype=np.uint64)
+        if len(indptr_arr) > n_in:
+            ends_arr[:] = indptr_arr[1:n_in + 1]
         else:
-            iterator = iterate_fasta(filename)
+            ends_arr[:n_in - 1] = indptr_arr[1:n_in]
+            ends_arr[n_in - 1] = total_data
+        ip_end_ptr = <uint64_t*>(<np.ndarray>ends_arr).data
 
-        for seq in iterator:
-            it_gene_name = seq[0].split(":")[0]
-            
-            all_kmer_seq = get_sliding_kmers_numeric(seq[1], self.kmer_size, remove_noncomplex=True)
-            for kmer in all_kmer_seq:
-                temp_model[kmer] = 1
-                self.total_mers += 1
+        ds_min = <int64_t>ip_start_ptr[0] if n_in > 0 else 0
+        ds_max = <int64_t>ip_end_ptr[n_in - 1] if n_in > 0 else 0
 
-            if it_gene_name == current_gene and consecutive_genes:
-                continue
+        data_block = None
+        if ds_max > ds_min:
+            # Check if this chunk's data would exceed the memory cap.
+            # If so, reduce end_pos to process fewer kmers this iteration.
+            if <uint64_t>(ds_max - ds_min) > max_pairs_per_chunk:
+                # Binary search for a smaller end_pos where data fits.
+                # Use indptr to estimate: find the kmer whose indptr stays within cap.
+                reduced_n = n_in
+                while reduced_n > 1:
+                    reduced_n = reduced_n * max_pairs_per_chunk // <uint64_t>(ds_max - ds_min)
+                    if reduced_n < 1:
+                        reduced_n = 1
+                    # Recompute ds_max for the reduced range
+                    ds_max = <int64_t>ip_end_ptr[reduced_n - 1] if reduced_n > 0 else ds_min
+                    if <uint64_t>(ds_max - ds_min) <= max_pairs_per_chunk:
+                        break
+                # Adjust n_in and end_pos
+                n_in = reduced_n
+                end_pos = pos + <uint64_t>n_in
+                if verbose:
+                    logging.info(f"  Reduced chunk to {n_in:,} kmers (data {(ds_max-ds_min):,} cells) to stay within memory cap")
 
-            it = temp_model.begin()
-            end = temp_model.end()
-            while it != end:
-                key = move(deref(it).first)
-                if self.model.find(key) == self.model.end():
-                    self.model[key] = 1
-                else:
-                    self.model[key] += 1 # we only count once per reference entry (or grouped-consecutive)
-                it += 1
-            
-            current_gene = it_gene_name
-            temp_model.clear()
-            
-        if self.verbose:
-            logging.info(f"Processed {self.model.size()} unique {self.kmer_size}-mers across {self.total_mers} occurrences")
+            # If even after reduction the data range is too large (single kmer
+            # with a massive cell list), process the data in sub-windows to
+            # avoid allocating more than max_pairs_per_chunk cells at a time.
+            if <uint64_t>(ds_max - ds_min) > max_pairs_per_chunk:
+                # --- Streaming sub-chunk path for oversized single kmer(s) ---
+                if verbose:
+                    logging.info(f"  Streaming {n_in} kmer(s) with {(ds_max-ds_min):,} cells in sub-windows")
+                win_start = ds_min
+                while win_start < ds_max:
+                    win_end = min(win_start + <int64_t>max_pairs_per_chunk, ds_max)
+                    data_block = np.ascontiguousarray(data_ds[win_start:win_end], dtype=np.uint32)
+                    data_ptr = <uint32_t*>(<np.ndarray>data_block).data
+                    data_block_len = len(data_block)
 
-    def is_mer_above_cutoff(self, uint64_t kmer, uint16_t cutoff):
-        if self.model.find(kmer) == self.model.end():
-            return False # assume if it does not exist, is below cutoff
-        
-        return self.model[kmer] > cutoff
+                    for i in range(n_in):
+                        kmer_val = idx_ptr[i]
+                        prefix_code = kmer_val >> rshift_val
+                        suffix_code = <uint32_t>(kmer_val & suffix_mask_val)
 
-    def save(self, str filename):
-        cdef:
-            FILE* file = fopen(filename.encode('ascii'), "wb")
-            uint64_t key
-            uint16_t count
-            size_t size = self.model.size()
-            map[uint64_t, uint16_t].iterator it = self.model.begin()
-            map[uint64_t, uint16_t].iterator end = self.model.end()
-    
-        if file == NULL:
-            raise IOError(f"Cannot open file {filename} for writing")
+                        if prefix_code != cur_prefix:
+                            if cur_prefix != 0xFFFFFFFFFFFFFFFF and bucket_pairs.size() > 0:
+                                _flush_bucket_c(cur_prefix, bucket_pairs, sfh, dfh,
+                                    &swp, &dwp, <uint64_t*>pis.data, <uint64_t*>pid.data,
+                                    <uint32_t*>pidsz.data, &tk, &nb)
+                            cur_prefix = prefix_code
+                            bucket_pairs.clear()
 
-        fwrite(&size, sizeof(size_t), 1, file)
+                        # Skip if bucket_pairs is already at the cap for this prefix
+                        if bucket_pairs.size() >= max_bucket_pairs:
+                            continue
 
-        while it != end:
-            key = move(deref(it).first)
-            count = self.model[key]
-            fwrite(&key, sizeof(uint64_t), 1, file)
-            fwrite(&count, sizeof(uint16_t), 1, file)
-            it += 1
+                        # Adjust offsets relative to the current window
+                        win_ds = <int64_t>ip_start_ptr[i] - win_start
+                        win_de = <int64_t>ip_end_ptr[i] - win_start
+                        # Clamp to the window boundaries
+                        if win_ds < 0:
+                            win_ds = 0
+                        if win_de > <int64_t>data_block_len:
+                            win_de = <int64_t>data_block_len
+                        if win_de > win_ds and data_ptr != NULL:
+                            for j in range(<uint64_t>win_ds, <uint64_t>win_de):
+                                bucket_pairs.push_back(pair[uint32_t, uint32_t](suffix_code, data_ptr[j]))
+                                if bucket_pairs.size() >= max_bucket_pairs:
+                                    break
 
-        fclose(file)
+                    data_block = None
+                    data_ptr = NULL
+                    win_start = win_end
+                    PyErr_CheckSignals()  # allow Ctrl-C during long streaming
+            else:
+                # Normal path: data fits in memory
+                data_block = np.ascontiguousarray(data_ds[ds_min:ds_max], dtype=np.uint32)
+                data_ptr = <uint32_t*>(<np.ndarray>data_block).data
+                data_block_len = len(data_block)
 
-    def export_fasta(self, str filename):
-        raise NotImplementedError("Cannot save as FASTA yet")
+                for i in range(n_in):
+                    kmer_val = idx_ptr[i]
+                    prefix_code = kmer_val >> rshift_val
+                    suffix_code = <uint32_t>(kmer_val & suffix_mask_val)
 
-    def load(self, str filename):
-        cdef:
-            FILE* file = fopen(filename.encode('ascii'), "rb")
-            size_t size
-            uint64_t key
-            uint16_t count
+                    if prefix_code != cur_prefix:
+                        if cur_prefix != 0xFFFFFFFFFFFFFFFF and bucket_pairs.size() > 0:
+                            _flush_bucket_c(cur_prefix, bucket_pairs, sfh, dfh,
+                                &swp, &dwp, <uint64_t*>pis.data, <uint64_t*>pid.data,
+                                <uint32_t*>pidsz.data, &tk, &nb)
+                        cur_prefix = prefix_code
+                        bucket_pairs.clear()
 
-        if file == NULL:
-            raise IOError(f"Cannot open file {filename} for reading")
+                    ds = <int64_t>ip_start_ptr[i] - ds_min
+                    de = <int64_t>ip_end_ptr[i] - ds_min
+                    if ds >= 0 and de > ds and data_ptr != NULL and de <= <int64_t>data_block_len:
+                        for j in range(<uint64_t>ds, <uint64_t>de):
+                            bucket_pairs.push_back(pair[uint32_t, uint32_t](suffix_code, data_ptr[j]))
 
-        self.model.clear()
-        self.total_mers = 0
-
-        fread(&size, sizeof(size_t), 1, file)
-
-        for _ in range(size):
-            fread(&key, sizeof(uint64_t), 1, file)
-            fread(&count, sizeof(uint16_t), 1, file)
-            self.model[key] = count
-            self.total_mers += 1
-
-        fclose(file)
-
-    def import_jellyfish_fasta(self, str filename):
-        from malva.reader import iterate_fasta
-        from malva.kmer_processing import encode_kmer
-
-        cdef:
-            uint64_t key
-            uint16_t count
-
-        self.model.clear()
-        self.total_mers = 0
-
-        if self.verbose:
-            iterator = track(iterate_fasta(filename), description=f'Computing background {self.kmer_size}-mer frequency from {filename}')
+                data_block = None
+                data_ptr = NULL
         else:
-            iterator = iterate_fasta(filename)
+            data_ptr = NULL
+            data_block_len = 0
 
-        for seq in iterator:
-            self.model[encode_kmer(seq[1], self.kmer_size)] = <uint16_t>int(seq[0])
-            self.total_mers += 1
+        # Release source arrays to free memory before next chunk.
+        # bucket_pairs holds value copies, so source arrays are no longer needed.
+        indices_arr = None
+        indptr_arr = None
+        ends_arr = None
+
+        pos = end_pos
+
+        now = time.time()
+        if verbose and (now - last_report > 2.0 or pos >= total_indices):
+            dt = now - t0
+            logging.info(f"  {pos:,}/{total_indices:,} ({100.0*pos/total_indices:.1f}%) "
+                         f"{pos/dt/1e6:.2f}M/s, {nb:,} buckets, {tk:,} kmers")
+            last_report = now
+
+    if cur_prefix != 0xFFFFFFFFFFFFFFFF and bucket_pairs.size() > 0:
+        _flush_bucket_c(cur_prefix, bucket_pairs, sfh, dfh,
+            &swp, &dwp, <uint64_t*>pis.data, <uint64_t*>pid.data,
+            <uint32_t*>pidsz.data, &tk, &nb)
+
+    fclose(sfh)
+    fclose(dfh)
+
+    with open(pp, 'wb') as f:
+        f.write(pis.tobytes()); f.write(pid.tobytes()); f.write(pidsz.tobytes())
+
+    meta = {'magic': int(MAGIC), 'version': int(VERSION), 'kmer_size': kmer_size,
+            'l_prefix': l_prefix, 'l_suffix': l_suffix, 'n_kmers': int(tk),
+            'n_cells': int(n_cells), 'n_prefixes': int(n_prefixes),
+            'n_buckets_written': int(nb)}
+    with open(mp, 'w') as f:
+        json.dump(meta, f, indent=2)
+
+    dt = time.time() - t0
+    logging.info(f"Conversion done: {tk:,} kmers, {nb:,} buckets ({dt:.1f}s)")
+    logging.info(f"  PI:{os.path.getsize(pp)/1e6:.1f}MB Suf:{os.path.getsize(sp)/1e6:.1f}MB Data:{os.path.getsize(dp)/1e6:.1f}MB")
+
+    return int(tk), int(nb)
