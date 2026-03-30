@@ -19,7 +19,7 @@
 #ifndef IO_URING_READER_H
 #define IO_URING_READER_H
 
-#ifdef __linux__
+#if defined(__linux__) && __has_include(<liburing.h>)
 
 #include <liburing.h>
 #include <stdint.h>
@@ -150,7 +150,11 @@ static inline void* aligned_alloc_safe(size_t alignment, size_t size) {
 }
 
 #else
-/* ── Stub for non-Linux (macOS etc) — falls back to serial pread ──────── */
+/* ── Stub: Linux without liburing, or non-Linux — falls back to serial pread ── */
+#ifdef __linux__
+#pragma message("liburing not found — io_uring disabled, falling back to pread. " \
+                "Install liburing-dev for better I/O performance.")
+#endif
 
 #include <stdint.h>
 #include <unistd.h>
@@ -199,5 +203,5 @@ static inline void* aligned_alloc_safe(size_t alignment, size_t size) {
     return p;
 }
 
-#endif /* __linux__ */
+#endif /* defined(__linux__) && __has_include(<liburing.h>) */
 #endif /* IO_URING_READER_H */
