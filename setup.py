@@ -13,14 +13,19 @@ package_data = \
 {'': ['*'], 'malva': ['data/*'], 'malva.serve': ['static/*']}
 
 install_requires = \
-['dnaio>1.0.0',
- 'h5py>=3',
- 'numpy>=1.17.0',
+['numpy>=1.17.0',
  'pandas>=1.0',
- 'sortedcontainers>1.0.0',
- 'blosc',
- 'tqdm',
- 'pyfastpfor']
+ 'dnaio>1.0.0',
+ 'xopen>=1.7.0',
+ 'h5py>=3',
+ 'rich>13.0',
+ 'setproctitle>1.0',
+ 'tifffile>2022.4.8',
+ 'pyyaml>5.4',
+ 'flask>2.3.0',
+ 'flask_session>=0.8.0',
+ 'flask_cors>=6.0.2',
+ 'tqdm>=4.66.6']
 
 entry_points = \
 {'console_scripts': ['malva = malva.__main__:run_malva']}
