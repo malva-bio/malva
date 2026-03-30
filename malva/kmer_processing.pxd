@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 # distutils: language = c++
 from libcpp.vector cimport vector
 from libcpp.string cimport string as cpp_string

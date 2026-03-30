@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 # distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 cimport cython
