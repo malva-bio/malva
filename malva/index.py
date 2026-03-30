@@ -3,7 +3,7 @@ import os
 import yaml
 
 from malva.indexes import SpatialIndex, create_spatial_index, create_singlecell_index
-from malva.malva_prefix_index import MalvaPrefixIndex
+from malva.malva_prefix_index import MalvaPrefixIndex as MalvaIndex
 from malva.utils import check_directory_exists, check_file_exists, get_module_path
 
 N_REPORT = 1_000_000
@@ -84,7 +84,7 @@ def _run_index(args):
 
     # Create the prefix index
     jump_amount = 1 if getattr(args, 'overlapping', False) else args.kmer_length
-    kmer_index = MalvaPrefixIndex(
+    kmer_index = MalvaIndex(
         args.index_out,
         kmer_size_initialize=args.kmer_length,
         l_prefix=l_prefix,
