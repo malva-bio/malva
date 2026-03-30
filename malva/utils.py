@@ -15,6 +15,22 @@ from pathlib import Path
 import numpy as np
 from rich.progress import track
 
+# ── Citation notice ───────────────────────────────────────────────────────────
+# Set _CITATION to the full citation string once the paper is published.
+# When None, SUCCESS_MSG is just "Done!".
+_CITATION = None
+# _CITATION = (
+#     "León-Periñán et al. (2026) Malva: ultrafast, large-scale sequence\n"
+#     "  discovery in single cells. Nature.\n"
+#     "  https://doi.org/10.XXXX/XXXXX"
+# )
+
+SUCCESS_MSG = "Done!" + (
+    f"\nIf you use malva in your research, please cite:\n  {_CITATION}"
+    if _CITATION else ""
+)
+# ─────────────────────────────────────────────────────────────────────────────
+
 
 class FormatError(Exception):
     """Exception raised for errors in the input format."""
@@ -172,7 +188,7 @@ def check_adata_structure(f):
             raise KeyError("The Open-ST h5 object does not have the 'obs/total_counts' property.")
 
         if "spatial_aligned" in file:
-            logging.warning("The Open-ST h5 object has a 'spatial_aligned' layer")
+            logging.debug("The Open-ST h5 object has a 'spatial_aligned' layer")
 
 
 def load_properties_from_adata(f, properties: list = ["obsm/spatial"], backed: bool = False) -> dict:
