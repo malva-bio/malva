@@ -4,7 +4,8 @@ import os
 
 import numpy as np
 
-from malva.indexes import MalvaIndex, BackgroundModel
+from malva.indexes import BackgroundModel
+from malva.malva_prefix_index import MalvaPrefixIndex as MalvaIndex
 from malva.reader import iterate_fasta
 from malva.spacemake import create_meshed_adata
 from malva.utils import (check_directory_exists, check_file_exists,
@@ -36,6 +37,7 @@ def process_batch(
     single_count: bool = False,
     use_background_model: bool = True
 ):
+    kmer_index.verbose = True
     results = kmer_index.where(
         seqs_batch,
         sliding_size=sliding_size,
@@ -45,8 +47,10 @@ def process_batch(
         single_count=single_count,
         max_mem="1M",
         use_background_model=use_background_model,
-        use_batched=True
+        use_batched=False
     )
+
+    print("done")
 
     # we have to clip otherwise we wouldn't count those that have many
     # entries in the reference (e.g., many alternative 3'UTRs) but only

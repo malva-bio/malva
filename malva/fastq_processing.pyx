@@ -324,6 +324,9 @@ cdef class KmerFastqParser:
 
     def __repr__(self):
         return f"<KmerFastqParser records_processed={self.number_of_records}>"
+    
+    def __next__(self):
+        return self.next()
 
 cdef class SequenceFastqParser:
     """
@@ -484,3 +487,6 @@ cdef class SequenceFastqParser:
 
     def __repr__(self):
         return f"<SequenceFastqParser records_processed={self.number_of_records}>"
+
+    def __next__(self):
+        return self.next()

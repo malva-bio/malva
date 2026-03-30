@@ -1716,6 +1716,10 @@ cdef class SpatialIndex:
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
         self.index[cell_bc] = i
 
+    def lookup(self, uint64_t key):
+        """Python-accessible barcode lookup. Returns 0 if not found."""
+        return self.get_key(key)
+
     def get_coords(self):
         cdef np.ndarray[np.float32_t, ndim=2] arr = np.empty((self.coords.size(), 2), dtype=np.float32)
         cdef size_t i

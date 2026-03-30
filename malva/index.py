@@ -1,93 +1,98 @@
 import logging
 import os
-import shutil
-
 import yaml
 
-from malva.indexes import MalvaIndex, SpatialIndex, create_spatial_index, create_singlecell_index
-from malva.utils import (check_directory_exists, check_file_exists,
-                         get_module_path)
+from malva.indexes import SpatialIndex, create_spatial_index, create_singlecell_index
+from malva.malva_prefix_index import MalvaPrefixIndex
+from malva.utils import check_directory_exists, check_file_exists, get_module_path
 
 N_REPORT = 1_000_000
 
 
 def load_flavor(flavor, flavors_config_path):
+    """Load a barcode flavor configuration (unchanged from original)."""
     if flavor.lower().endswith(".yaml"):
         if not os.path.isfile(flavor):
             raise FileNotFoundError(f"Custom flavor file '{flavor}' not found.")
         with open(flavor, "r") as stream:
-            try:
-                custom_flavor_config = yaml.safe_load(stream)
-                return custom_flavor_config
-            except yaml.YAMLError as exc:
-                raise yaml.YAMLError(f"Error parsing custom flavor file: {exc}")
+            return yaml.safe_load(stream)
     else:
         with open(flavors_config_path, "r") as stream:
-            try:
-                flavor_config = yaml.safe_load(stream)
-            except yaml.YAMLError as exc:
-                raise yaml.YAMLError(f"Error parsing flavors config file: {exc}")
+            flavor_config = yaml.safe_load(stream)
 
         if flavor not in flavor_config["barcode_flavors"]:
             raise ValueError(f"Flavor `{flavor}` could not be found")
 
-        current_flavor_config = flavor_config["barcode_flavors"][flavor]
-        return current_flavor_config
+        return flavor_config["barcode_flavors"][flavor]
 
 
 def _run_index(args):
-    # Validate that input files exist and output files don't
+    """
+    Build a prefix-bucketed index from FASTQ files.
+
+    Replaces _run_index from malva/index.py.
+    Same CLI arguments, same spatial index handling,
+    but outputs pi.bin / suffixes.bin / data.bin instead of HDF5.
+    """
+    # Validate inputs
     if args.flavor != 'bulk':
         for _r in args.reads_in:
             check_file_exists(_r, except_when=False)
     else:
         check_file_exists(args.reads_in[1], except_when=False)
 
-    _out_dir_exists = check_directory_exists(args.index_out)
-    if not _out_dir_exists:
+    if not check_directory_exists(args.index_out):
         logging.info("Output directory does not exist. Creating...")
-        os.mkdir(args.index_out)
+        os.makedirs(args.index_out, exist_ok=True)
 
+    # Load flavor config
     logging.info(f"Configuring flavor `{args.flavor}`")
     _config_path = os.path.join(get_module_path(), "data", "config.yaml")
-    # TODO: we remove this because it would prevent from running on a smk environment
-    # if check_file_exists("config.yaml"):
-    #     _config_path = "config.yaml"
-
     flavor_config = load_flavor(args.flavor, _config_path)
     _bam_tags = flavor_config["bam_tags"]
     _cell = flavor_config["cell"]
 
+    # Set up spatial / barcode index (same logic as original)
     _sindex_loc = os.path.join(args.index_out, "sindex.bin")
     _sindex_exists = check_file_exists(_sindex_loc)
 
     if _sindex_exists:
-        logging.info("Loading previously created `cell (spot) barcode->spatial coordinate` index")
+        logging.info("Loading previously created barcode->coordinate index")
         sindex = SpatialIndex()
         if args.flavor == "stereo_seq":
             sindex.load_binary_stomics(_sindex_loc)
         else:
             sindex.load_binary(_sindex_loc)
     elif args.flavor.startswith("sc_") or args.flavor == 'bulk':
-        logging.info("Will not use a spatial index, but a barcode single-cell index")
+        logging.info("Creating barcode single-cell index")
         sindex = create_singlecell_index(args.spatial_bc_in)
     else:
         if args.flavor == "stereo_seq":
-            raise ValueError("STOmics indices (really large ones) have to be provided in .bin format!")
-
-        logging.info("Creating `cell (spot) barcode->spatial coordinate` index")
-        sindex = create_spatial_index(
-            args.spatial_bc_in
-        )
-        logging.info("Saving `cell (spot) barcode->spatial coordinate` index")
+            raise ValueError("STOmics indices must be provided in .bin format!")
+        logging.info("Creating spatial barcode->coordinate index")
+        sindex = create_spatial_index(args.spatial_bc_in)
+        logging.info("Saving spatial index")
         sindex.save_binary(_sindex_loc)
 
-    logging.info(f"Configuring the malva index")
-    jump_amount = 1 if args.overlapping else args.kmer_length
-    kmer_index = MalvaIndex(args.index_out, kmer_size_initialize=args.kmer_length, jump_amount=jump_amount)
+    # Determine l_prefix based on kmer_size
+    # For kmer_size=24: l_prefix=12 (16M buckets, 12-base suffixes)
+    # For kmer_size=25: l_prefix=12 (16M buckets, 13-base suffixes)
+    # For other sizes: default to kmer_size // 2
+    l_prefix = min(args.kmer_length // 2, 12)
+    if hasattr(args, 'l_prefix') and args.l_prefix > 0:
+        l_prefix = args.l_prefix
 
-    # TODO: fix this more elegantly
-    logging.info("Adding cell barcode index to malva index")
+    # Create the prefix index
+    jump_amount = 1 if getattr(args, 'overlapping', False) else args.kmer_length
+    kmer_index = MalvaPrefixIndex(
+        args.index_out,
+        kmer_size_initialize=args.kmer_length,
+        l_prefix=l_prefix,
+        jump_amount=jump_amount,
+        verbose=True,
+    )
+
+    # Set up barcode/spatial index
     if args.flavor == "stereo_seq":
         kmer_index.set_barcode_index(sindex)
         kmer_index.set_spatial_coords(sindex.get_coords_stomics())
@@ -96,34 +101,31 @@ def _run_index(args):
     else:
         kmer_index.set_spatial_index(sindex)
 
+    # Handle bulk mode
     if args.flavor == 'bulk':
-        # we ignore the first reads
         try:
             args.reads_in[0] = int(args.bulk_id)
-        except:
+        except Exception:
             logging.error("Could not set the bulk identifier to a number")
             exit(1)
 
-    logging.info(f"Indexing sequence {args.kmer_length}-mers in space from {args.reads_in} with flavor {args.flavor}")
-    logging.info(f"Will write to disk every {args.chunksize:,} sequences, and once at the end (remaining sequences)")
-    kmer_index.add_reads(args.reads_in, _bam_tags, _cell, chunksize=args.chunksize, threads=args.threads)
+    # Build the index
+    logging.info(f"Indexing {args.kmer_length}-mers from {args.reads_in}")
+    logging.info(f"  l_prefix={l_prefix}, l_suffix={args.kmer_length - l_prefix}")
+    logging.info(f"  Writing chunks every {args.chunksize:,} sequences")
 
-    if args.merge_chunks and kmer_index.n_chunks > 1:
-        logging.info(f"Now, {kmer_index.n_chunks} chunks will be merged")
-        
-        merged_file = f"{kmer_index.index_file}.merged"
-        kmer_index.verbose = True
-        kmer_index.merge_chunks(merged_file)
-        os.remove(f'{kmer_index.index_file}-r.h5')
-        os.remove(f'{kmer_index.index_file}-m.h5')
-        shutil.move(f'{merged_file}-r.h5', f'{kmer_index.index_file}-r.h5')
-        shutil.move(f'{merged_file}-m.h5', f'{kmer_index.index_file}-m.h5')
+    kmer_index.add_reads(
+        args.reads_in,
+        _bam_tags,
+        _cell,
+        chunksize=args.chunksize,
+        threads=args.threads,
+    )
 
     logging.info("SUCCESS!")
 
 
 if __name__ == "__main__":
     from malva.cli import get_index_parser
-
     args = get_index_parser().parse_args()
-    _run_index()
+    _run_index(args)
