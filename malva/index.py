@@ -10,7 +10,7 @@ N_REPORT = 1_000_000
 
 
 def load_flavor(flavor, flavors_config_path):
-    """Load a barcode flavor configuration (unchanged from original)."""
+    """Load a barcode flavor configuration."""
     if flavor.lower().endswith(".yaml"):
         if not os.path.isfile(flavor):
             raise FileNotFoundError(f"Custom flavor file '{flavor}' not found.")
@@ -27,14 +27,7 @@ def load_flavor(flavor, flavors_config_path):
 
 
 def _run_index(args):
-    """
-    Build a prefix-bucketed index from FASTQ files.
-
-    Replaces _run_index from malva/index.py.
-    Same CLI arguments, same spatial index handling,
-    but outputs pi.bin / suffixes.bin / data.bin instead of HDF5.
-    """
-    # Validate inputs
+    """Build a prefix-bucketed index from FASTQ files."""
     if args.flavor != 'bulk':
         for _r in args.reads_in:
             check_file_exists(_r, except_when=False)
@@ -45,14 +38,12 @@ def _run_index(args):
         logging.info("Output directory does not exist. Creating...")
         os.makedirs(args.index_out, exist_ok=True)
 
-    # Load flavor config
     logging.info(f"Configuring flavor `{args.flavor}`")
     _config_path = os.path.join(get_module_path(), "data", "config.yaml")
     flavor_config = load_flavor(args.flavor, _config_path)
     _bam_tags = flavor_config["bam_tags"]
     _cell = flavor_config["cell"]
 
-    # Set up spatial / barcode index (same logic as original)
     _sindex_loc = os.path.join(args.index_out, "sindex.bin")
     _sindex_exists = check_file_exists(_sindex_loc)
 
@@ -74,15 +65,10 @@ def _run_index(args):
         logging.info("Saving spatial index")
         sindex.save_binary(_sindex_loc)
 
-    # Determine l_prefix based on kmer_size
-    # For kmer_size=24: l_prefix=12 (16M buckets, 12-base suffixes)
-    # For kmer_size=25: l_prefix=12 (16M buckets, 13-base suffixes)
-    # For other sizes: default to kmer_size // 2
     l_prefix = min(args.kmer_length // 2, 12)
     if hasattr(args, 'l_prefix') and args.l_prefix > 0:
         l_prefix = args.l_prefix
 
-    # Create the prefix index
     jump_amount = 1 if getattr(args, 'overlapping', False) else args.kmer_length
     kmer_index = MalvaIndex(
         args.index_out,
@@ -92,7 +78,6 @@ def _run_index(args):
         verbose=True,
     )
 
-    # Set up barcode/spatial index
     if args.flavor == "stereo_seq":
         kmer_index.set_barcode_index(sindex)
         kmer_index.set_spatial_coords(sindex.get_coords_stomics())
@@ -101,7 +86,6 @@ def _run_index(args):
     else:
         kmer_index.set_spatial_index(sindex)
 
-    # Handle bulk mode
     if args.flavor == 'bulk':
         try:
             args.reads_in[0] = int(args.bulk_id)
@@ -109,7 +93,6 @@ def _run_index(args):
             logging.error("Could not set the bulk identifier to a number")
             exit(1)
 
-    # Build the index
     logging.info(f"Indexing {args.kmer_length}-mers from {args.reads_in}")
     logging.info(f"  l_prefix={l_prefix}, l_suffix={args.kmer_length - l_prefix}")
     logging.info(f"  Writing chunks every {args.chunksize:,} sequences")

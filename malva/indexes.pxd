@@ -91,7 +91,6 @@ cdef class PrefixIndexBuilder:
     cdef inline void add_kmer_cell(self, uint64_t kmer, uint32_t cell_id)
 
 
-# ── io_uring batch reader (Linux) / serial fallback (non-Linux) ───────────
 cdef extern from "io_uring_reader.h":
     cdef cppclass IoUringReader:
         IoUringReader() except +

@@ -153,17 +153,13 @@ class GlobalState:
                 self.kmer_index = MalvaIndex(index_path, verbose=True)
                 self.kmer_index.open()
 
-                # Load background data: use all cell positions with equal weight
-                # as a starting point for the background visualization.
                 n_cells = self.kmer_index.n_spatial
                 self._loc_all = np.arange(n_cells, dtype=np.uint32)
                 self._abu_all = np.ones(n_cells, dtype=np.uint32)
 
-                # Warm up the index (opens the mmap'd files on first access)
                 logger.info("Warming up the index...")
                 self.kmer_index._ensure_index_open()
 
-                # Set up the coordinate bounds
                 self.bounds = (
                     self.kmer_index.coord_lims[0],  # xmin
                     self.kmer_index.coord_lims[1] + 1,  # xmax
@@ -171,7 +167,6 @@ class GlobalState:
                     self.kmer_index.coord_lims[3] + 1   # ymax
                 )
                 
-                # Store the spatial coordinates
                 self.xy = self.kmer_index.spatial_coord[:]
                 self.initialized = True
                 
@@ -366,7 +361,6 @@ class UserSession:
         
         _sigma = 1 if zoom <= 1 else 1.2
 
-        # Initialize empty RGBA image
         img_all = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
 
         # Add background data to first channel (red)
@@ -426,7 +420,6 @@ def create_app(init_state=True, _uuid=None):
 
     Session(app)
     
-    # Session management
     user_sessions = {}
     session_lock = threading.Lock()
     
@@ -496,7 +489,6 @@ def create_app(init_state=True, _uuid=None):
                 "scores": scores
             }
             
-            # Set correct content type header
             return jsonify(response_data)
             
         except Exception as e:

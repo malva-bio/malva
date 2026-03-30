@@ -1,24 +1,5 @@
-# barcodes.pyx — Barcode and spatial index management for Malva
 # distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
-"""
-Barcode and spatial index module for Malva.
-
-This module provides the data structures and functions for mapping cell barcodes
-to spatial coordinates and for building background k-mer frequency models.
-
-Classes:
-    SpatialIndex: Maps encoded cell barcodes to spatial coordinates (or cell IDs).
-    BackgroundModel: Tracks k-mer frequencies for filtering common sequences.
-
-Functions:
-    create_spatial_index: Build a SpatialIndex from a barcode-coordinate CSV/TSV file.
-    create_singlecell_index: Build a SpatialIndex from a single-cell barcode whitelist.
-
-The binary format used by save_binary / load_binary stores:
-    - 8 bytes: number of entries (size_t)
-    - Per entry: uint64 key, float x, float y
-"""
 
 cimport cython
 cimport numpy as np
@@ -46,44 +27,19 @@ np.import_array()
 cdef extern from "<cstdio>" nogil:
     double atof(const char* nptr)
 
-
-# ---------------------------------------------------------------------------
-# Internal struct for barcode-line parsing
-# ---------------------------------------------------------------------------
-
 cdef struct LineData:
-    """Parsed fields from a single line of a barcode coordinate file."""
     float x
     float y
     uint64_t cell_bc
 
-
-# ---------------------------------------------------------------------------
 # SpatialIndex
-# ---------------------------------------------------------------------------
 
 cdef class SpatialIndex:
     """
-    Maps encoded cell barcodes to spatial coordinates (or sequential cell IDs).
+    Maps 2-bit–encoded cell barcodes to spatial coordinates (or sequential cell IDs).
 
-    Internally stores barcodes as 2-bit–encoded uint64 keys in a sorted map,
-    allowing O(log n) lookup. Coordinates are stored as parallel vectors so
-    that the same integer index returned by the map serves as a row index into
-    the coordinate arrays.
-
-    Two coordinate flavours are supported:
-        - float32 (x, y): standard spatial transcriptomics (e.g., Open-ST, Slide-seq)
-        - uint16  (x, y): compact STOmics format (1 x 1 cm chip at ~1 µm resolution)
-
-    Methods:
-        add(cell_bc, i): Register a barcode → index mapping (Cython-only).
-        lookup(key): Python-accessible barcode lookup; returns 0 if absent.
-        get_coords(): Return all (x, y) coordinates as an (N, 2) float32 array.
-        get_coords_stomics(): Return STOmics coords as an (N, 2) uint16 array.
-        num_items(): Number of registered barcodes.
-        save_binary(filename): Persist the index to a compact binary file.
-        load_binary(filename): Restore the index from a binary file.
-        load_binary_stomics(filename, barcode_length): Load a STOmics .bin file.
+    Supports float32 (x, y) coordinates for standard spatial platforms and
+    uint16 (x, y) for the compact STOmics format.
     """
     cdef:
         map[uint64_t, uint32_t] index
@@ -96,7 +52,6 @@ cdef class SpatialIndex:
         self.coords_stomics = vector[pair[uint16_t, uint16_t]]()
 
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
-        """Register barcode → sequential index (no GIL required)."""
         self.index[cell_bc] = i
 
     def lookup(self, uint64_t key):
@@ -121,14 +76,7 @@ cdef class SpatialIndex:
         return self.index[key]
 
     def save_binary(self, str filename):
-        """
-        Persist the spatial index to a compact binary file.
-
-        Format: [size: size_t] then for each entry [key: uint64, x: float, y: float].
-
-        Parameters:
-            filename (str): Output path for the binary file.
-        """
+        """Write index to binary: [size: size_t][key: uint64, x: float, y: float, ...]."""
         cdef FILE* file = fopen(filename.encode('ascii'), "wb")
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for writing")
@@ -152,12 +100,7 @@ cdef class SpatialIndex:
         fclose(file)
 
     def load_binary(self, str filename):
-        """
-        Restore the spatial index from a binary file written by save_binary().
-
-        Parameters:
-            filename (str): Path to an existing binary index file.
-        """
+        """Read index from a binary file written by save_binary()."""
         cdef FILE* file = fopen(filename.encode('ascii'), "rb")
         if file == NULL:
             raise IOError(f"Cannot open file {filename} for reading")
@@ -181,18 +124,7 @@ cdef class SpatialIndex:
         fclose(file)
 
     def load_binary_stomics(self, str filename, int barcode_length=25):
-        """
-        Load a STOmics .bin file (DNB barcode → uint32 x, uint32 y).
-
-        The STOmics binary format stores barcodes in reverse 2-bit encoding
-        relative to Malva's convention, so barcodes are reversed on load.
-        Coordinates are stored compactly as uint16 (sufficient for a 1×1 cm chip
-        at ~1 µm resolution; untested for larger chip sizes).
-
-        Parameters:
-            filename (str): Path to the STOmics .bin file.
-            barcode_length (int): Number of bases in each barcode (default 25).
-        """
+        """Load a STOmics .bin file; barcodes are bit-reversed on load (STOmics encoding)."""
         if barcode_length <= 0 or barcode_length > 32:
             raise ValueError("Barcode length must be between 1 and 32 base pairs")
 
@@ -221,7 +153,7 @@ cdef class SpatialIndex:
         fclose(file)
 
     cdef uint64_t reverse_barcode(self, uint64_t barcode, int barcode_length):
-        """Reverse the 2-bit encoding of a barcode (MSB ↔ LSB)."""
+
         cdef uint64_t reversed_barcode = 0
         cdef int i
 
@@ -232,7 +164,6 @@ cdef class SpatialIndex:
         return reversed_barcode
 
     def get_coords_stomics(self):
-        """Return all STOmics coordinates as an (N, 2) uint16 array."""
         cdef np.ndarray[np.uint16_t, ndim=2] arr = np.empty((self.coords_stomics.size(), 2), dtype=np.uint16)
         cdef size_t i
         for i in range(self.coords_stomics.size()):
@@ -240,19 +171,8 @@ cdef class SpatialIndex:
             arr[i, 1] = self.coords_stomics[i].second
         return arr
 
-
-# ---------------------------------------------------------------------------
-# Internal line-parsing helpers (no Python overhead)
-# ---------------------------------------------------------------------------
-
 cdef void process_line(const char* line, int line_length, LineData* data,
                         bint encode=True) noexcept nogil:
-    """
-    Parse one line of a barcode-coordinate file (CSV or TSV).
-
-    Expected column order: cell_barcode, x, y  (comma or tab separated).
-    The barcode is 2-bit–encoded into data.cell_bc when encode=True.
-    """
     cdef int field = 0
     cdef int start = 0
     cdef int i
@@ -275,14 +195,8 @@ cdef void process_line(const char* line, int line_length, LineData* data,
             field += 1
             start = i + 1
 
-
 cdef void process_line_whitelist(const char* line, int line_length,
                                   LineData* data) noexcept nogil:
-    """
-    Parse one line from a barcode whitelist (one barcode per line).
-
-    Encodes the barcode into data.cell_bc using 2-bit encoding.
-    """
     cdef int start = 0
     cdef int i
     cdef char c
@@ -296,26 +210,12 @@ cdef void process_line_whitelist(const char* line, int line_length,
             with gil:
                 data.cell_bc = encode_kmer(kmer.decode("ascii")[:i])
 
-
-# ---------------------------------------------------------------------------
-# Public factory functions
-# ---------------------------------------------------------------------------
-
 def create_spatial_index(str spatial_barcode_file):
     """
-    Build a SpatialIndex from a barcode-coordinate file.
-
-    The file must be CSV or TSV with a header row, followed by rows of:
-        cell_barcode, x_coordinate, y_coordinate
-
-    Cell barcodes are 2-bit–encoded using Malva's standard encoding
-    (A=0, C=1, G=2, T=3). Coordinates are stored as float32.
-
-    Parameters:
-        spatial_barcode_file (str): Path to the barcode-coordinate file.
+    Build a SpatialIndex from a CSV/TSV file (header + rows of barcode, x, y).
 
     Returns:
-        SpatialIndex: Populated index mapping barcodes to (x, y) positions.
+        SpatialIndex: index mapping 2-bit–encoded barcodes to (x, y) float32 coords.
     """
     cdef:
         SpatialIndex sindex = SpatialIndex()
@@ -334,7 +234,7 @@ def create_spatial_index(str spatial_barcode_file):
     if file == NULL:
         raise IOError(f"Cannot open file {spatial_barcode_file} for reading")
 
-    getline(&line, &len, file)  # skip header
+    getline(&line, &len, file)
 
     while True:
         read = getline(&line, &len, file)
@@ -359,19 +259,11 @@ def create_spatial_index(str spatial_barcode_file):
 
     return sindex
 
-
 def create_singlecell_index(str whitelist_file):
     """
-    Build a SpatialIndex from a single-cell barcode whitelist.
+    Build a SpatialIndex from a barcode whitelist (one barcode per line).
 
-    Each line of the whitelist contains exactly one cell barcode. Barcodes are
-    assigned sequential IDs starting at 1 (0 is reserved as "not found").
-
-    Parameters:
-        whitelist_file (str): Path to the whitelist file (one barcode per line).
-
-    Returns:
-        SpatialIndex: Index containing valid cell barcodes mapped to sequential IDs.
+    Barcodes are assigned sequential IDs starting at 1 (0 = not found).
     """
     cdef:
         SpatialIndex sindex = SpatialIndex()
@@ -389,7 +281,7 @@ def create_singlecell_index(str whitelist_file):
     if file == NULL:
         raise IOError(f"Cannot open file {whitelist_file} for reading")
 
-    getline(&line, &len, file)  # skip header
+    getline(&line, &len, file)
 
     while True:
         read = getline(&line, &len, file)
@@ -411,35 +303,14 @@ def create_singlecell_index(str whitelist_file):
 
     return sindex
 
-
-# ---------------------------------------------------------------------------
 # BackgroundModel
-# ---------------------------------------------------------------------------
 
 cdef class BackgroundModel:
     """
-    K-mer frequency background model for filtering ubiquitous sequences.
+    K-mer frequency model built from a reference FASTA.
 
-    Counts how many distinct reference entries (e.g., genes) contain each
-    k-mer. During spatial querying, k-mers present in many reference entries
-    can be down-weighted or skipped to reduce noise from repetitive elements.
-
-    Attributes:
-        total_mers (int): Total k-mer occurrences added to the model.
-        kmer_size (int): Length of k-mers being tracked.
-        verbose (bool): Whether to emit progress logging.
-
-    Usage::
-
-        bg = BackgroundModel(kmer_size=24)
-        bg.create_from_reference("reference.fa")
-        bg.save("background.bin")
-
-        # Later:
-        bg2 = BackgroundModel(kmer_size=24)
-        bg2.load("background.bin")
-        if bg2.is_mer_above_cutoff(kmer_encoded, cutoff=2):
-            ...  # skip this k-mer
+    Tracks how many distinct reference entries contain each k-mer; used to
+    down-weight or skip ubiquitous k-mers during spatial queries.
     """
     cdef:
         map[uint64_t, uint16_t] model
@@ -455,17 +326,10 @@ cdef class BackgroundModel:
 
     def create_from_reference(self, str filename, bint consecutive_genes=True):
         """
-        Build the background model from a FASTA reference file.
+        Build the model from a FASTA file.
 
-        Each entry (or group of consecutive entries sharing the same gene name
-        prefix when consecutive_genes=True) contributes at most 1 count per
-        distinct k-mer. This prevents highly expressed genes from dominating
-        the background.
-
-        Parameters:
-            filename (str): Path to a FASTA reference file.
-            consecutive_genes (bool): Collapse consecutive FASTA entries with
-                the same gene name prefix (default True).
+        Each entry (or group of consecutive entries with the same gene name prefix)
+        contributes at most 1 count per k-mer to avoid over-weighting abundant genes.
         """
         from malva.reader import iterate_fasta
         from malva.utils import check_file_exists
@@ -515,28 +379,13 @@ cdef class BackgroundModel:
                          f"across {self.total_mers} occurrences")
 
     def is_mer_above_cutoff(self, uint64_t kmer, uint16_t cutoff):
-        """
-        Return True if kmer appears in more than cutoff reference entries.
-
-        Unknown k-mers (not in the model) are assumed to be below the cutoff.
-
-        Parameters:
-            kmer (uint64): 2-bit–encoded k-mer.
-            cutoff (uint16): Threshold number of reference entries.
-        """
+        """Return True if kmer appears in more than cutoff reference entries (unknown → False)."""
         if self.model.find(kmer) == self.model.end():
             return False
         return self.model[kmer] > cutoff
 
     def save(self, str filename):
-        """
-        Persist the background model to a compact binary file.
-
-        Format: [size: size_t] then for each entry [key: uint64, count: uint16].
-
-        Parameters:
-            filename (str): Output path.
-        """
+        """Write model to binary: [size: size_t][key: uint64, count: uint16, ...]."""
         cdef:
             FILE* file = fopen(filename.encode('ascii'), "wb")
             uint64_t key
@@ -563,12 +412,7 @@ cdef class BackgroundModel:
         raise NotImplementedError("Cannot save as FASTA yet")
 
     def load(self, str filename):
-        """
-        Restore the background model from a binary file written by save().
-
-        Parameters:
-            filename (str): Path to an existing background model file.
-        """
+        """Load model from a binary file written by save()."""
         cdef:
             FILE* file = fopen(filename.encode('ascii'), "rb")
             size_t size
@@ -592,15 +436,7 @@ cdef class BackgroundModel:
         fclose(file)
 
     def import_jellyfish_fasta(self, str filename):
-        """
-        Import a background model from a Jellyfish k-mer count FASTA.
-
-        In this format each FASTA record has the count as the sequence name
-        and the k-mer sequence as the sequence body.
-
-        Parameters:
-            filename (str): Path to the Jellyfish FASTA output.
-        """
+        """Import from a Jellyfish FASTA (record name = count, body = k-mer sequence)."""
         from malva.reader import iterate_fasta
         from malva.kmer_processing import encode_kmer as _encode_kmer
 

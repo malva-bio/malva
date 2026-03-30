@@ -1,18 +1,3 @@
-"""
-malva_index.py — The Malva k-mer index using prefix-bucketed storage.
-
-This module provides MalvaIndex, Malvas high-performance k-mer index based on prefix-bucketed
-compressed storage for fast spatial and single-cell queries.
-
-File layout on disk:
-    index_dir/
-        pi.bin          — Prefix table (mmap'd, always in memory)
-        suffixes.bin    — Packed suffix buckets (mmap'd, in memory / page cache)
-        data.bin        — Cell ID lists per bucket (on SSD, read on demand)
-        meta.json       — Metadata
-        sindex.bin      — Spatial/barcode index (same as original Malva)
-"""
-
 import json
 import logging
 import os
@@ -23,11 +8,7 @@ from collections import defaultdict
 
 import numpy as np
 
-# These imports would come from the compiled Cython module
-# from malva.indexes import PrefixIndex, PrefixIndexBuilder, build_from_sorted_chunks, merge_prefix_indices
-
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
-
 
 class _IndexCompat:
     """Minimal shim that mimics HDF5 file for 'key in index' and index['key'] access."""
@@ -43,7 +24,6 @@ class _IndexCompat:
     @property
     def attrs(self):
         return {'n_spatial': self._parent.n_spatial}
-
 
 class MalvaIndex:
     """
@@ -88,8 +68,7 @@ class MalvaIndex:
         self._chunk_paths = []
         self._builder = None
 
-        # Background model (same as original)
-        self._background_model = None
+            self._background_model = None
 
         self.meta_path = os.path.join(index_dir, 'meta.json')
 
@@ -123,9 +102,6 @@ class MalvaIndex:
         if 'project_mapping' in meta:
             self.project_mapping = {int(k): v for k, v in meta['project_mapping'].items()}
 
-    # ------------------------------------------------------------------
-    # Spatial / barcode index management (same interface as MalvaIndex)
-    # ------------------------------------------------------------------
     def set_spatial_index(self, sindex):
         """Set a spatial index (with coordinates)."""
         self.spatial_index = sindex
@@ -143,13 +119,11 @@ class MalvaIndex:
         ymin, ymax = float(coords[:, 1].min()), float(coords[:, 1].max())
         self.coord_lims = (xmin, xmax, ymin, ymax)
         self.n_spatial = len(coords)
-        # Save coordinates as a numpy file
         np.save(os.path.join(self.index_dir, 'spatial_coord.npy'), coords)
         self._save_metadata()
 
     def _save_metadata(self):
         """Save/update metadata to meta.json, preserving fields from the index build."""
-        # Load existing metadata if present
         meta = {}
         if os.path.exists(self.meta_path):
             try:
@@ -158,7 +132,6 @@ class MalvaIndex:
             except (json.JSONDecodeError, IOError):
                 pass
         
-        # Update with current attributes
         meta['kmer_size'] = self.kmer_size
         meta['l_prefix'] = self.l_prefix
         meta['l_suffix'] = self.l_suffix
@@ -174,16 +147,11 @@ class MalvaIndex:
         with open(self.meta_path, 'w') as f:
             json.dump(meta, f, indent=2)
 
-    # ------------------------------------------------------------------
-    # Index building (per-sample)
-    # ------------------------------------------------------------------
     def add_reads(self, reads_in, bam_tags='CB:{cell}', cell='r1[2:27]',
                   n_report=10_000_000, chunksize=100_000_000, threads=1):
         """
         Add reads from FASTQ files and build the index.
 
-        Delegates to Cython process_fastq_reads for maximum performance.
-        Compatible with the original MalvaIndex.add_reads() interface.
         """
         from malva.utils import check_cell_string
         from malva.indexes import process_fastq_reads, build_from_sorted_chunks
@@ -209,12 +177,10 @@ class MalvaIndex:
         self._chunk_paths = chunk_paths
         self._build_from_chunks()
         
-        # Re-save metadata to ensure n_spatial and other attributes survive
-        # (the radix build overwrites meta.json with n_cells=0)
         self._save_metadata()
 
     def _build_from_chunks(self):
-        """Build the prefix index from sorted chunk files."""
+        """Build the index from sorted chunk files."""
         from malva.indexes import build_from_sorted_chunks
 
         if len(self._chunk_paths) == 0:
@@ -234,7 +200,6 @@ class MalvaIndex:
             verbose=self.verbose,
         )
 
-        # Verify the built index
         meta_check_path = os.path.join(self.index_dir, 'meta.json')
         if os.path.exists(meta_check_path):
             import json as _json
@@ -249,44 +214,32 @@ class MalvaIndex:
                      f"Suf={os.path.getsize(suf_check)/1e6:.1f}MB "
                      f"Data={os.path.getsize(dat_check)/1e6:.1f}MB")
 
-        # Clean up chunk files
         chunk_dir = os.path.join(self.index_dir, '_chunks')
         if os.path.exists(chunk_dir):
             shutil.rmtree(chunk_dir)
 
         self._chunk_paths = []
 
-    # ------------------------------------------------------------------
-    # Merging (replaces _merge_chunks)
-    # ------------------------------------------------------------------
     def merge_chunks(self, file_out, merge_projects=False, sample_percentage=0.05):
         """
         Merge this index with itself (multi-chunk scenario) or merge
         multiple sample indices. 
         
-        For prefix indices, if there are chunk files pending, build from them.
-        This is a compatibility shim — the real merging happens in
-        merge_prefix_indices() at the combine step.
         """
         if len(self._chunk_paths) > 0:
             self._build_from_chunks()
         else:
             logging.info("Index already built, nothing to merge")
 
-    # ------------------------------------------------------------------
-    # Open / close for querying
-    # ------------------------------------------------------------------
     def open(self, mode='r', blosc_load_to_memory=False):
         """Open the index for querying."""
         if self._index_exists():
             self._load_metadata()
 
-            # Load spatial coords if available
             coord_path = os.path.join(self.index_dir, 'spatial_coord.npy')
             if os.path.exists(coord_path):
                 self.spatial_coord = np.load(coord_path)
 
-            # Open the prefix index for queries (lazy — opened on first query)
         else:
             logging.warning("Index does not exist yet")
 
@@ -303,9 +256,6 @@ class MalvaIndex:
             self._prefix_index = CyPrefixIndex()
             self._prefix_index.open(self.index_dir)
 
-    # ------------------------------------------------------------------
-    # Query: find_kmer (compatible with MalvaIndex)
-    # ------------------------------------------------------------------
     def find_kmer(self, kmers, count_at_most=10000, count_at_least=10,
                   chunk_id=0, use_batched=False):
         """
@@ -327,28 +277,16 @@ class MalvaIndex:
         
         return result
 
-    # ------------------------------------------------------------------
-    # load_index_to_memory (compatibility — no-op for prefix index,
-    # which is always mmap'd)
-    # ------------------------------------------------------------------
     def load_index_to_memory(self, chunk_id=0, chunk_size=50_000_000,
                              max_mem=None, force=False,
                              count_at_most=10000, count_at_least=10):
         """
-        For prefix index, this just ensures the index is open.
-        The PI and suffix files are always memory-mapped.
         """
         self._ensure_index_open()
 
-    # ------------------------------------------------------------------
-    # Background model (same as original)
-    # ------------------------------------------------------------------
     def set_background_model(self, background_model):
         self._background_model = background_model
 
-    # ------------------------------------------------------------------
-    # where() — the main query interface
-    # ------------------------------------------------------------------
     def where(self, sequence, sliding_size=128, pct_threshold=0.65,
               count_at_most=10_000, count_at_least=10, chunk_id=0,
               single_count=False, max_mem='1M', force_reload=False,
@@ -356,15 +294,12 @@ class MalvaIndex:
         """
         Locate spatial positions where a sequence or set of sequences appear.
         
-        Uses PrefixIndex for fast kmer lookup + identical cell-counting logic
-        from the original MalvaIndex._where (copied verbatim into Cython).
         """
         from malva.indexes import quantify_where
 
         if pct_threshold < 0 or pct_threshold > 1:
             raise ValueError("`pct_threshold` must be between 0 and 1")
 
-        # Normalize input
         if isinstance(sequence, str):
             sequence_groups = [[sequence]]
         elif isinstance(sequence, list) and all(isinstance(s, str) for s in sequence):
@@ -394,9 +329,6 @@ class MalvaIndex:
             verbose=self.verbose,
         )
 
-    # ------------------------------------------------------------------
-    # Utility methods for compatibility
-    # ------------------------------------------------------------------
     def get_project_id(self, cell_id):
         if self.HAS_MERGED_PROJECTS:
             return cell_id >> self.PROJECT_ID_SHIFT
@@ -409,17 +341,17 @@ class MalvaIndex:
 
     @property
     def n_chunks(self):
-        """Compatibility: prefix index is always a single structure."""
+        """Number of index chunks (always 1 for a built index)."""
         return 1 if self._index_exists() else 0
 
     @property
     def index_file(self):
-        """Compatibility: return the meta path."""
+        """Path to the index metadata file."""
         return self.meta_path
 
     @property
     def index(self):
-        """Compatibility shim: behaves like HDF5 file for 'key in index' checks."""
+        """Dict-like accessor for index metadata keys."""
         keys = set()
         if self.spatial_coord is not None:
             keys.add('spatial_coord')

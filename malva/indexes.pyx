@@ -1,4 +1,3 @@
-# indexes.pyx — Prefix-bucketed k-mer index for Malva
 # distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 cimport cython
@@ -18,7 +17,6 @@ from cpython.bytes cimport PyBytes_AS_STRING
 import json, logging, numpy as np, os, time
 np.import_array()
 
-# ── Platform / SIMD support ────────────────────────────────────────────────────
 cdef extern from *:
     """
     #ifdef __linux__
@@ -817,10 +815,6 @@ cdef extern from *:
         uint32_t  tmp_dd_cap,
         uint64_t* bytes_read_out) nogil
 
-# ── Open-addressing hash table for fast cell ID remap ─────────────────────────
-# Power-of-2 table with linear probing.  Keys are original cell IDs (uint32_t).
-# Values are compact IDs (uint32_t).  Empty sentinel = 0xFFFFFFFF.
-# Table size is 2× the expected unique count (load factor ≤ 0.5).
 cdef extern from *:
     """
     #include <string.h>
@@ -930,7 +924,6 @@ cdef bint compare_kmer_cell(const pair[uint64_t, uint32_t]& a,
     return a.second < b.second
 
 
-# ── LEB128 helpers (kept for write path) ──────────────────────────────────────
 cdef inline int _encode_varint(uint32_t val, uint8_t* buf) nogil:
     cdef int n = 0
     while val >= 0x80:
@@ -961,7 +954,6 @@ cdef inline int _skip_n_varints_fast(const uint8_t* p, int max_bytes,
     return pos
 
 
-# ── PrefixIndex ────────────────────────────────────────────────────────────────
 cdef class PrefixIndex:
 
     def __cinit__(self):
@@ -1035,7 +1027,6 @@ cdef class PrefixIndex:
     @property
     def is_loaded(self): return self.is_open
 
-    # ── legacy scalar decomp (kept for build/merge path) ──────────────────
     cdef int _decompress_suffix_bucket(self, uint64_t so, uint32_t* s,
                                         uint64_t* d, uint32_t* l, uint32_t capacity):
         cdef const unsigned char* p = self.suffix_mmap + so
@@ -1133,38 +1124,14 @@ cdef class PrefixIndex:
         return decode_kmer_cells_fast(data_block, data_bytes,
                                       <uint32_t>data_pos, target_length, out)
 
-    # ── FAST BATCH QUERY ──────────────────────────────────────────────────────
     cdef unordered_map[uint64_t, vector[uint32_t]] query_batch(
             self, uint64_t* qk, uint64_t nq,
             uint32_t cam, uint32_t cal):
-        """
-        Optimised 6-step batch query.
-
-        Optimisations vs previous version:
-          • Step 3 (suf_decomp): decomp_suffix_into_upto() — length array decoded
-            only up to the deepest hit position per bucket, not the full N entries.
-            For zero-hit buckets the length section is skipped entirely.
-            Expected saving: ~30-50% of suf_decomp time.
-
-          • Step 3+4 interleaving: binary search happens immediately after suffix
-            decode, BEFORE length decode, so we know max_hit_pos before we start
-            the length scan. This enables the early-stop in decomp_suffix_into_upto.
-
-          • Step 6 (phase2): for buckets with <= SPARSE_HIT_THRESHOLD hits,
-            scan_to_byte_offset() replaces build_bo_fast(). This scans forward
-            only as far as needed for each individual hit, rather than building
-            a full byte-offset table up to max_spos. For the ~99% single-hit
-            buckets this is the dominant saving. For dense buckets (5+ hits)
-            build_bo_fast is still used (amortises full scan cost).
-
-          • Step 5: io_uring batch read (unchanged from previous version).
-          • Step 3 capacity retry: only re-decompresses failed buckets.
-        """
+        """Batch k-mer query using prefix-bucketed index with io_uring I/O."""
         cdef unordered_map[uint64_t, vector[uint32_t]] res
         if self.pi_suffix_offsets == NULL or self.suffix_mmap == NULL or nq == 0:
             return res
 
-        # ── declarations ──────────────────────────────────────────────────────
         cdef double t0_total = time.perf_counter()
         cdef double t0
         cdef double acc_suf_read = 0.0, acc_suf = 0.0, acc_bsearch = 0.0
@@ -1179,11 +1146,9 @@ cdef class PrefixIndex:
         cdef vector[uint32_t] cl
         cdef bint any_hit
 
-        # CSR mode locals
         cdef np.ndarray _csr_km_arr, _csr_offsets_arr, _csr_cells_arr
         cdef uint64_t _total_cells
 
-        # step 1
         cdef uint64_t bkt_cap = min(nq + 256, <uint64_t>16777216)
         cdef uint64_t n_bkts = 0
         cdef uint64_t* bkt_so   = <uint64_t*>malloc(bkt_cap * 8)
@@ -1194,28 +1159,17 @@ cdef class PrefixIndex:
         cdef unordered_map[uint64_t, uint32_t] dbo_to_bidx
         cdef uint32_t peek_ne_val
 
-        # step 2/3
         cdef uint32_t suf_sz = 0
         cdef uint32_t* bkt_suf_sz = NULL
 
-        # step 3 — suffix-only pool (lengths decoded on-demand, see below)
         cdef uint32_t* bkt_pool_off = NULL
         cdef uint64_t  pool_total   = 0
-        cdef uint32_t* sb_pool      = NULL   # suffix arrays (full, always decoded)
-
-        # ── NEW: two-phase suf_decomp
-        # lb_pool filled lazily: only for hit buckets, only up to max_hit_pos.
+        cdef uint32_t* sb_pool      = NULL
         cdef uint32_t* lb_pool      = NULL
-        cdef int*      bkt_len_sec  = NULL   # byte offset of length section per bucket
+        cdef int*      bkt_len_sec  = NULL
         cdef uint32_t  actual_ne
-
-        # step 3+4 interleaved structures
-        # max_hit_pos[bki] = deepest suffix array index hit in bucket bki.
-        # Used as stop_at argument to decomp_suffix_into_upto.
-        # Initialised to 0xFFFFFFFF (= no hits = skip length decode entirely).
         cdef uint32_t* bkt_max_hit_pos = NULL
 
-        # step 4
         cdef uint64_t hit_cap = min(nq * 4, <uint64_t>4194304)
         cdef uint64_t n_hits = 0
         cdef uint64_t* hit_km   = NULL
@@ -1227,17 +1181,14 @@ cdef class PrefixIndex:
         cdef uint32_t* lb_ptr2 = NULL
         cdef uint32_t* lb_ptr3 = NULL
 
-        # step 4 — provisional hits (suffix match, before length filter)
         cdef uint64_t  prov_cap  = 0
         cdef uint64_t  n_prov    = 0
         cdef uint64_t* prov_km   = NULL
         cdef uint32_t* prov_bidx = NULL
         cdef uint32_t* prov_spos = NULL
 
-        # step 4 — per-bucket hit count (for sparse/dense decision in phase2)
         cdef uint32_t* bkt_hit_count = NULL
 
-        # step 5+6 — unified uring read+decode pipeline
         cdef uint64_t* p2_km         = NULL
         cdef uint32_t* p2_cells      = NULL
         cdef uint64_t* p2_offsets    = NULL
@@ -1260,7 +1211,6 @@ cdef class PrefixIndex:
         cdef uint64_t[:] sk_v
         cdef uint64_t[:] so_v
 
-        # ── STEP 1: collect unique buckets + peek entry counts ───────────
         if not bkt_so or not bkt_dbo or not bkt_dbs or not bkt_ne or not bkt_peek:
             free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne); free(bkt_peek)
             raise MemoryError()
@@ -1308,7 +1258,6 @@ cdef class PrefixIndex:
             }
             return res
 
-        # ── STEP 2: madvise suffix regions ───────────────────────────────────
         t0 = time.perf_counter()
 
         so_arr_np  = np.asarray(<uint64_t[:n_bkts]>bkt_so)
@@ -1328,37 +1277,6 @@ cdef class PrefixIndex:
                                <size_t>bkt_suf_sz[ob])
         acc_suf_read += time.perf_counter() - t0
 
-        # ── STEP 3+4 INTERLEAVED: suffix decode + binary search + early-stop lengths
-        #
-        # Key change vs previous version:
-        #
-        # Previously:
-        #   Step 3: decomp ALL suffixes + ALL lengths for all buckets → pools
-        #   Step 4: binary search sb_pool for each query kmer
-        #
-        # Now:
-        #   For each bucket:
-        #     (a) Decode suffix array only (decomp_suffix_into_upto with stop_at=0xFFFFFFFF
-        #         for suffix part, then we stop before lengths)
-        #     (b) Binary-search for all query kmers hitting this bucket
-        #     (c) Compute max_hit_pos = max of all hit positions found
-        #     (d) Decode lengths only 0..max_hit_pos via decomp_suffix_into_upto
-        #
-        # For zero-hit buckets (the majority in many query patterns):
-        #   Length decoding is skipped entirely — the suffix scan was necessary
-        #   for the search, but its result was "not found".
-        #
-        # We need to restructure slightly: build a per-bucket query list first,
-        # then process bucket by bucket. We already group queries by prefix in
-        # Step 1's qi/qj loop, but here we need per-bucket sorted suffix targets.
-        #
-        # Implementation: allocate bkt_max_hit_pos[], do suffix-only decode pass,
-        # do the binary search pass (same as old Step 4), record max hit pos per
-        # bucket, then do a second pass to fill lb_pool up to max_hit_pos.
-        #
-        # This two-sub-pass approach avoids restructuring the query loop and keeps
-        # the binary search code identical to before.
-        # ─────────────────────────────────────────────────────────────────────
 
         t0 = time.perf_counter()
 
@@ -1389,10 +1307,6 @@ cdef class PrefixIndex:
             free(sb_pool); free(lb_pool)
             raise MemoryError()
 
-        # ── Phase A: decode suffix arrays only (no lengths) ──────────────────
-        # decomp_suffixes_only decodes only the suffix delta varints, not lengths.
-        # bkt_len_sec[bki] stores the byte offset where lengths begin so
-        # Phase C can resume from there without re-parsing suffixes.
         with nogil:
             for bki in range(n_bkts):
                 actual_ne = decomp_suffixes_only(
@@ -1410,12 +1324,10 @@ cdef class PrefixIndex:
         free(bkt_peek)
         acc_suf += time.perf_counter() - t0
 
-        # ── STEP 4a: binary search using suffix arrays only ───────────────────
         # Record provisional hits (suffix match) — no count filter yet since
         # lengths not decoded. We record (km, bidx, spos) and defer dl lookup.
         t0 = time.perf_counter()
 
-        # Provisional hit storage: bidx + spos only (no dl yet)
         prov_cap = min(nq * 4, <uint64_t>4194304)
         n_prov   = 0
         prov_km   = <uint64_t*>malloc(prov_cap * 8)
@@ -1427,7 +1339,7 @@ cdef class PrefixIndex:
         hit_spos = <uint32_t*>malloc(hit_cap * 4)
         hit_dl   = <uint32_t*>malloc(hit_cap * 4)
 
-        if not prov_km or not prov_bidx or not prov_spos or                 not hit_km or not hit_bidx or not hit_spos or not hit_dl:
+        if not prov_km or not prov_bidx or not prov_spos or not hit_km or not hit_bidx or not hit_spos or not hit_dl:
             free(prov_km); free(prov_bidx); free(prov_spos)
             free(sb_pool); free(lb_pool); free(bkt_pool_off)
             free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
@@ -1453,7 +1365,6 @@ cdef class PrefixIndex:
                 sv = <uint32_t>(km & self.suffix_mask)
                 pos = self._binary_search_u32(sb_ptr, ne, sv)
                 if pos < 0: continue
-                # Track max hit position per bucket for Phase C length decode
                 if bkt_max_hit_pos[bidx] == 0xFFFFFFFF or <uint32_t>pos > bkt_max_hit_pos[bidx]:
                     bkt_max_hit_pos[bidx] = <uint32_t>pos
                 if n_prov >= prov_cap:
@@ -1476,9 +1387,6 @@ cdef class PrefixIndex:
 
         free(sb_pool)
 
-        # ── Phase C: decode lengths for hit buckets only, up to max_hit_pos ──
-        # One pass over all hit buckets — zero-hit buckets skipped entirely.
-        # All lengths decoded in one contiguous nogil block (no per-hit Python).
         with nogil:
             for bki in range(n_bkts):
                 if bkt_max_hit_pos[bki] != <uint32_t>0xFFFFFFFF:
@@ -1490,7 +1398,6 @@ cdef class PrefixIndex:
                         bkt_max_hit_pos[bki])
         free(bkt_len_sec)
 
-        # ── Step 4b: apply count filter using now-decoded lengths ─────────────
         for i in range(n_prov):
             bidx = prov_bidx[i]
             pos  = <int>prov_spos[i]
@@ -1535,21 +1442,8 @@ cdef class PrefixIndex:
             }
             return res
 
-        # ── STEPS 5+6: unified io_uring read + decode pipeline ───────────────
-        #
-        # Key insight: the old design read ALL 10GB into dat_heap, then scanned
-        # ALL 10GB again in phase2 — 20GB memory traffic for 10GB of data.
-        #
-        # New design: uring_read_decode_all() uses a QD=64 sliding window where
-        # each io_uring completion immediately triggers decode of that bucket's
-        # hits. Peak memory = QD * max_bucket_size (~10MB). NVMe stays saturated
-        # throughout because we always have 64 outstanding I/Os while CPU decodes.
-        #
-        # The function needs hits pre-indexed by bucket: bkt_hit_start[bidx] and
-        # bkt_hit_cnt[bidx] tell it where in sort_order to find each bucket's hits.
         t0 = time.perf_counter()
 
-        # Build sort_order sorted by (bidx<<32|spos)
         sort_keys_np = np.empty(n_hits, dtype=np.uint64)
         sk_v = sort_keys_np
         for hi in range(n_hits):
@@ -1557,7 +1451,6 @@ cdef class PrefixIndex:
         so_v = np.argsort(sort_keys_np, kind='stable').astype(np.uint64)
         so_v_ptr = <uint64_t*>&so_v[0]
 
-        # Build bkt_hit_start / bkt_hit_cnt from sorted order
         bkt_hit_start = <uint64_t*>malloc(n_bkts * 8)
         bkt_hit_cnt   = <uint32_t*>malloc(n_bkts * 4)
         if not bkt_hit_start or not bkt_hit_cnt:
@@ -1569,16 +1462,13 @@ cdef class PrefixIndex:
             raise MemoryError()
         memset(bkt_hit_start, 0, n_bkts * 8)
         memset(bkt_hit_cnt,   0, n_bkts * 4)
-        # First pass: count hits per bucket
         for hi in range(n_hits):
             bkt_hit_cnt[hit_bidx[so_v_ptr[hi]]] += 1
-        # Second pass: compute start offsets (prefix sum)
         running = 0
         for bki in range(n_bkts):
             bkt_hit_start[bki] = running
             running += bkt_hit_cnt[bki]
 
-        # Allocate output buffers
         total_dl = 0
         for hi in range(n_hits):
             total_dl += hit_dl[hi]
@@ -1639,7 +1529,6 @@ cdef class PrefixIndex:
 
         t0 = time.perf_counter()
 
-        # ── CSR mode: copy p2 arrays into numpy and skip map build ────────
         if self._csr_mode:
             _csr_km_arr = np.empty(p2_n_results, dtype=np.uint64)
             _csr_offsets_arr = np.empty(p2_n_results + 1, dtype=np.uint64)
@@ -1656,7 +1545,6 @@ cdef class PrefixIndex:
             self._csr_offsets = _csr_offsets_arr
             self._csr_n_results = int(p2_n_results)
         else:
-            # Build res{} — one pass, vector::assign is a single memcpy per result
             for rr in range(<uint64_t>p2_n_results):
                 r_start = p2_offsets[rr]
                 r_end   = p2_offsets[rr + 1]
@@ -1766,7 +1654,6 @@ cdef class PrefixIndex:
                     np.empty(0, dtype=np.uint32), 0)
         cdef np.ndarray[np.uint64_t, ndim=1] sk = np.sort(kmers)
 
-        # Set CSR mode flag — query_batch will store p2 arrays instead of building map
         self._csr_mode = True
         try:
             self.query_batch(
@@ -1774,7 +1661,6 @@ cdef class PrefixIndex:
         finally:
             self._csr_mode = False
 
-        # Retrieve the raw p2 arrays stored by query_batch
         cdef int p2_n = self._csr_n_results
         if p2_n == 0:
             self._csr_km = None; self._csr_cells = None; self._csr_offsets = None
@@ -1793,7 +1679,6 @@ cdef class PrefixIndex:
         cdef uint64_t n_found = <uint64_t>p2_n
         cdef uint64_t total_cells = raw_offsets[n_found]
 
-        # Sort kmer_keys and reorder cells+indptr to match
         cdef np.ndarray sort_idx = np.argsort(raw_km)
         cdef np.ndarray[np.uint64_t, ndim=1] kmer_keys = raw_km[sort_idx]
 
@@ -1815,7 +1700,6 @@ cdef class PrefixIndex:
             new_off += seg_len
             ni_ptr[ki + 1] = new_off
 
-        # Remap cell IDs to compact range using OAHash
         cdef OAHash32 h
         cdef uint32_t hash_expect = <uint32_t>min(total_cells, <uint64_t>8388608)
         oahash_init(&h, hash_expect)
@@ -1823,7 +1707,6 @@ cdef class PrefixIndex:
         with nogil:
             n_unique = remap_cells_flat(nc_ptr, total_cells, &h)
 
-        # Build orig_cell_ids: compact_id → original
         cdef np.ndarray[np.uint32_t, ndim=1] orig_cell_ids = np.empty(n_unique, dtype=np.uint32)
         cdef uint32_t* oc_ptr = <uint32_t*>orig_cell_ids.data
         cdef uint32_t tbl_i, tbl_sz = h.mask + 1
@@ -1972,7 +1855,6 @@ cdef class PrefixIndexBuilder:
         item.first=kmer; item.second=cell_id; self.buffer.push_back(item); self.buffer_count+=1
 
 
-# ===================== Flush bucket — delta-varint compressed =====================
 cdef void _flush_bucket_c(uint64_t pc, vector[pair[uint32_t, uint32_t]]& pairs,
     FILE* sfh, FILE* dfh, uint64_t* swp, uint64_t* dwp,
     uint64_t* pso, uint64_t* pdo, uint32_t* pds, uint64_t* tk, uint64_t* nb):
@@ -2035,7 +1917,6 @@ cdef void _flush_bucket_c(uint64_t pc, vector[pair[uint32_t, uint32_t]]& pairs,
     nb[0] += 1
 
 
-# ===================== FASTQ processing + direct radix build =====================
 from malva.fastq_processing cimport KmerFastqParser, SequenceFastqParser
 
 cdef void _write_sorted_chunk(uint64_t* ak, uint32_t* ac, uint64_t n, str chunk_path):
@@ -2220,7 +2101,6 @@ cdef void _build_index_radix(uint64_t* ak, uint32_t* ac, uint64_t tp, str output
     logging.info(f"  PI:{os.path.getsize(pp)/1e6:.1f}MB Suf:{os.path.getsize(sp)/1e6:.1f}MB Data:{os.path.getsize(dp)/1e6:.1f}MB")
 
 
-# ===================== ChunkReader + build_from_sorted_chunks =====================
 cdef struct ChunkReader:
     FILE* fh
     uint64_t remaining, current_kmer
@@ -2303,7 +2183,6 @@ def build_from_sorted_chunks(list chunk_paths, str output_dir, int kmer_size=24,
     logger.info(f"  PI:{os.path.getsize(pp)/1e6:.1f}MB Suf:{os.path.getsize(sp)/1e6:.1f}MB Data:{os.path.getsize(dp)/1e6:.1f}MB")
 
 
-# ===================== Write empty index =====================
 def _write_empty_index(str od, int ks, int lp, int ls, uint64_t nc):
     np2=1<<(2*lp); pi=np.zeros(np2,dtype=np.uint64)
     with open(os.path.join(od,'pi.bin'),'wb') as f: f.write(pi.tobytes()); f.write(pi.tobytes()); f.write(np.zeros(np2,dtype=np.uint32).tobytes())
@@ -2312,7 +2191,6 @@ def _write_empty_index(str od, int ks, int lp, int ls, uint64_t nc):
     with open(os.path.join(od,'meta.json'),'w') as f: json.dump({'magic':0x4D4C5650,'version':2,'kmer_size':ks,'l_prefix':lp,'l_suffix':ls,'n_kmers':0,'n_cells':int(nc),'n_prefixes':int(np2),'n_buckets_written':0},f,indent=2)
 
 
-# ===================== Merge multiple prefix indices =====================
 def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=False, dict project_mapping=None,
     int project_id_shift=23, uint32_t cell_id_mask=0x007FFFFF, bint verbose=False):
     logger=logging.getLogger("PrefixIndex.merge")
@@ -2400,11 +2278,9 @@ def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=Fa
     logger.info(f"Merge: {tk2:,} kmers from {len(indices)} indices in {time.time()-t02:.1f}s")
 
 
-# ===================== Fast quantify_where =====================
 from malva.fastq_processing cimport FastKmerProcessor
 from malva.kmer_processing import get_kmers_numeric
 
-# ── Inline C kmer encoder for the counting loop ──────────────────────────────
 cdef extern from *:
     """
     #include <stdint.h>
@@ -2482,20 +2358,7 @@ def quantify_where(
     object background_model=None, bint use_background_model=True,
     bint verbose=False,
 ):
-    """Fast quantification using CSR arrays + open-addressing hash remap.
-
-    Optimisations vs previous version:
-      1. query_batch_csr() returns flat CSR arrays — no unordered_map of vectors,
-         no 67K heap allocations, no 128M cell copies into fragmented storage.
-      2. OAHash32 remap — open-addressing with linear probing replaces
-         std::unordered_map. 2-3× faster per lookup, sequential access on flat array.
-      3. Binary search on sorted kmer_keys[] replaces unordered_map.find() in the
-         counting loop. kmer_keys (540KB) fits L2 cache; 17 comparisons vs hash probe.
-      4. C-level kmer extraction in counting loop — encode_nonoverlapping_kmers()
-         replaces Python get_kmers_numeric() calls (eliminates ~57K Python→C transitions).
-      5. Sequential cell_data access — CSR layout gives cache-friendly sequential reads
-         instead of pointer-chasing through fragmented vector storage.
-    """
+    """Quantify sequence groups against the index, returning per-group cell hits."""
     cdef:
         FastKmerProcessor processor
         np.ndarray all_kmer_list
@@ -2520,7 +2383,6 @@ def quantify_where(
         uint32_t  n_unique_cells, compact_id, orig_id
         uint32_t  c_val, kpr
         float     thresh_f
-        # CSR arrays
         np.ndarray[np.uint64_t, ndim=1] csr_keys, csr_indptr
         np.ndarray[np.uint32_t, ndim=1] csr_cells, csr_orig
         uint64_t* csr_keys_ptr
@@ -2529,7 +2391,6 @@ def quantify_where(
         uint32_t* csr_orig_ptr
         int64_t   csr_n_keys, csr_idx
         uint64_t  cell_start, cell_end
-        # C kmer buffer
         uint64_t* kmer_buf
         int       kmer_buf_cap, n_encoded
         const char* subseq_c
@@ -2549,7 +2410,6 @@ def quantify_where(
 
     t_phase = time.time()
 
-    # ── Step 1: query_batch_csr — returns sorted CSR + remapped cell IDs ──
     csr_result = (<PrefixIndex>index).query_batch_csr(
         np.asarray(all_kmer_list, dtype=np.uint64),
         count_at_most=count_at_most, count_at_least=count_at_least)
@@ -2586,13 +2446,11 @@ def quantify_where(
 
     t_phase = time.time()
 
-    # Get raw pointers for nogil access
     csr_keys_ptr   = <uint64_t*>csr_keys.data
     csr_cells_ptr  = <uint32_t*>csr_cells.data
     csr_indptr_ptr = <uint64_t*>csr_indptr.data
     csr_orig_ptr   = <uint32_t*>csr_orig.data
 
-    # ── Step 2: allocate counting arrays (indexed by compact cell ID) ─────
     cc    = <uint32_t*>malloc((n_unique_cells + 1) * 4)
     cl_ki = <uint32_t*>malloc((n_unique_cells + 1) * 4)
     sc    = <uint32_t*>malloc((n_unique_cells + 1) * 4)
@@ -2607,7 +2465,6 @@ def quantify_where(
     memset(cl_ki, 0, (n_unique_cells + 1) * 4)
     memset(sc,    0, (n_unique_cells + 1) * 4)
 
-    # ── Step 3: cell counting using CSR + binary search ───────────────────
     try:
         for i in range(num_groups):
             group = sequence_groups[i]
@@ -2629,13 +2486,11 @@ def quantify_where(
                 kpr = kmers_per_read
                 thresh_f = CONST_THRESHOLD
 
-                # C-level kmer extraction — replaces Python get_kmers_numeric
                 subseq_bytes = subseq.encode('ascii') if isinstance(subseq, str) else subseq
                 subseq_c = subseq_bytes
                 subseq_len = len(subseq_bytes)
                 if subseq_len < kmer_size:
                     continue
-                # Ensure kmer buffer is large enough
                 max_kmers = subseq_len // kmer_size + 2
                 if max_kmers > kmer_buf_cap:
                     kmer_buf_cap = max_kmers + 64
@@ -2663,11 +2518,9 @@ def quantify_where(
                         kmer_val = kmer_buf[idx_kmer]
                         if kmer_val == 0: continue
 
-                        # Binary search on sorted kmer_keys — replaces hash map lookup
                         csr_idx = bsearch_u64(csr_keys_ptr, csr_n_keys, kmer_val)
                         if csr_idx < 0: continue
 
-                        # Iterate cells from CSR — sequential memory access
                         cell_start = csr_indptr_ptr[csr_idx]
                         cell_end   = csr_indptr_ptr[csr_idx + 1]
                         for j in range(<uint32_t>(cell_end - cell_start)):
@@ -2725,7 +2578,6 @@ def quantify_where(
     return results
 
 
-# ===================== Fast HDF5-to-prefix converter (Cython) =====================
 def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
     str output_dir, int kmer_size=24, int l_prefix=12, uint64_t n_cells=0,
     int chunk_size=5000000, bint verbose=True):
@@ -2851,7 +2703,6 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
             # with a massive cell list), process the data in sub-windows to
             # avoid allocating more than max_pairs_per_chunk cells at a time.
             if <uint64_t>(ds_max - ds_min) > max_pairs_per_chunk:
-                # --- Streaming sub-chunk path for oversized single kmer(s) ---
                 if verbose:
                     logging.info(f"  Streaming {n_in} kmer(s) with {(ds_max-ds_min):,} cells in sub-windows")
                 win_start = ds_min
