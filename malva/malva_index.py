@@ -51,7 +51,8 @@ class MalvaIndex:
         self.l_prefix = l_prefix
         self.l_suffix = kmer_size_initialize - l_prefix
         self.jump_amount = kmer_size_initialize if jump_amount == 0 else jump_amount
-        self.verbose = verbose
+        self._verbose = False
+        self.verbose = verbose  # use the property setter
         self.n_spatial = 0
         self.coord_lims = None
         self.spatial_coord = None
@@ -85,6 +86,22 @@ class MalvaIndex:
         else:
             logging.info(f"Will create prefix index at `{index_dir}` with {kmer_size_initialize}-mers")
             os.makedirs(index_dir, exist_ok=True)
+
+    @property
+    def verbose(self):
+        return self._verbose
+
+    @verbose.setter
+    def verbose(self, value):
+        self._verbose = bool(value)
+        root = logging.getLogger()
+        if self._verbose:
+            if not root.handlers:
+                logging.basicConfig(format="%(levelname)s: %(message)s")
+            root.setLevel(logging.DEBUG)
+        else:
+            if root.level == logging.DEBUG:
+                root.setLevel(logging.INFO)
 
     def _index_exists(self):
         return (os.path.exists(os.path.join(self.index_dir, 'meta.json')) and
