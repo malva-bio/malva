@@ -30,6 +30,8 @@
 # Ignore notebooks by default
 *.ipynb
 
+examples/
+
 # But include example notebooks
 !examples/*.ipynb
 !docs/examples/*.ipynb
