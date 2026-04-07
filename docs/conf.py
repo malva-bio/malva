@@ -97,11 +97,18 @@ autodoc_mock_imports = [
     'werkzeug.middleware',
     'werkzeug.middleware.proxy_fix',
     'ollama',
+    'Bio',
+    'Bio.Seq',
+    'Bio.SeqRecord',
+    'sklearn',
+    'sklearn.metrics',
+    'sklearn.metrics.pairwise',
 ]
 
 # Settings
 suppress_warnings = [
     'autodoc.duplicate_object',
+    'autodoc.mocked_object',
     'ref.duplicate',
     'sphinx_autodoc_typehints.forward_reference',
 ]
