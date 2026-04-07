@@ -50,8 +50,11 @@ MAX_SEQUENCE_LENGTH = 1000
 
 EMPTY_TILE = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
 EMPTY_TILE_BYTES = io.BytesIO()
-Image.fromarray(EMPTY_TILE).save(EMPTY_TILE_BYTES, format='PNG')
-EMPTY_TILE_BYTES.seek(0)
+try:
+    Image.fromarray(EMPTY_TILE).save(EMPTY_TILE_BYTES, format='PNG')
+    EMPTY_TILE_BYTES.seek(0)
+except Exception:
+    pass
 
 def interactive_query_standard(
     sequence: str,
