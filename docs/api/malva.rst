@@ -36,7 +36,6 @@ Malva is built from source; otherwise, a summary of key components is provided.
 .. toctree::
    :maxdepth: 1
 
-   malva.indexes
    malva.barcodes
    malva.kmer_processing
    malva.fastq_processing
