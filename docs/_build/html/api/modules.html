@@ -3,7 +3,7 @@
   <head><meta charset="utf-8"/>
     <meta name="viewport" content="width=device-width,initial-scale=1"/>
     <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
-<link rel="author" title="About these documents" href="../about.html" /><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="malva.indexes module" href="malva.indexes.html" /><link rel="prev" title="Sequence Search with Malva" href="../examples/3_sequence_search.html" />
+<link rel="author" title="About these documents" href="../about.html" /><link rel="index" title="Index" href="../genindex.html" /><link rel="search" title="Search" href="../search.html" /><link rel="next" title="malva.indexes module" href="malva.indexes.html" /><link rel="prev" title="Indexing &amp; Query Framework" href="../indexing_framework.html" />
         <link rel="prefetch" href="../_static/malva_logo.svg" as="image" />
 
     <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
@@ -182,7 +182,7 @@
           <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
         </button>
       </div>
-      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
         <div class="visually-hidden">Toggle table of contents sidebar</div>
         <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
       </label>
@@ -227,7 +227,15 @@
 <li class="toctree-l2"><a class="reference internal" href="../examples/3_sequence_search.html">Sequence Search with Malva</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l1 current has-children current-page"><a class="current reference internal" href="#">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="malva.indexes.html">malva.indexes module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="malva.fastq_processing.html">malva.fastq_processing module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="malva.dbutils.html">malva.dbutils module</a></li>
@@ -279,7 +287,7 @@
               <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
             </button>
           </div>
-          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
             <div class="visually-hidden">Toggle table of contents sidebar</div>
             <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
           </label>
@@ -287,6 +295,39 @@
         <article role="main" id="furo-main-content">
           <section id="api-reference">
 <h1>API Reference<a class="headerlink" href="#api-reference" title="Link to this heading">¶</a></h1>
+<p>This section documents the Malva Python API and the full algorithmic framework underlying index
+construction and querying. The algorithmic documentation is intended to enable re-implementation
+and reproducibility; the Python API exposes the components available via the open-source
+distribution.</p>
+<hr class="docutils" />
+<section id="algorithmic-framework">
+<h2>Algorithmic Framework<a class="headerlink" href="#algorithmic-framework" title="Link to this heading">¶</a></h2>
+<p>The indexing and query algorithms are fully documented below, including data structures, pseudocode,
+and default parameters.</p>
+<div class="toctree-wrapper compound">
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html">Indexing &amp; Query Framework</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#definitions">Definitions</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#data-structure">Data Structure</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#index-construction">Index Construction</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#k-mer-encoding-and-sampling">K-mer Encoding and Sampling</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#querying">Querying</a><ul>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#window-based-matching">Window-Based Matching</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../indexing_framework.html#query-batching-and-index-access-pattern">Query Batching and Index Access Pattern</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../indexing_framework.html#parameters-summary">Parameters Summary</a></li>
+</ul>
+</div>
+</section>
+<hr class="docutils" />
+<section id="python-modules">
+<h2>Python Modules<a class="headerlink" href="#python-modules" title="Link to this heading">¶</a></h2>
+<p>The following modules are available in the open-source Python distribution:</p>
 <div class="toctree-wrapper compound">
 <ul>
 <li class="toctree-l1"><a class="reference internal" href="malva.indexes.html">malva.indexes module</a><ul>
@@ -432,6 +473,7 @@
 </ul>
 </div>
 </section>
+</section>
 
         </article>
       </div>
@@ -447,14 +489,14 @@
               </div>
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
             </a>
-          <a class="prev-page" href="../examples/3_sequence_search.html">
+          <a class="prev-page" href="../indexing_framework.html">
               <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
               <div class="page-info">
                 <div class="context">
                   <span>Previous</span>
                 </div>
                 
-                <div class="title">Sequence Search with Malva</div>
+                <div class="title">Indexing &amp; Query Framework</div>
                 
               </div>
             </a>
@@ -476,8 +518,28 @@
         
       </footer>
     </div>
-    <aside class="toc-drawer no-toc">
+    <aside class="toc-drawer">
       
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">API Reference</a><ul>
+<li><a class="reference internal" href="#algorithmic-framework">Algorithmic Framework</a></li>
+<li><a class="reference internal" href="#python-modules">Python Modules</a></li>
+</ul>
+</li>
+</ul>
+
+          </div>
+        </div>
+      </div>
       
       
     </aside>

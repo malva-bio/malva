@@ -20,6 +20,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
     'sphinxarg.ext',
     'sphinx_autodoc_typehints',
     'myst_parser',
@@ -58,8 +59,25 @@ html_theme_options = {
 html_static_path = ['_static']
 html_css_files = ['custom.css']
 
+# Mock imports: Cython extensions (not importable without a build) and
+# optional runtime deps that are not installed in the doc-build environment.
+autodoc_mock_imports = [
+    'malva.barcodes',
+    'malva.fast_map',
+    'malva.fastq_processing',
+    'malva.indexes',
+    'malva.kmer_processing',
+    'malva.reader',
+    'scanpy',
+    'anndata',
+]
+
 # Settings
-suppress_warnings = ['autodoc.duplicate_object']
+suppress_warnings = [
+    'autodoc.duplicate_object',
+    'ref.duplicate',
+    'sphinx_autodoc_typehints.forward_reference',
+]
 autodoc_default_options = {
     'members': True,
     'member-order': 'bysource',

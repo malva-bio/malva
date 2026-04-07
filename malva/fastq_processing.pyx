@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 # distutils: language = c++
 # cython: language_level=3, boundscheck=False, wraparound=False, initializedcheck=False, cdivision=True
 
@@ -51,7 +56,7 @@ cdef class FastKmerProcessor:
         self.overlapping = overlapping
         self.min_valid_sequence_size = max(min_valid_sequence_size, kmer_size)
         
-    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) nogil except -1:
+    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) except -1 nogil:
         cdef:
             uint64_t kmer
             int remaining = length
@@ -324,6 +329,9 @@ cdef class KmerFastqParser:
 
     def __repr__(self):
         return f"<KmerFastqParser records_processed={self.number_of_records}>"
+    
+    def __next__(self):
+        return self.next()
 
 cdef class SequenceFastqParser:
     """
@@ -484,3 +492,6 @@ cdef class SequenceFastqParser:
 
     def __repr__(self):
         return f"<SequenceFastqParser records_processed={self.number_of_records}>"
+
+    def __next__(self):
+        return self.next()

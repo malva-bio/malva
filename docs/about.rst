@@ -1,13 +1,13 @@
-About Malva Tools
+About Malva
 =================
 
-Malva Tools are utilities for building and querying sequence indices from single-cell and spatial transcriptomics data. They enable reference-free analysis at nucleotide resolution on your own private datasets.
+Malva is a tool to build sequence indices from single-cell omics data, enabling sequence search at single-cell resolution.
 
-While the public `Malva Index <https://malva.bio>`_ provides access to a large corpus of pre-indexed data, Malva Tools let you apply the same technology to your own experiments without uploading data to external servers.
+While the public `Malva Index <https://malva.bio>`_ provides access to a large corpus of pre-indexed data, Malva lets you apply the same technology to your own experiments without uploading data to external servers.
 
 ----
 
-What Malva Tools Can Do
+What Malva Can Do
 -----------------------
 
 .. grid:: 2
@@ -137,20 +137,20 @@ Availability
 
 .. note::
 
-   Malva Tools are provided **free of charge** for academic non-profit research.
+   Malva is provided **free of charge** for academic non-profit research.
+   Any academic user with an ORCID account has free and unlimited access (within hardware constraints).
 
-**To request access:**
+**To get started:**
 
-1. Send an email to daniel.leonperinan@mdc-berlin.de
-2. Include your name, institution, and intended use case
-3. You will receive download instructions and a license agreement
+1. Visit the `Malva Platform <https://malva.bio>`_ and sign in with your ORCID account
+2. See the :doc:`quickstart` guide for your first index and query
 
 ----
 
 Citation
 --------
 
-If you use Malva Tools in your research, please cite:
+If you use Malva in your research, please cite:
 
 .. code-block:: text
 

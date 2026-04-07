@@ -1,22 +1,39 @@
-GNU General Public License, version 2 (GPL-2.0)
+Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
 
-malva: fast indexing and querying of genomic sequences from spatial transcriptomics data
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to use,
+copy, modify, and/or merge copies of the Software, in both source code and
+object code format, solely for non-commercial and academic purposes, subject
+to the following conditions:
 
-Copyright (C) 2024 Daniel León-Periñán, Nikos Karaiskos and Nikolaus Rajewsky.
-All rights reserved.
+1. The above copyright notice and this permission notice shall be included in
+   all copies or substantial portions of the Software.
 
-This file is part of malva.
+2. The rights granted in the Software may be exercised only for non-commercial
+   and academic research purposes. Commercial use — including but not limited
+   to use in a commercial product or service, use by a for-profit entity, or
+   use to generate revenue — is expressly prohibited without prior written
+   permission from the copyright holders.
 
-malva is free software; you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation; either version 2 of the License, or
-(at your option) any later version.
+3. You agree not to redistribute or sublicense the Software for commercial
+   purposes, either in source code or object code format.
 
-malva is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+4. All derivative works, including any modifications of the Software, shall be
+   subject to all of the restrictions set forth herein.
 
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
+5. THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+   FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS
+   IN THE SOFTWARE.
+
+You may not use, propagate or modify the Software, or any derivatives thereof,
+except as expressly provided herein. Any attempt otherwise to use, propagate or
+modify it is void, and will automatically terminate your rights under this
+license.
+
+For commercial licensing inquiries, contact:
+  Daniel León-Periñán <daniel.leonperinan@mdc-berlin.de>

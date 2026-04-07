@@ -1,0 +1,1300 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="../../../">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><link rel="author" title="About these documents" href="../../../about.html" /><link rel="index" title="Index" href="../../../genindex.html" /><link rel="search" title="Search" href="../../../search.html" />
+        <link rel="prefetch" href="../../../_static/malva_logo.svg" as="image" />
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
+        <title>malva.serve.serve - Malva</title>
+      <link rel="stylesheet" type="text/css" href="../../../_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo.css?v=25af2a20" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="../../../_static/custom.css?v=25e47f62" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="../../../index.html"><div class="brand">Malva</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon no-toc" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="../../../index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="../../../_static/malva_logo.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">Malva</span>
+  
+</a><form class="sidebar-search-container" method="get" action="../../../search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../about.html">About Malva Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../quickstart_spatial.html">Quick Start: Spatial Data</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Command Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="../../../cmd_index.html">index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cmd_quant.html">quant</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cmd_show.html">show</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cmd_serve.html">serve</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../cmd_cellxmer.html">cellxmer</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples &amp; API</span></p>
+<ul>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../examples/index.html">Examples</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Examples</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/2_simple_analysis.html">Single-Cell Analysis of Malva Quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../examples/3_sequence_search.html">Sequence Search with Malva</a></li>
+</ul>
+</li>
+<li class="toctree-l1"><a class="reference internal" href="../../../indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l1"><a class="reference internal" href="../../../indexing_framework.html#parameters-summary">Parameters Summary</a></li>
+<li class="toctree-l1 has-children"><a class="reference internal" href="../../../api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="../../../indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../indexing_framework.html#parameters-summary">Parameters Summary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/malva.indexes.html">malva.indexes module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/malva.dbutils.html">malva.dbutils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/malva.spacemake.html">malva.spacemake module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="../../../api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Links</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon no-toc" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <h1>Source code for malva.serve.serve</h1><div class="highlight"><pre>
+<span></span><span class="kn">import</span><span class="w"> </span><span class="nn">io</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">logging</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">numpy</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">np</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">pandas</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pd</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">flask</span><span class="w"> </span><span class="kn">import</span> <span class="n">Flask</span><span class="p">,</span> <span class="n">render_template</span><span class="p">,</span> <span class="n">send_file</span><span class="p">,</span> <span class="n">request</span><span class="p">,</span> <span class="n">session</span><span class="p">,</span> <span class="n">jsonify</span><span class="p">,</span> <span class="n">Blueprint</span><span class="p">,</span> <span class="n">g</span><span class="p">,</span> <span class="n">url_for</span><span class="p">,</span> <span class="n">make_response</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">flask_session</span><span class="w"> </span><span class="kn">import</span> <span class="n">Session</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">flask_cors</span><span class="w"> </span><span class="kn">import</span> <span class="n">CORS</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">PIL</span><span class="w"> </span><span class="kn">import</span> <span class="n">Image</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">uuid</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">os</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">dataclasses</span><span class="w"> </span><span class="kn">import</span> <span class="n">dataclass</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">typing</span><span class="w"> </span><span class="kn">import</span> <span class="n">Optional</span><span class="p">,</span> <span class="n">Tuple</span><span class="p">,</span> <span class="n">List</span><span class="p">,</span> <span class="n">Union</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">datashader</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">ds</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">skimage.filters</span><span class="w"> </span><span class="kn">import</span> <span class="n">gaussian</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">scipy.spatial</span><span class="w"> </span><span class="kn">import</span> <span class="n">cKDTree</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">threading</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">pathlib</span><span class="w"> </span><span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">tempfile</span>
+<span class="kn">import</span><span class="w"> </span><span class="nn">re</span>
+
+<span class="c1"># for proxy functionality</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">urllib.parse</span><span class="w"> </span><span class="kn">import</span> <span class="n">urljoin</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">werkzeug.middleware.proxy_fix</span><span class="w"> </span><span class="kn">import</span> <span class="n">ProxyFix</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">malva.index</span><span class="w"> </span><span class="kn">import</span> <span class="n">MalvaIndex</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">malva.dbutils</span><span class="w"> </span><span class="kn">import</span> <span class="n">handle_sequence</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">malva.serve.reportgen</span><span class="w"> </span><span class="kn">import</span> <span class="n">HTMLReportGenerator</span>
+<span class="c1"># from malva.utils import check_file_exists</span>
+<span class="c1"># from malva.serve.modeling import handle_natural_query, setup_model</span>
+<span class="c1"># from malva.serve.templates.strings import HINT_SEQUENCE_QUERY</span>
+
+<span class="c1"># Configure logging</span>
+<span class="n">logging</span><span class="o">.</span><span class="n">basicConfig</span><span class="p">(</span><span class="n">level</span><span class="o">=</span><span class="n">logging</span><span class="o">.</span><span class="n">INFO</span><span class="p">)</span>
+<span class="n">logger</span> <span class="o">=</span> <span class="n">logging</span><span class="o">.</span><span class="n">getLogger</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+<span class="c1"># Errors</span>
+<div class="viewcode-block" id="SequenceValidationError">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.SequenceValidationError">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">SequenceValidationError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom error for sequence validation issues&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="SequenceValidationError.__init__">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.SequenceValidationError.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">message</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">help_text</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">message</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">help_text</span> <span class="o">=</span> <span class="n">help_text</span></div>
+</div>
+
+
+<span class="c1"># Constants</span>
+<span class="n">MAX_LOAD_ALL</span> <span class="o">=</span> <span class="mi">10_000_000</span>
+<span class="n">TILE_SIZE</span> <span class="o">=</span> <span class="mi">256</span>
+<span class="n">MAX_SEQUENCE_LENGTH</span> <span class="o">=</span> <span class="mi">1000</span>
+
+<span class="n">EMPTY_TILE</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">TILE_SIZE</span><span class="p">,</span> <span class="n">TILE_SIZE</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+<span class="n">EMPTY_TILE_BYTES</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+<span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">EMPTY_TILE</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span><span class="n">EMPTY_TILE_BYTES</span><span class="p">,</span> <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;PNG&#39;</span><span class="p">)</span>
+<span class="n">EMPTY_TILE_BYTES</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+
+<div class="viewcode-block" id="interactive_query_standard">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.interactive_query_standard">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">interactive_query_standard</span><span class="p">(</span>
+    <span class="n">sequence</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">sliding_size</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">128</span><span class="p">,</span>
+    <span class="n">pct_threshold</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">0.65</span><span class="p">,</span>
+    <span class="n">low_complexity_filter</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+    <span class="n">countmaxkmer</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">100_000</span><span class="p">,</span>
+    <span class="n">countminkmer</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">10</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">List</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Process standard sequence query&quot;&quot;&quot;</span>
+    <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Querying sequence &#39;</span><span class="si">{</span><span class="n">sequence</span><span class="si">}</span><span class="s2">&#39;&quot;</span><span class="p">)</span>
+    
+    <span class="n">result</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+        <span class="n">sequence</span><span class="p">,</span>
+        <span class="n">sliding_size</span><span class="o">=</span><span class="n">sliding_size</span><span class="p">,</span>
+        <span class="n">pct_threshold</span><span class="o">=</span><span class="n">pct_threshold</span><span class="p">,</span>
+        <span class="n">count_at_most</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">countmaxkmer</span><span class="p">),</span>
+        <span class="n">count_at_least</span><span class="o">=</span><span class="nb">int</span><span class="p">(</span><span class="n">countminkmer</span><span class="p">),</span>
+        <span class="n">use_background_model</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">show_coverage</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">force_reload</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+        <span class="n">max_mem</span><span class="o">=</span><span class="s2">&quot;1M&quot;</span>
+    <span class="p">)</span>
+
+    <span class="n">locs</span><span class="p">,</span> <span class="n">ints</span><span class="p">,</span> <span class="n">where_abundant</span> <span class="o">=</span> <span class="n">result</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="k">return</span> <span class="n">locs</span><span class="p">,</span> <span class="n">ints</span><span class="p">,</span> <span class="n">where_abundant</span></div>
+
+
+<div class="viewcode-block" id="MalvaProxyFix">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.MalvaProxyFix">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">MalvaProxyFix</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Custom middleware for handling proxy prefixes&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="MalvaProxyFix.__init__">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.MalvaProxyFix.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">app</span><span class="p">,</span> <span class="n">uuid</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">app</span> <span class="o">=</span> <span class="n">app</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/api/malva/view/</span><span class="si">{</span><span class="n">uuid</span><span class="si">}</span><span class="s2">&quot;</span></div>
+
+        
+    <span class="k">def</span><span class="w"> </span><span class="fm">__call__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">):</span>
+        <span class="c1"># Ensure PATH_INFO contains the full path</span>
+        <span class="k">if</span> <span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH_INFO&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;/view/&#39;</span><span class="p">):</span>
+            <span class="c1"># Reconstruct the full path if it&#39;s not present</span>
+            <span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH_INFO&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/api/malva</span><span class="si">{</span><span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH_INFO&#39;</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span>
+        
+        <span class="c1"># Now handle the complete path</span>
+        <span class="k">if</span> <span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH_INFO&#39;</span><span class="p">]</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="p">):</span>
+            <span class="n">script_name</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">prefix</span>
+            <span class="n">path_info</span> <span class="o">=</span> <span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH_INFO&#39;</span><span class="p">][</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">prefix</span><span class="p">):]</span>
+            
+            <span class="c1"># Ensure path_info starts with a slash</span>
+            <span class="k">if</span> <span class="n">path_info</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">path_info</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;/&#39;</span><span class="p">):</span>
+                <span class="n">path_info</span> <span class="o">=</span> <span class="s1">&#39;/&#39;</span> <span class="o">+</span> <span class="n">path_info</span>
+                
+            <span class="n">environ</span><span class="p">[</span><span class="s1">&#39;SCRIPT_NAME&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">script_name</span>
+            <span class="n">environ</span><span class="p">[</span><span class="s1">&#39;PATH_INFO&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">path_info</span>
+            
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">app</span><span class="p">(</span><span class="n">environ</span><span class="p">,</span> <span class="n">start_response</span><span class="p">)</span></div>
+
+
+<div class="viewcode-block" id="SpatialData">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.SpatialData">[docs]</a>
+<span class="nd">@dataclass</span>
+<span class="k">class</span><span class="w"> </span><span class="nc">SpatialData</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class to hold spatial data and related methods&quot;&quot;&quot;</span>
+    <span class="n">coordinates</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>  <span class="c1"># Nx2 array of x,y coordinates</span>
+    <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span>      <span class="c1"># N-length array of values</span>
+    <span class="n">bounds</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]</span>  <span class="c1"># xmin, xmax, ymin, ymax</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">xmin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">xmax</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ymin</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+    
+    <span class="nd">@property</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">ymax</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span></div>
+
+
+<div class="viewcode-block" id="GlobalState">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.GlobalState">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">GlobalState</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Singleton class to manage global state and data&quot;&quot;&quot;</span>
+    <span class="n">_instance</span> <span class="o">=</span> <span class="kc">None</span>
+    <span class="n">_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span> <span class="o">=</span> <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__new__</span><span class="p">(</span><span class="bp">cls</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">cls</span><span class="o">.</span><span class="n">_instance</span>
+    
+<div class="viewcode-block" id="GlobalState.__init__">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.GlobalState.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;initialized&#39;</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span> <span class="o">=</span> <span class="kc">None</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="kc">False</span></div>
+
+
+<div class="viewcode-block" id="GlobalState.initialize_from_index">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.GlobalState.initialize_from_index">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_from_index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">index_path</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">max_mem</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mi">32</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize global state from a malva index file&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading malva index and metadata&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span> <span class="o">=</span> <span class="n">MalvaIndex</span><span class="p">(</span><span class="n">index_path</span><span class="p">,</span> <span class="n">verbose</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">open</span><span class="p">()</span>
+
+                <span class="c1"># Load the initial data points</span>
+                <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;index_0_data&quot;</span><span class="p">])</span> <span class="o">&gt;=</span> <span class="mi">2</span><span class="o">*</span><span class="n">MAX_LOAD_ALL</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_loc_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abu_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;index_0_data&quot;</span><span class="p">][</span><span class="n">MAX_LOAD_ALL</span><span class="p">:(</span><span class="mi">2</span><span class="o">*</span><span class="n">MAX_LOAD_ALL</span><span class="p">)],</span>
+                        <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">_loc_all</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">_abu_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">unique</span><span class="p">(</span>
+                        <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">index</span><span class="p">[</span><span class="sa">f</span><span class="s2">&quot;index_0_data&quot;</span><span class="p">][</span><span class="mi">0</span><span class="p">:</span><span class="n">MAX_LOAD_ALL</span><span class="p">],</span>
+                        <span class="n">return_counts</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                    <span class="p">)</span>
+
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Loading the pointers into memory. Might take a while.&quot;</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">where</span><span class="p">(</span>
+                    <span class="s2">&quot;A&quot;</span> <span class="o">*</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">kmer_size</span> <span class="o">+</span> <span class="s2">&quot;T&quot;</span><span class="p">,</span>
+                    <span class="n">max_mem</span><span class="o">=</span><span class="n">max_mem</span><span class="p">,</span>
+                    <span class="n">use_background_model</span><span class="o">=</span><span class="kc">False</span>
+                <span class="p">)</span>
+
+                <span class="c1"># Set up the coordinate bounds</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span>  <span class="c1"># xmin</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span><span class="p">,</span>  <span class="c1"># xmax</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">],</span>  <span class="c1"># ymin</span>
+                    <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>   <span class="c1"># ymax</span>
+                <span class="p">)</span>
+                
+                <span class="c1"># Store the spatial coordinates</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">xy</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">spatial_coord</span><span class="p">[:]</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="kc">True</span>
+                
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error initializing from index: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span></div>
+
+    
+<div class="viewcode-block" id="GlobalState.initialize">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.GlobalState.initialize">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">bounds</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize with data&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">_lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span> <span class="o">=</span> <span class="n">coordinates</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">values</span> <span class="o">=</span> <span class="n">values</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span> <span class="o">=</span> <span class="n">bounds</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span> <span class="o">=</span> <span class="kc">True</span></div>
+
+
+<div class="viewcode-block" id="GlobalState.get_bounds">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.GlobalState.get_bounds">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_bounds</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the coordinate bounds&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;GlobalState not initialized&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">bounds</span></div>
+
+
+<div class="viewcode-block" id="GlobalState.get_coordinates">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.GlobalState.get_coordinates">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_coordinates</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get the spatial coordinates&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">initialized</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;GlobalState not initialized&quot;</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">xy</span> <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">xy</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="k">else</span> <span class="bp">self</span><span class="o">.</span><span class="n">coordinates</span></div>
+</div>
+
+
+<div class="viewcode-block" id="UserSession">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.UserSession">[docs]</a>
+<span class="k">class</span><span class="w"> </span><span class="nc">UserSession</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Class to manage per-user session data&quot;&quot;&quot;</span>
+<div class="viewcode-block" id="UserSession.__init__">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.UserSession.__init__">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">session_id</span><span class="p">:</span> <span class="nb">str</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">session_id</span> <span class="o">=</span> <span class="n">session_id</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data_path</span> <span class="o">=</span> <span class="n">Path</span><span class="p">(</span><span class="n">tempfile</span><span class="o">.</span><span class="n">gettempdir</span><span class="p">())</span> <span class="o">/</span> <span class="sa">f</span><span class="s2">&quot;user_</span><span class="si">{</span><span class="n">session_id</span><span class="si">}</span><span class="s2">.nc&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">query_results</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_values</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">background_data</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Store global intensity ranges for consistent scaling</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">background_intensity_range</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">query_intensity_range</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="c1"># Store trees for fast spatial lookup</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">background_tree</span> <span class="o">=</span> <span class="kc">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">query_tree</span> <span class="o">=</span> <span class="kc">None</span></div>
+
+    
+<div class="viewcode-block" id="UserSession.initialize_background">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.UserSession.initialize_background">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">initialize_background</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Initialize session with background data from global state&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">global_state</span><span class="o">.</span><span class="n">initialized</span> <span class="ow">and</span> <span class="n">global_state</span><span class="o">.</span><span class="n">_loc_all</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initializing background data for session&quot;</span><span class="p">)</span>
+                <span class="n">background_coords</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">xy</span><span class="p">[</span><span class="n">global_state</span><span class="o">.</span><span class="n">_loc_all</span><span class="p">]</span>
+                <span class="n">background_values</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">_abu_all</span>
+                
+                <span class="c1"># Calculate global intensity range for background</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">background_intensity_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_intensity_range</span><span class="p">(</span><span class="n">background_values</span><span class="p">)</span>
+                
+                <span class="bp">self</span><span class="o">.</span><span class="n">background_data</span> <span class="o">=</span> <span class="p">{</span>
+                    <span class="s1">&#39;locations&#39;</span><span class="p">:</span> <span class="n">background_coords</span><span class="p">,</span>
+                    <span class="s1">&#39;intensities&#39;</span><span class="p">:</span> <span class="n">background_values</span>
+                <span class="p">}</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">background_tree</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">background_coords</span><span class="p">)</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Background data initialized with intensity range: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">background_intensity_range</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_calculate_intensity_range</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Calculate robust intensity range for values&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">values</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>
+        
+        <span class="c1"># Use percentiles for more robust range estimation</span>
+        <span class="n">min_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span>  <span class="c1"># 1st percentile instead of min</span>
+        <span class="n">max_val</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">percentile</span><span class="p">(</span><span class="n">values</span><span class="p">,</span> <span class="mi">99</span><span class="p">)</span>  <span class="c1"># 99th percentile instead of max</span>
+        
+        <span class="c1"># Ensure we don&#39;t have zero range</span>
+        <span class="k">if</span> <span class="n">min_val</span> <span class="o">==</span> <span class="n">max_val</span><span class="p">:</span>
+            <span class="n">max_val</span> <span class="o">=</span> <span class="n">min_val</span> <span class="o">+</span> <span class="mi">1</span>
+            
+        <span class="k">return</span> <span class="p">(</span><span class="n">min_val</span><span class="p">,</span> <span class="n">max_val</span><span class="p">)</span>
+
+<div class="viewcode-block" id="UserSession.add_query_result">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.UserSession.add_query_result">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_query_result</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">locations</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">intensities</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Add query results to user session&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+            <span class="c1"># Calculate global intensity range for query</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">query_intensity_range</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_calculate_intensity_range</span><span class="p">(</span><span class="n">intensities</span><span class="p">)</span>
+            
+            <span class="bp">self</span><span class="o">.</span><span class="n">query_results</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;locations&#39;</span><span class="p">:</span> <span class="n">locations</span><span class="p">,</span>
+                <span class="s1">&#39;intensities&#39;</span><span class="p">:</span> <span class="n">intensities</span>
+            <span class="p">}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">query_tree</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">locations</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Query results added with intensity range: </span><span class="si">{</span><span class="bp">self</span><span class="o">.</span><span class="n">query_intensity_range</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="UserSession.add_background_data">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.UserSession.add_background_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">add_background_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">coordinates</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Store background data&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">background_data</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s1">&#39;locations&#39;</span><span class="p">:</span> <span class="n">coordinates</span><span class="p">,</span>
+                <span class="s1">&#39;intensities&#39;</span><span class="p">:</span> <span class="n">values</span>
+            <span class="p">}</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">background_tree</span> <span class="o">=</span> <span class="n">cKDTree</span><span class="p">(</span><span class="n">coordinates</span><span class="p">)</span></div>
+
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">_rasterize_points</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">points</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">values</span><span class="p">:</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">,</span> <span class="n">tree</span><span class="p">:</span> <span class="n">cKDTree</span><span class="p">,</span>
+                     <span class="n">x_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span> <span class="n">y_range</span><span class="p">:</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">],</span>
+                     <span class="n">value_range</span><span class="p">:</span> <span class="n">Optional</span><span class="p">[</span><span class="n">Tuple</span><span class="p">[</span><span class="nb">float</span><span class="p">,</span> <span class="nb">float</span><span class="p">]]</span> <span class="o">=</span> <span class="kc">None</span><span class="p">,</span>
+                     <span class="n">sigma</span><span class="p">:</span> <span class="nb">float</span> <span class="o">=</span> <span class="mf">1.0</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Convert points to raster image preserving aspect ratio&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">points</span> <span class="ow">is</span> <span class="kc">None</span> <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">points</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">TILE_SIZE</span><span class="p">,</span> <span class="n">TILE_SIZE</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+        
+        <span class="c1"># Find the largest range to maintain aspect ratio</span>
+        <span class="n">x_size</span> <span class="o">=</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y_size</span> <span class="o">=</span> <span class="n">y_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">y_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">max_range</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x_size</span><span class="p">,</span> <span class="n">y_size</span><span class="p">)</span>
+        <span class="n">half_range</span> <span class="o">=</span> <span class="n">max_range</span> <span class="o">*</span> <span class="mf">0.5</span>
+        
+        <span class="n">x_center</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="mf">0.5</span>
+        <span class="n">y_center</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">y_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">*</span> <span class="mf">0.5</span>
+
+        <span class="c1"># Query point for the radius search</span>
+        <span class="n">query_point</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">([</span><span class="n">x_center</span><span class="p">,</span> <span class="n">y_center</span><span class="p">])</span>
+        <span class="n">radius</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">sqrt</span><span class="p">(</span><span class="mi">2</span><span class="p">)</span> <span class="o">*</span> <span class="n">half_range</span>
+        
+        <span class="n">x_adjusted</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_center</span> <span class="o">-</span> <span class="n">half_range</span><span class="p">,</span> <span class="n">x_center</span> <span class="o">+</span> <span class="n">half_range</span><span class="p">)</span>
+        <span class="n">y_adjusted</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_center</span> <span class="o">-</span> <span class="n">half_range</span><span class="p">,</span> <span class="n">y_center</span> <span class="o">+</span> <span class="n">half_range</span><span class="p">)</span>
+
+        <span class="c1"># Query points using spatial index</span>
+        <span class="n">indices</span> <span class="o">=</span> <span class="n">tree</span><span class="o">.</span><span class="n">query_ball_point</span><span class="p">(</span><span class="n">query_point</span><span class="p">,</span> <span class="n">radius</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">indices</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">(</span><span class="n">TILE_SIZE</span> <span class="o">*</span> <span class="n">TILE_SIZE</span><span class="p">,</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span><span class="o">.</span><span class="n">reshape</span><span class="p">(</span><span class="n">TILE_SIZE</span><span class="p">,</span> <span class="n">TILE_SIZE</span><span class="p">)</span>
+
+        <span class="c1"># Use queried points</span>
+        <span class="n">filtered_points</span> <span class="o">=</span> <span class="n">points</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+        <span class="n">filtered_values</span> <span class="o">=</span> <span class="n">values</span><span class="p">[</span><span class="n">indices</span><span class="p">]</span>
+
+        <span class="c1"># Additional filter for exact box bounds</span>
+        <span class="n">x_adjusted</span> <span class="o">=</span> <span class="p">(</span><span class="n">x_center</span> <span class="o">-</span> <span class="n">half_range</span><span class="p">,</span> <span class="n">x_center</span> <span class="o">+</span> <span class="n">half_range</span><span class="p">)</span>
+        <span class="n">y_adjusted</span> <span class="o">=</span> <span class="p">(</span><span class="n">y_center</span> <span class="o">-</span> <span class="n">half_range</span><span class="p">,</span> <span class="n">y_center</span> <span class="o">+</span> <span class="n">half_range</span><span class="p">)</span>
+        <span class="n">mask</span> <span class="o">=</span> <span class="p">((</span><span class="n">filtered_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">x_adjusted</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> 
+                <span class="p">(</span><span class="n">filtered_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">x_adjusted</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span> <span class="o">&amp;</span> 
+                <span class="p">(</span><span class="n">filtered_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&gt;=</span> <span class="n">y_adjusted</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">&amp;</span> 
+                <span class="p">(</span><span class="n">filtered_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">&lt;</span> <span class="n">y_adjusted</span><span class="p">[</span><span class="mi">1</span><span class="p">]))</span>
+        
+        <span class="c1"># Use datashader with adjusted ranges</span>
+        <span class="n">canvas</span> <span class="o">=</span> <span class="n">ds</span><span class="o">.</span><span class="n">Canvas</span><span class="p">(</span><span class="n">plot_width</span><span class="o">=</span><span class="n">TILE_SIZE</span><span class="p">,</span>
+                         <span class="n">plot_height</span><span class="o">=</span><span class="n">TILE_SIZE</span><span class="p">,</span>
+                         <span class="n">x_range</span><span class="o">=</span><span class="n">x_adjusted</span><span class="p">,</span>
+                         <span class="n">y_range</span><span class="o">=</span><span class="n">y_adjusted</span><span class="p">)</span>
+        
+        <span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span>
+            <span class="s1">&#39;x&#39;</span><span class="p">:</span> <span class="n">filtered_points</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span>
+            <span class="s1">&#39;y&#39;</span><span class="p">:</span> <span class="n">filtered_points</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">],</span>
+            <span class="s1">&#39;val&#39;</span><span class="p">:</span> <span class="n">filtered_values</span>
+        <span class="p">})</span>
+        
+        <span class="n">agg</span> <span class="o">=</span> <span class="n">canvas</span><span class="o">.</span><span class="n">points</span><span class="p">(</span><span class="n">df</span><span class="p">,</span> <span class="s1">&#39;x&#39;</span><span class="p">,</span> <span class="s1">&#39;y&#39;</span><span class="p">,</span> <span class="n">agg</span><span class="o">=</span><span class="n">ds</span><span class="o">.</span><span class="n">mean</span><span class="p">(</span><span class="s1">&#39;val&#39;</span><span class="p">))</span>
+        <span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">nan_to_num</span><span class="p">(</span><span class="n">agg</span><span class="o">.</span><span class="n">values</span><span class="p">,</span> <span class="n">copy</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
+        
+        <span class="c1"># Use global value range for normalization if provided</span>
+        <span class="k">if</span> <span class="n">value_range</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">value_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">value_range</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">clip</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">value_range</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="n">value_range</span><span class="p">[</span><span class="mi">1</span><span class="p">])</span>
+            <span class="n">img</span> <span class="o">=</span> <span class="p">(</span><span class="n">img</span> <span class="o">-</span> <span class="n">value_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">/</span> <span class="p">(</span><span class="n">value_range</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">value_range</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">*</span> <span class="mi">255</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">img</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="n">img</span> <span class="o">=</span> <span class="n">img</span> <span class="o">/</span> <span class="n">img</span><span class="o">.</span><span class="n">max</span><span class="p">()</span> <span class="o">*</span> <span class="mi">255</span>
+        
+        <span class="n">img</span> <span class="o">=</span> <span class="n">gaussian</span><span class="p">(</span><span class="n">img</span><span class="p">,</span> <span class="n">sigma</span><span class="o">=</span><span class="n">sigma</span><span class="p">,</span> <span class="n">preserve_range</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">img</span><span class="o">.</span><span class="n">astype</span><span class="p">(</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+        
+<div class="viewcode-block" id="UserSession.get_tile_data">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.UserSession.get_tile_data">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_tile_data</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">zoom</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get tile data for this user&#39;s view&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">global_state</span><span class="o">.</span><span class="n">initialized</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">RuntimeError</span><span class="p">(</span><span class="s2">&quot;Global state not initialized&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Get global coordinate limits</span>
+        <span class="n">coord_lims</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span>
+        <span class="n">x_total</span> <span class="o">=</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">y_total</span> <span class="o">=</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+        <span class="n">max_dim</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">x_total</span><span class="p">,</span> <span class="n">y_total</span><span class="p">)</span>
+        
+        <span class="c1"># Calculate tile bounds based on the maximum dimension</span>
+        <span class="n">n</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">**</span> <span class="n">zoom</span>
+        <span class="n">tile_size</span> <span class="o">=</span> <span class="n">max_dim</span> <span class="o">/</span> <span class="n">n</span>
+        
+        <span class="n">x_bounds</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="n">x</span> <span class="o">*</span> <span class="n">tile_size</span><span class="p">,</span>
+            <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">tile_size</span>
+        <span class="p">)</span>
+        <span class="n">y_bounds</span> <span class="o">=</span> <span class="p">(</span>
+            <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="n">y</span> <span class="o">*</span> <span class="n">tile_size</span><span class="p">,</span>
+            <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span> <span class="o">+</span> <span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">tile_size</span>
+        <span class="p">)</span>
+        
+        <span class="n">_sigma</span> <span class="o">=</span> <span class="mi">1</span> <span class="k">if</span> <span class="n">zoom</span> <span class="o">&lt;=</span> <span class="mi">1</span> <span class="k">else</span> <span class="mf">1.2</span>
+
+        <span class="c1"># Initialize empty RGBA image</span>
+        <span class="n">img_all</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">zeros</span><span class="p">((</span><span class="n">TILE_SIZE</span><span class="p">,</span> <span class="n">TILE_SIZE</span><span class="p">,</span> <span class="mi">4</span><span class="p">),</span> <span class="n">dtype</span><span class="o">=</span><span class="n">np</span><span class="o">.</span><span class="n">uint8</span><span class="p">)</span>
+
+        <span class="c1"># Add background data to first channel (red)</span>
+        <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="s1">&#39;background_data&#39;</span><span class="p">)</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">background_data</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="n">img_all</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rasterize_points</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">background_data</span><span class="p">[</span><span class="s1">&#39;locations&#39;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">background_data</span><span class="p">[</span><span class="s1">&#39;intensities&#39;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">background_tree</span><span class="p">,</span>
+                <span class="n">x_bounds</span><span class="p">,</span> 
+                <span class="n">y_bounds</span><span class="p">,</span>
+                <span class="n">value_range</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">background_intensity_range</span><span class="p">,</span>
+                <span class="n">sigma</span><span class="o">=</span><span class="n">_sigma</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Add query results to second channel (green)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">query_results</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">query_results</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s1">&#39;locations&#39;</span><span class="p">,</span> <span class="p">[]))</span> <span class="o">&gt;</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="n">img_all</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_rasterize_points</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query_results</span><span class="p">[</span><span class="s1">&#39;locations&#39;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query_results</span><span class="p">[</span><span class="s1">&#39;intensities&#39;</span><span class="p">],</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">query_tree</span><span class="p">,</span>
+                <span class="n">x_bounds</span><span class="p">,</span>
+                <span class="n">y_bounds</span><span class="p">,</span>
+                <span class="n">value_range</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">query_intensity_range</span><span class="p">,</span>
+                <span class="n">sigma</span><span class="o">=</span><span class="n">_sigma</span>
+            <span class="p">)</span>
+
+        <span class="c1"># Set alpha channel only where we have data</span>
+        <span class="n">img_all</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">maximum</span><span class="p">(</span><span class="n">img_all</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">0</span><span class="p">],</span> <span class="n">img_all</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">1</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">0</span>
+        <span class="n">img_all</span><span class="p">[:,</span> <span class="p">:,</span> <span class="mi">3</span><span class="p">]</span> <span class="o">*=</span> <span class="mi">255</span>
+
+        <span class="k">return</span> <span class="n">img_all</span></div>
+
+        
+<div class="viewcode-block" id="UserSession.cleanup">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.UserSession.cleanup">[docs]</a>
+    <span class="k">def</span><span class="w"> </span><span class="nf">cleanup</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Clean up session data&quot;&quot;&quot;</span>
+        <span class="k">with</span> <span class="bp">self</span><span class="o">.</span><span class="n">lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">data_path</span><span class="o">.</span><span class="n">exists</span><span class="p">():</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">data_path</span><span class="o">.</span><span class="n">unlink</span><span class="p">()</span></div>
+</div>
+
+
+<div class="viewcode-block" id="create_app">
+<a class="viewcode-back" href="../../../api/malva.serve.serve.html#malva.serve.serve.create_app">[docs]</a>
+<span class="k">def</span><span class="w"> </span><span class="nf">create_app</span><span class="p">(</span><span class="n">init_state</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">_uuid</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Application factory function&quot;&quot;&quot;</span>
+    <span class="n">app</span> <span class="o">=</span> <span class="n">Flask</span><span class="p">(</span><span class="vm">__name__</span><span class="p">)</span>
+
+    <span class="c1"># Configure app</span>
+    <span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="o">.</span><span class="n">update</span><span class="p">(</span>
+        <span class="n">SECRET_KEY</span><span class="o">=</span><span class="n">os</span><span class="o">.</span><span class="n">environ</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;SECRET_KEY&quot;</span><span class="p">,</span> <span class="s2">&quot;dev_key&quot;</span><span class="p">),</span>
+        <span class="n">SESSION_TYPE</span><span class="o">=</span><span class="s2">&quot;filesystem&quot;</span><span class="p">,</span>
+        <span class="n">SESSION_PERMANENT</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">_uuid</span><span class="p">:</span>
+        <span class="c1"># Set application root for proper URL generation</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">config</span><span class="p">[</span><span class="s1">&#39;APPLICATION_ROOT&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;/api/malva/view/</span><span class="si">{</span><span class="n">_uuid</span><span class="si">}</span><span class="s2">/&quot;</span>
+        
+        <span class="c1"># Apply proxy fixes in correct order</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">wsgi_app</span> <span class="o">=</span> <span class="n">MalvaProxyFix</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">wsgi_app</span><span class="p">,</span> <span class="n">_uuid</span><span class="p">)</span>
+        <span class="n">app</span><span class="o">.</span><span class="n">wsgi_app</span> <span class="o">=</span> <span class="n">ProxyFix</span><span class="p">(</span><span class="n">app</span><span class="o">.</span><span class="n">wsgi_app</span><span class="p">,</span> <span class="n">x_proto</span><span class="o">=</span><span class="mi">1</span><span class="p">,</span> <span class="n">x_host</span><span class="o">=</span><span class="mi">1</span><span class="p">)</span>
+
+    <span class="n">Session</span><span class="p">(</span><span class="n">app</span><span class="p">)</span>
+    
+    <span class="c1"># Session management</span>
+    <span class="n">user_sessions</span> <span class="o">=</span> <span class="p">{}</span>
+    <span class="n">session_lock</span> <span class="o">=</span> <span class="n">threading</span><span class="o">.</span><span class="n">Lock</span><span class="p">()</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">get_user_session</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Get or create user session&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="s1">&#39;user_id&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">session</span><span class="p">:</span>
+            <span class="n">session</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="n">uuid</span><span class="o">.</span><span class="n">uuid4</span><span class="p">())</span>
+        
+        <span class="n">user_id</span> <span class="o">=</span> <span class="n">session</span><span class="p">[</span><span class="s1">&#39;user_id&#39;</span><span class="p">]</span>
+        <span class="k">with</span> <span class="n">session_lock</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">user_id</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">user_sessions</span><span class="p">:</span>
+                <span class="n">new_session</span> <span class="o">=</span> <span class="n">UserSession</span><span class="p">(</span><span class="n">user_id</span><span class="p">)</span>
+                <span class="k">if</span> <span class="n">init_state</span> <span class="ow">and</span> <span class="n">global_state</span><span class="o">.</span><span class="n">initialized</span><span class="p">:</span>
+                    <span class="n">new_session</span><span class="o">.</span><span class="n">initialize_background</span><span class="p">()</span>
+                <span class="n">user_sessions</span><span class="p">[</span><span class="n">user_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">new_session</span>
+            <span class="k">return</span> <span class="n">user_sessions</span><span class="p">[</span><span class="n">user_id</span><span class="p">]</span>
+    
+    <span class="nd">@app</span><span class="o">.</span><span class="n">before_request</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">before_request</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Set up user session before each request</span>
+<span class="sd">        </span>
+<span class="sd">        Note: we should never get these via the /api/malva/view</span>
+<span class="sd">        or other</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">request</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s2">&quot;/health&quot;</span><span class="p">):</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">g</span><span class="o">.</span><span class="n">user_session</span> <span class="o">=</span> <span class="n">get_user_session</span><span class="p">()</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in before_request: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="s2">&quot;Internal server error&quot;</span><span class="p">}),</span> <span class="mi">500</span>
+
+    
+    <span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/parse_queried&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_queried</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Process and return query results&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">if</span> <span class="s2">&quot;where_abundant&quot;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">session</span><span class="p">:</span>
+                <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span>
+                    <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                    <span class="s2">&quot;query_term&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;sequence&quot;</span><span class="p">:</span> <span class="s2">&quot;&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;scores&quot;</span><span class="p">:</span> <span class="p">[]</span>
+                <span class="p">})</span>
+
+            <span class="n">scores</span> <span class="o">=</span> <span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">session</span><span class="p">[</span><span class="s2">&quot;where_abundant&quot;</span><span class="p">])</span> <span class="o">&gt;</span> <span class="mi">2</span><span class="p">:</span>
+                <span class="n">data</span> <span class="o">=</span> <span class="n">np</span><span class="o">.</span><span class="n">array</span><span class="p">(</span><span class="n">session</span><span class="p">[</span><span class="s2">&quot;where_abundant&quot;</span><span class="p">])</span>
+                <span class="n">df</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">({</span><span class="s2">&quot;pos&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">0</span><span class="p">],</span> <span class="s2">&quot;val&quot;</span><span class="p">:</span> <span class="n">data</span><span class="p">[:,</span> <span class="mi">1</span><span class="p">]})</span>
+                    <span class="o">.</span><span class="n">groupby</span><span class="p">(</span><span class="s2">&quot;pos&quot;</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                    <span class="o">.</span><span class="n">rolling</span><span class="p">(</span><span class="n">window</span><span class="o">=</span><span class="mi">24</span><span class="p">)</span>
+                    <span class="o">.</span><span class="n">mean</span><span class="p">()</span>
+                <span class="p">)</span>
+                <span class="c1"># Convert numpy values to native Python types for proper JSON serialization</span>
+                <span class="n">scores</span> <span class="o">=</span> <span class="n">df</span><span class="p">[</span><span class="s2">&quot;val&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">fillna</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
+                <span class="k">if</span> <span class="n">scores</span><span class="p">:</span>  <span class="c1"># Normalize only if we have scores</span>
+                    <span class="n">min_val</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span>
+                    <span class="n">max_val</span> <span class="o">=</span> <span class="nb">max</span><span class="p">(</span><span class="n">scores</span><span class="p">)</span>
+                    <span class="k">if</span> <span class="n">max_val</span> <span class="o">&gt;</span> <span class="n">min_val</span><span class="p">:</span>
+                        <span class="n">scores</span> <span class="o">=</span> <span class="p">[(</span><span class="n">x</span> <span class="o">-</span> <span class="n">min_val</span><span class="p">)</span> <span class="o">/</span> <span class="p">(</span><span class="n">max_val</span> <span class="o">-</span> <span class="n">min_val</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">scores</span><span class="p">]</span>
+
+            <span class="n">response_data</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">,</span>
+                <span class="s2">&quot;query_term&quot;</span><span class="p">:</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;query_term&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;sequence&quot;</span><span class="p">:</span> <span class="n">session</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;query_seq&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">),</span>
+                <span class="s2">&quot;scores&quot;</span><span class="p">:</span> <span class="n">scores</span>
+            <span class="p">}</span>
+            
+            <span class="c1"># Set correct content type header</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">response_data</span><span class="p">)</span>
+            
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error in parse_queried: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span>
+                <span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">False</span><span class="p">,</span>
+                <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span>
+            <span class="p">}),</span> <span class="mi">500</span>
+    
+    <span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/tiles/&lt;zoom&gt;/&lt;int:x&gt;/&lt;int:y&gt;.png&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">tile</span><span class="p">(</span><span class="n">zoom</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">y</span><span class="p">:</span> <span class="nb">int</span><span class="p">):</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Generate and serve tile image&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">zoom</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">zoom</span><span class="p">))</span>
+
+            <span class="n">coord_lims</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span>
+            
+            <span class="c1"># Calculate tile bounds</span>
+            <span class="n">n</span> <span class="o">=</span> <span class="mf">2.0</span> <span class="o">**</span> <span class="n">zoom</span>
+            <span class="n">x_tile_min</span> <span class="o">=</span> <span class="n">x</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="p">(</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">x_tile_max</span> <span class="o">=</span> <span class="p">(</span><span class="n">x</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="p">(</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">-</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span> <span class="o">+</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">y_tile_min</span> <span class="o">=</span> <span class="n">y</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="p">(</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            <span class="n">y_tile_max</span> <span class="o">=</span> <span class="p">(</span><span class="n">y</span> <span class="o">+</span> <span class="mi">1</span><span class="p">)</span> <span class="o">/</span> <span class="n">n</span> <span class="o">*</span> <span class="p">(</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">-</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">])</span> <span class="o">+</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">]</span>
+            
+            <span class="c1"># Check if tile is completely outside data bounds</span>
+            <span class="k">if</span> <span class="p">(</span><span class="n">x_tile_min</span> <span class="o">&gt;</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="ow">or</span> 
+                <span class="n">x_tile_max</span> <span class="o">&lt;</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="ow">or</span>
+                <span class="n">y_tile_min</span> <span class="o">&gt;</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="ow">or</span>
+                <span class="n">y_tile_max</span> <span class="o">&lt;</span> <span class="n">coord_lims</span><span class="p">[</span><span class="mi">2</span><span class="p">]):</span>
+                <span class="c1"># Return pre-generated transparent tile</span>
+                <span class="k">return</span> <span class="n">send_file</span><span class="p">(</span>
+                    <span class="n">EMPTY_TILE_BYTES</span><span class="p">,</span> 
+                    <span class="n">mimetype</span><span class="o">=</span><span class="s1">&#39;image/png&#39;</span><span class="p">,</span>
+                <span class="p">)</span>
+
+            <span class="n">img_array</span> <span class="o">=</span> <span class="n">g</span><span class="o">.</span><span class="n">user_session</span><span class="o">.</span><span class="n">get_tile_data</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">zoom</span><span class="p">)</span>
+            
+            <span class="c1"># Convert numpy array to PIL Image and serve</span>
+            <span class="n">img_io</span> <span class="o">=</span> <span class="n">io</span><span class="o">.</span><span class="n">BytesIO</span><span class="p">()</span>
+            <span class="n">Image</span><span class="o">.</span><span class="n">fromarray</span><span class="p">(</span><span class="n">img_array</span><span class="p">)</span><span class="o">.</span><span class="n">save</span><span class="p">(</span>
+                <span class="n">img_io</span><span class="p">,</span> 
+                <span class="nb">format</span><span class="o">=</span><span class="s1">&#39;PNG&#39;</span><span class="p">,</span>
+                <span class="n">optimize</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">compress_level</span><span class="o">=</span><span class="mi">1</span>  <span class="c1"># Faster compression</span>
+            <span class="p">)</span>
+            <span class="n">img_io</span><span class="o">.</span><span class="n">seek</span><span class="p">(</span><span class="mi">0</span><span class="p">)</span>
+            
+            <span class="k">return</span> <span class="n">send_file</span><span class="p">(</span><span class="n">img_io</span><span class="p">,</span> <span class="n">mimetype</span><span class="o">=</span><span class="s1">&#39;image/png&#39;</span><span class="p">)</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error generating tile: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span> <span class="mi">400</span>
+    
+    <span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/health&quot;</span><span class="p">)</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">health</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Health check endpoint&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span>
+            <span class="s2">&quot;status&quot;</span><span class="p">:</span> <span class="s2">&quot;healthy&quot;</span> <span class="k">if</span> <span class="n">global_state</span><span class="o">.</span><span class="n">initialized</span> <span class="k">else</span> <span class="s2">&quot;initializing&quot;</span><span class="p">,</span>
+            <span class="s2">&quot;message&quot;</span><span class="p">:</span> <span class="s2">&quot;Service is ready&quot;</span> <span class="k">if</span> <span class="n">global_state</span><span class="o">.</span><span class="n">initialized</span> <span class="k">else</span> <span class="s2">&quot;Service is initializing&quot;</span>
+        <span class="p">})</span>
+    
+    <span class="k">def</span><span class="w"> </span><span class="nf">parse_gene_format</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Parse various gene format inputs into standard format&quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;gene:&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">query</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;ensembl:&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="n">query</span>
+        
+        <span class="k">if</span> <span class="s1">&#39;;&#39;</span> <span class="ow">in</span> <span class="n">query</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">query</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;gene:&#39;</span><span class="p">):</span>
+            <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;gene:</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s2">&quot;</span>
+        
+        <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;gene:</span><span class="si">{</span><span class="n">query</span><span class="si">}</span><span class="s2">;type:cdna&quot;</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">validate_window_size</span><span class="p">(</span><span class="n">sequences</span><span class="p">:</span> <span class="n">Union</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">],</span> <span class="n">List</span><span class="p">[</span><span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]]],</span> <span class="n">window_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span> <span class="n">kmer_size</span><span class="p">:</span> <span class="nb">int</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">Tuple</span><span class="p">[</span><span class="nb">int</span><span class="p">,</span> <span class="n">Optional</span><span class="p">[</span><span class="nb">str</span><span class="p">]]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Validate window size against sequence lengths and k-mer size.</span>
+<span class="sd">        Handles both flat lists of sequences and lists of isoform lists.</span>
+<span class="sd">        </span>
+<span class="sd">        Args:</span>
+<span class="sd">            sequences: List of sequences or list of isoform lists</span>
+<span class="sd">            window_size: Requested window size</span>
+<span class="sd">            kmer_size: Size of k-mers used in index</span>
+<span class="sd">            </span>
+<span class="sd">        Returns:</span>
+<span class="sd">            Tuple of (validated_size, warning_message)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">window_size</span> <span class="o">&lt;</span> <span class="n">kmer_size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Window size (</span><span class="si">{</span><span class="n">window_size</span><span class="si">}</span><span class="s2">) cannot be smaller than k-mer size (</span><span class="si">{</span><span class="n">kmer_size</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;Please increase the window size parameter&quot;</span>
+            <span class="p">)</span>
+        
+        <span class="c1"># Flatten sequences if needed to find shortest length</span>
+        <span class="n">flat_sequences</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">sequences</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">seq</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                <span class="c1"># This is a list of isoforms</span>
+                <span class="n">flat_sequences</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="c1"># This is a single sequence</span>
+                <span class="n">flat_sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">flat_sequences</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span>
+                <span class="s2">&quot;No valid sequences to process&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;No sequences were found for the provided input&quot;</span>
+            <span class="p">)</span>
+        
+        <span class="n">min_seq_length</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span> <span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">flat_sequences</span><span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">min_seq_length</span> <span class="o">&lt;</span> <span class="n">kmer_size</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Shortest sequence length (</span><span class="si">{</span><span class="n">min_seq_length</span><span class="si">}</span><span class="s2">) cannot be smaller than k-mer size (</span><span class="si">{</span><span class="n">kmer_size</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;One or more sequences are too short for analysis&quot;</span>
+            <span class="p">)</span>
+        
+        <span class="k">if</span> <span class="n">window_size</span> <span class="o">&gt;</span> <span class="n">min_seq_length</span><span class="p">:</span>
+            <span class="n">new_size</span> <span class="o">=</span> <span class="n">min_seq_length</span>
+            <span class="k">return</span> <span class="n">new_size</span><span class="p">,</span> <span class="sa">f</span><span class="s2">&quot;Window size adjusted to </span><span class="si">{</span><span class="n">new_size</span><span class="si">}</span><span class="s2"> to match shortest sequence/isoform&quot;</span>
+        
+        <span class="k">return</span> <span class="n">window_size</span><span class="p">,</span> <span class="kc">None</span>
+
+    <span class="k">def</span><span class="w"> </span><span class="nf">process_sequence_input</span><span class="p">(</span><span class="n">query</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="n">List</span><span class="p">[</span><span class="nb">str</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Process input query into list of sequences.</span>
+<span class="sd">        Handles raw sequences, FASTA format, and gene IDs.</span>
+<span class="sd">        Supports multiple separators: commas, spaces, newlines</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">query</span> <span class="o">=</span> <span class="n">query</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">query</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">[]</span>
+
+        <span class="c1"># Check if this is a FASTA sequence</span>
+        <span class="k">if</span> <span class="n">query</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">):</span>
+            <span class="n">sequences</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">current_seq</span> <span class="o">=</span> <span class="p">[]</span>
+            
+            <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">query</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">):</span>
+                <span class="n">line</span> <span class="o">=</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">line</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                    
+                <span class="k">if</span> <span class="n">line</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="n">current_seq</span><span class="p">:</span>
+                        <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">current_seq</span><span class="p">))</span>
+                    <span class="n">current_seq</span> <span class="o">=</span> <span class="p">[</span><span class="n">line</span><span class="p">]</span>
+                <span class="k">else</span><span class="p">:</span>
+                    <span class="n">current_seq</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">current_seq</span><span class="p">:</span>
+                <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">current_seq</span><span class="p">))</span>
+                
+            <span class="k">return</span> <span class="n">sequences</span>
+
+        <span class="c1"># Not FASTA - handle as raw sequence(s) or gene IDs</span>
+        <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">query</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">):</span>
+            <span class="n">line_parts</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;[,\s]+&#39;</span><span class="p">,</span> <span class="n">line</span><span class="o">.</span><span class="n">strip</span><span class="p">())</span>
+            <span class="n">parts</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">part</span> <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">line_parts</span> <span class="k">if</span> <span class="n">part</span><span class="p">)</span>
+        
+        <span class="n">sequences</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">part</span> <span class="ow">in</span> <span class="n">parts</span><span class="p">:</span>
+            <span class="n">cleaned</span> <span class="o">=</span> <span class="n">part</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">cleaned</span><span class="p">:</span>
+                <span class="k">continue</span>
+                
+            <span class="k">if</span> <span class="n">cleaned</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;gene:&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">cleaned</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;ensembl:&#39;</span><span class="p">):</span>
+                <span class="k">if</span> <span class="s1">&#39;;type:&#39;</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">cleaned</span><span class="p">:</span>
+                    <span class="n">cleaned</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">cleaned</span><span class="si">}</span><span class="s2">;type:cdna&quot;</span>
+                <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cleaned</span><span class="p">)</span>
+                
+            <span class="k">elif</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^[ACGTNUacgtnu]+$&#39;</span><span class="p">,</span> <span class="n">cleaned</span><span class="p">):</span>
+                <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">cleaned</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gene:</span><span class="si">{</span><span class="n">cleaned</span><span class="si">}</span><span class="s2">;type:cdna&quot;</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">sequences</span>
+
+    <span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/search&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">search</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">query</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;selectsequence&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">strip</span><span class="p">()</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">query</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span><span class="s2">&quot;No sequence provided&quot;</span><span class="p">,</span> 
+                    <span class="s2">&quot;Please enter a sequence or gene name&quot;</span><span class="p">)</span>
+            
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Starting sequence processing...&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Get parameters</span>
+            <span class="n">sliding_size</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;sliding_size&quot;</span><span class="p">,</span> <span class="mi">128</span><span class="p">))</span>
+            <span class="n">pct_threshold</span> <span class="o">=</span> <span class="nb">float</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;pct_threshold&quot;</span><span class="p">,</span> <span class="mf">0.65</span><span class="p">))</span>
+            <span class="n">low_complexity_filter</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;low_complexity_filter&quot;</span><span class="p">,</span> <span class="s2">&quot;&quot;</span><span class="p">)</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="ow">in</span> <span class="p">[</span><span class="s2">&quot;true&quot;</span><span class="p">,</span> <span class="s2">&quot;1&quot;</span><span class="p">]</span>
+            <span class="n">countmaxkmer</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;countmaxkmer&quot;</span><span class="p">,</span> <span class="mi">5</span><span class="p">)))</span>
+            <span class="n">countminkmer</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="nb">float</span><span class="p">(</span><span class="n">request</span><span class="o">.</span><span class="n">args</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">&quot;countminkmer&quot;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)))</span>
+            
+            <span class="c1"># Process input</span>
+            <span class="n">processed_sequences</span> <span class="o">=</span> <span class="n">process_sequence_input</span><span class="p">(</span><span class="n">query</span><span class="p">)</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Initial processing returned </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">processed_sequences</span><span class="p">)</span><span class="si">}</span><span class="s2"> sequences&quot;</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">processed_sequences</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span>
+                    <span class="s2">&quot;No valid sequences found in input&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Check the format of your input. Examples are shown below.&quot;</span>
+                <span class="p">)</span>
+            
+            <span class="c1"># Handle gene IDs and get actual sequences</span>
+            <span class="n">final_sequences</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">warnings</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="n">errors</span> <span class="o">=</span> <span class="p">[]</span>
+            
+            <span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">processed_sequences</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="n">seq</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;&gt;&#39;</span><span class="p">):</span>  <span class="c1"># FASTA</span>
+                        <span class="n">lines</span> <span class="o">=</span> <span class="n">seq</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s1">&#39;</span><span class="se">\n</span><span class="s1">&#39;</span><span class="p">)</span>
+                        <span class="n">sequence</span> <span class="o">=</span> <span class="s1">&#39;&#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">lines</span><span class="p">[</span><span class="mi">1</span><span class="p">:])</span><span class="o">.</span><span class="n">upper</span><span class="p">()</span>
+                        <span class="k">if</span> <span class="ow">not</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^[ACGTNU]+$&#39;</span><span class="p">,</span> <span class="n">sequence</span><span class="p">):</span>
+                            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Invalid FASTA sequence: </span><span class="si">{</span><span class="n">lines</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                            <span class="k">continue</span>
+                        <span class="n">final_sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">sequence</span><span class="p">)</span>
+                        
+                    <span class="k">elif</span> <span class="n">seq</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;gene:&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="n">seq</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s1">&#39;ensembl:&#39;</span><span class="p">)</span> <span class="ow">or</span> <span class="s1">&#39;;&#39;</span> <span class="ow">in</span> <span class="n">seq</span><span class="p">:</span>
+                        <span class="c1"># Handle gene IDs</span>
+                        <span class="n">result</span> <span class="o">=</span> <span class="n">handle_sequence</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span>
+                        <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                            <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Gene not found: </span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                            <span class="k">continue</span>
+                            
+                        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                            <span class="n">final_sequences</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="n">final_sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                            
+                    <span class="k">else</span><span class="p">:</span>
+                        <span class="c1"># Must be raw sequence or simple gene</span>
+                        <span class="k">if</span> <span class="n">re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="sa">r</span><span class="s1">&#39;^[ACGTNUacgtnu]+$&#39;</span><span class="p">,</span> <span class="n">seq</span><span class="p">):</span>
+                            <span class="c1"># It&#39;s a raw sequence</span>
+                            <span class="n">final_sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">seq</span><span class="o">.</span><span class="n">upper</span><span class="p">())</span>
+                        <span class="k">else</span><span class="p">:</span>
+                            <span class="c1"># Try as simple gene name</span>
+                            <span class="n">result</span> <span class="o">=</span> <span class="n">handle_sequence</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;gene:</span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                            <span class="k">if</span> <span class="n">result</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                                <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Gene not found: </span><span class="si">{</span><span class="n">seq</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                                <span class="k">continue</span>
+                                
+                            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">result</span><span class="p">,</span> <span class="nb">list</span><span class="p">):</span>
+                                <span class="n">final_sequences</span><span class="o">.</span><span class="n">extend</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                            <span class="k">else</span><span class="p">:</span>
+                                <span class="n">final_sequences</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">result</span><span class="p">)</span>
+                                
+                <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                    <span class="n">errors</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error processing </span><span class="si">{</span><span class="n">seq</span><span class="p">[:</span><span class="mi">20</span><span class="p">]</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                    <span class="k">continue</span>
+            
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final processing yielded </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">final_sequences</span><span class="p">)</span><span class="si">}</span><span class="s2"> sequences&quot;</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="ow">not</span> <span class="n">final_sequences</span><span class="p">:</span>
+                <span class="n">error_msg</span> <span class="o">=</span> <span class="s2">&quot;No valid sequences could be processed.&quot;</span>
+                <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
+                    <span class="n">error_msg</span> <span class="o">+=</span> <span class="sa">f</span><span class="s2">&quot; Errors: </span><span class="si">{</span><span class="s1">&#39;; &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">errors</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+                <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span><span class="n">error_msg</span><span class="p">,</span> 
+                    <span class="s2">&quot;Please check your input and try again&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Validate window size</span>
+            <span class="n">kmer_size</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">kmer_size</span>
+            <span class="n">min_seq_length</span> <span class="o">=</span> <span class="nb">min</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">seq</span><span class="p">)</span> <span class="k">for</span> <span class="n">seq</span> <span class="ow">in</span> <span class="n">final_sequences</span><span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">min_seq_length</span> <span class="o">&lt;</span> <span class="n">kmer_size</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">&quot;Sequence length (</span><span class="si">{</span><span class="n">min_seq_length</span><span class="si">}</span><span class="s2">) cannot be smaller than k-mer size (</span><span class="si">{</span><span class="n">kmer_size</span><span class="si">}</span><span class="s2">)&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;One or more sequences are too short for analysis&quot;</span>
+                <span class="p">)</span>
+            
+            <span class="k">if</span> <span class="n">sliding_size</span> <span class="o">&gt;</span> <span class="n">min_seq_length</span><span class="p">:</span>
+                <span class="n">sliding_size</span> <span class="o">=</span> <span class="n">min_seq_length</span>
+                <span class="n">warnings</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Window size adjusted to </span><span class="si">{</span><span class="n">sliding_size</span><span class="si">}</span><span class="s2"> to match shortest sequence&quot;</span><span class="p">)</span>
+            
+            <span class="c1"># Query the index</span>
+            <span class="k">try</span><span class="p">:</span>
+                <span class="n">locs</span><span class="p">,</span> <span class="n">ints</span><span class="p">,</span> <span class="n">where_abundant</span> <span class="o">=</span> <span class="n">interactive_query_standard</span><span class="p">(</span>
+                    <span class="n">final_sequences</span><span class="p">,</span>
+                    <span class="n">sliding_size</span><span class="o">=</span><span class="n">sliding_size</span><span class="p">,</span>
+                    <span class="n">pct_threshold</span><span class="o">=</span><span class="n">pct_threshold</span><span class="p">,</span>
+                    <span class="n">low_complexity_filter</span><span class="o">=</span><span class="n">low_complexity_filter</span><span class="p">,</span>
+                    <span class="n">countmaxkmer</span><span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="n">countmaxkmer</span><span class="p">,</span>
+                    <span class="n">countminkmer</span><span class="o">=</span><span class="mi">10</span><span class="o">**</span><span class="n">countminkmer</span>
+                <span class="p">)</span>
+            <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+                <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Query error: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+                <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span>
+                    <span class="s2">&quot;Error searching sequences&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Try adjusting the search parameters&quot;</span>
+                <span class="p">)</span>
+            
+            <span class="c1"># Check results</span>
+            <span class="k">if</span> <span class="nb">len</span><span class="p">(</span><span class="n">locs</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+                <span class="k">raise</span> <span class="n">SequenceValidationError</span><span class="p">(</span>
+                    <span class="s2">&quot;No results found for any sequences&quot;</span><span class="p">,</span>
+                    <span class="s2">&quot;Try adjusting the search parameters&quot;</span>
+                <span class="p">)</span>
+            
+            <span class="c1"># Store results</span>
+            <span class="n">g</span><span class="o">.</span><span class="n">user_session</span><span class="o">.</span><span class="n">add_query_result</span><span class="p">(</span>
+                <span class="n">global_state</span><span class="o">.</span><span class="n">xy</span><span class="p">[</span><span class="n">locs</span><span class="p">],</span>
+                <span class="n">ints</span>
+            <span class="p">)</span>
+            
+            <span class="c1"># Store first sequence for display</span>
+            <span class="n">session</span><span class="p">[</span><span class="s2">&quot;query_seq&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">final_sequences</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">session</span><span class="p">[</span><span class="s2">&quot;query_term&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">query</span>
+            <span class="n">session</span><span class="p">[</span><span class="s2">&quot;where_abundant&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">where_abundant</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">where_abundant</span><span class="p">,</span> <span class="n">np</span><span class="o">.</span><span class="n">ndarray</span><span class="p">)</span> <span class="k">else</span> <span class="n">where_abundant</span>
+            
+            <span class="n">response</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;success&quot;</span><span class="p">:</span> <span class="kc">True</span><span class="p">}</span>
+            <span class="k">if</span> <span class="n">warnings</span><span class="p">:</span>
+                <span class="n">response</span><span class="p">[</span><span class="s2">&quot;warnings&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">warnings</span>
+            <span class="k">if</span> <span class="n">errors</span><span class="p">:</span>
+                <span class="n">response</span><span class="p">[</span><span class="s2">&quot;errors&quot;</span><span class="p">]</span> <span class="o">=</span> <span class="n">errors</span>
+            
+            <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Search completed successfully&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">(</span><span class="n">response</span><span class="p">)</span>
+            
+        <span class="k">except</span> <span class="n">SequenceValidationError</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span>
+                <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">),</span>
+                <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="n">e</span><span class="o">.</span><span class="n">help_text</span>
+            <span class="p">}),</span> <span class="mi">400</span>
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Unexpected error in search: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span>
+                <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="s2">&quot;An unexpected error occurred&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="s2">&quot;Please try again or contact support if the problem persists&quot;</span>
+            <span class="p">}),</span> <span class="mi">500</span>
+        
+    <span class="c1"># Add route to handle save request</span>
+    <span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/save_report&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;POST&quot;</span><span class="p">])</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">save_report</span><span class="p">():</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="c1"># Create report</span>
+            <span class="n">generator</span> <span class="o">=</span> <span class="n">HTMLReportGenerator</span><span class="p">(</span><span class="n">session</span><span class="p">)</span>
+            <span class="n">zip_data</span> <span class="o">=</span> <span class="n">generator</span><span class="o">.</span><span class="n">create_report_zip</span><span class="p">()</span>
+            
+            <span class="c1"># Create response</span>
+            <span class="n">response</span> <span class="o">=</span> <span class="n">make_response</span><span class="p">(</span><span class="n">zip_data</span><span class="p">)</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Type&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;application/zip&#39;</span>
+            <span class="n">response</span><span class="o">.</span><span class="n">headers</span><span class="p">[</span><span class="s1">&#39;Content-Disposition&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s1">&#39;attachment; filename=malva_report.zip&#39;</span>
+            
+            <span class="k">return</span> <span class="n">response</span>
+            
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error generating report: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span>
+                <span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="s2">&quot;Failed to generate report&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;help&quot;</span><span class="p">:</span> <span class="s2">&quot;Please try again or contact support if the problem persists&quot;</span>
+            <span class="p">}),</span> <span class="mi">500</span>
+
+    <span class="nd">@app</span><span class="o">.</span><span class="n">route</span><span class="p">(</span><span class="s2">&quot;/&quot;</span><span class="p">,</span> <span class="n">methods</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;GET&quot;</span><span class="p">])</span>
+    <span class="k">def</span><span class="w"> </span><span class="nf">index</span><span class="p">():</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;Handle root path requests&quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="n">_xmax</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="n">_ymax</span> <span class="o">=</span> <span class="n">global_state</span><span class="o">.</span><span class="n">kmer_index</span><span class="o">.</span><span class="n">coord_lims</span><span class="p">[</span><span class="mi">3</span><span class="p">]</span> <span class="o">+</span> <span class="mi">1</span>
+            <span class="k">return</span> <span class="n">render_template</span><span class="p">(</span><span class="s2">&quot;index.html&quot;</span><span class="p">,</span> <span class="n">xmax</span><span class="o">=</span><span class="n">_xmax</span><span class="p">,</span> <span class="n">ymax</span><span class="o">=</span><span class="n">_ymax</span><span class="p">)</span>
+                
+        <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">jsonify</span><span class="p">({</span><span class="s2">&quot;error&quot;</span><span class="p">:</span> <span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)}),</span> <span class="mi">500</span>
+    
+    <span class="k">return</span> <span class="n">app</span></div>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">_run_serve</span><span class="p">(</span><span class="n">args</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Run the server with the given arguments&quot;&quot;&quot;</span>
+    <span class="k">global</span> <span class="n">MAX_SEQUENCE_LENGTH</span><span class="p">,</span> <span class="n">global_state</span>
+    <span class="n">MAX_SEQUENCE_LENGTH</span> <span class="o">=</span> <span class="n">args</span><span class="o">.</span><span class="n">max_len</span>
+    
+    <span class="k">try</span><span class="p">:</span>
+        <span class="c1"># Initialize global state first</span>
+        <span class="n">global_state</span> <span class="o">=</span> <span class="n">GlobalState</span><span class="p">()</span>
+        <span class="n">global_state</span><span class="o">.</span><span class="n">initialize_from_index</span><span class="p">(</span><span class="n">args</span><span class="o">.</span><span class="n">index_in</span><span class="p">,</span> <span class="n">max_mem</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">max_mem</span><span class="p">)</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">info</span><span class="p">(</span><span class="s2">&quot;Initialized global state from index&quot;</span><span class="p">)</span>
+        
+        <span class="c1"># Create app only once after global state is initialized</span>
+        <span class="n">app</span> <span class="o">=</span> <span class="n">create_app</span><span class="p">(</span><span class="n">init_state</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">_uuid</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">uuid</span><span class="p">)</span>
+
+        <span class="n">CORS</span><span class="p">(</span><span class="n">app</span><span class="p">,</span> <span class="n">resources</span><span class="o">=</span><span class="p">{</span>
+            <span class="sa">r</span><span class="s2">&quot;/*&quot;</span><span class="p">:</span> <span class="p">{</span>
+                <span class="s2">&quot;origins&quot;</span><span class="p">:</span> <span class="s2">&quot;*&quot;</span><span class="p">,</span>
+                <span class="s2">&quot;allow_headers&quot;</span><span class="p">:</span> <span class="p">[</span><span class="s2">&quot;Content-Type&quot;</span><span class="p">,</span> <span class="s2">&quot;Authorization&quot;</span><span class="p">],</span>
+                <span class="s2">&quot;supports_credentials&quot;</span><span class="p">:</span> <span class="kc">True</span>
+            <span class="p">}</span>
+        <span class="p">})</span>
+
+        <span class="n">app</span><span class="o">.</span><span class="n">run</span><span class="p">(</span>
+            <span class="n">debug</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span> 
+            <span class="n">host</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">address</span><span class="p">,</span> 
+            <span class="n">port</span><span class="o">=</span><span class="n">args</span><span class="o">.</span><span class="n">port</span><span class="p">,</span> 
+            <span class="n">use_reloader</span><span class="o">=</span><span class="kc">False</span>
+        <span class="p">)</span>
+    <span class="k">except</span> <span class="ne">Exception</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="n">logger</span><span class="o">.</span><span class="n">error</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Error running serve: </span><span class="si">{</span><span class="nb">str</span><span class="p">(</span><span class="n">e</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+        <span class="k">raise</span>
+
+<span class="n">app</span> <span class="o">=</span> <span class="kc">None</span>
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="kn">from</span><span class="w"> </span><span class="nn">malva.cli</span><span class="w"> </span><span class="kn">import</span> <span class="n">get_serve_parser</span>
+
+    <span class="n">args</span> <span class="o">=</span> <span class="n">get_serve_parser</span><span class="p">()</span><span class="o">.</span><span class="n">parse_args</span><span class="p">()</span>
+    <span class="n">_run_serve</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</pre></div>
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          
+          
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Malva Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer no-toc">
+      
+      
+      
+    </aside>
+  </div>
+</div><script src="../../../_static/documentation_options.js?v=38b66d78"></script>
+    <script src="../../../_static/doctools.js?v=9bcbadda"></script>
+    <script src="../../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../../_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="../../../_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="../../../_static/copybutton.js?v=f281be69"></script>
+    <script src="../../../_static/design-tabs.js?v=f930bc37"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    </body>
+</html>

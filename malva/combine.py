@@ -1,308 +1,254 @@
-import h5py
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
+import json
+import logging
 import os
 import shutil
-import logging
-import json
-import uuid
 import tempfile
-
-from rich.progress import track
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from threading import current_thread, main_thread
 
-from malva.index import MalvaIndex
-from malva.utils import check_directory_exists, check_file_exists
+import numpy as np
+from rich.progress import track
 
-def combine_indices(combine_dir, project_uuids=None, project_id_offset=0):
-    output_file = os.path.join(combine_dir, "malva_index.h5")
+
+def combine_indices(combine_dir, project_uuids=None, project_id_offset=0,
+                           merge_projects=False, project_id_shift=23,
+                           cell_id_mask=0x007FFFFF, verbose=False):
+    """Merge multiple per-sample indices into one."""
+    from malva.indexes import merge_prefix_indices
+
+    if project_uuids is not None:
+        subdirs = [os.path.join(combine_dir, puuid) for puuid in project_uuids]
+    else:
+        subdirs = sorted([
+            os.path.join(combine_dir, d)
+            for d in os.listdir(combine_dir)
+            if os.path.isdir(os.path.join(combine_dir, d))
+            and os.path.exists(os.path.join(combine_dir, d, 'meta.json'))
+        ])
+
+    if len(subdirs) == 0:
+        raise ValueError(f"No indices found in {combine_dir}")
+
     project_mapping = {}
+    index_dirs = []
 
-    with h5py.File(output_file, 'w', driver='split') as f:
-        n_chunks_total = 0
-        n_unique_projects = 0
+    for idx, subdir in enumerate(subdirs):
+        if not os.path.exists(os.path.join(subdir, 'meta.json')):
+            logging.warning(f"Skipping {subdir}: no meta.json found")
+            continue
 
-        if project_uuids is None:
-            _tracker = sorted(os.listdir(combine_dir))
-        else:
-            _tracker = [os.path.join(combine_dir, puuid) for puuid in project_uuids]
+        project_id = project_id_offset + idx
+        project_uuid = os.path.basename(subdir)
+        if project_uuids is not None and idx < len(project_uuids):
+            project_uuid = project_uuids[idx]
 
-        iterator = track(_tracker, description='Processing sub-indices') if current_thread() == main_thread() else _tracker
-        for index_folder in iterator:
-            folder_path = os.path.join(combine_dir, index_folder) if not os.path.isabs(index_folder) else index_folder
-            index_file = os.path.join(folder_path, "malva_index.h5")
+        project_mapping[idx] = (project_id, project_uuid)
+        index_dirs.append(subdir)
 
-            if not os.path.isdir(folder_path):
-                continue
+    logging.info(f"Merging {len(index_dirs)} prefix indices from {combine_dir}")
 
-            if not os.path.exists(f'{index_file}-r.h5') or not os.path.exists(f'{index_file}-m.h5'):
-                raise FileNotFoundError(f"The malva index {folder_path} was not found")
+    output_dir = os.path.join(combine_dir, '_merged_index')
 
-            project_id = project_id_offset + n_unique_projects
-            project_uuid = os.path.basename(folder_path) if project_uuids is None else project_uuids[project_id]
+    merge_prefix_indices(
+        index_dirs=index_dirs,
+        output_dir=output_dir,
+        merge_projects=merge_projects,
+        project_mapping=project_mapping if merge_projects else None,
+        project_id_shift=project_id_shift,
+        cell_id_mask=cell_id_mask,
+        verbose=verbose,
+    )
 
-            with h5py.File(index_file, 'r', driver="split") as index_f:
-                n_chunks = index_f.attrs['n_chunks']
-                for i in range(n_chunks):
-                    indices_dataset_name = f"index_{n_chunks_total}_indices"
-                    indptr_dataset_name = f"index_{n_chunks_total}_indptr"
-                    data_dataset_name = f"index_{n_chunks_total}_data"
+    for fname in ['pi.bin', 'suffixes.bin', 'data.bin', 'meta.json']:
+        src = os.path.join(output_dir, fname)
+        dst = os.path.join(combine_dir, fname)
+        if os.path.exists(src):
+            shutil.move(src, dst)
 
-                    f[indices_dataset_name] = h5py.ExternalLink(f'{index_file}', f"index_{i}_indices")
-                    f[indptr_dataset_name] = h5py.ExternalLink(f'{index_file}', f"index_{i}_indptr")
-                    f[data_dataset_name] = h5py.ExternalLink(f'{index_file}', f"index_{i}_data")
+    for subdir in index_dirs:
+        coord_path = os.path.join(subdir, 'spatial_coord.npy')
+        if os.path.exists(coord_path):
+            shutil.copy2(coord_path, os.path.join(combine_dir, 'spatial_coord.npy'))
+            break
 
-                    project_mapping[n_chunks_total] = (project_id, project_uuid)
-                    n_chunks_total += 1
+    if os.path.exists(output_dir):
+        shutil.rmtree(output_dir)
 
-                if 'spatial_coord' in index_f and 'spatial_coord' not in f:
-                    # TODO: fix so we store the spatial coordinates from various projects. Only works for single cell now!
-                    f.create_dataset('spatial_coord', data=index_f['spatial_coord'])
+    logging.info(f"Combined {len(index_dirs)} indices into {combine_dir}")
+    return project_mapping, len(index_dirs)
 
-                if 'kmer_size' not in f.attrs and 'kmer_size' in index_f.attrs:
-                    f.attrs['kmer_size'] = index_f.attrs['kmer_size']
 
-                if 'coord_lims' not in f.attrs and 'coord_lims' in index_f.attrs:
-                    f.attrs['coord_lims'] = index_f.attrs['coord_lims']
-
-                if 'n_spatial' not in f.attrs and 'n_spatial' in index_f.attrs:
-                    f.attrs['n_spatial'] = index_f.attrs['n_spatial']
-
-            n_unique_projects += 1
-
-        f.attrs['project_mapping'] = json.dumps(project_mapping)
-        f.attrs['n_chunks'] = n_chunks_total
-        logging.info(f"Created combined index with {n_chunks_total} chunks from {n_unique_projects} projects")
-
-        return project_mapping, n_chunks_total
-        
-
-def process_merge_chunks(index_dir, merge_projects=False):
-    mindex = MalvaIndex(index_dir)
-    mindex.verbose = True
-    if mindex.n_chunks > 1:
-        logging.info(f"Merging {mindex.n_chunks} chunks in index at {index_dir}")
-        merged_file = f"{mindex.index_file}.merged"
-
-        if merge_projects:
-            logging.info("Merging projects with distinct project IDs")
-        
-        mindex.merge_chunks(merged_file, merge_projects=merge_projects)
-        
-        os.remove(f'{mindex.index_file}-r.h5')
-        os.remove(f'{mindex.index_file}-m.h5')
-        shutil.move(f'{merged_file}-r.h5', f'{mindex.index_file}-r.h5')
-        shutil.move(f'{merged_file}-m.h5', f'{mindex.index_file}-m.h5')
-
-def process_group(group_idx, group, base_dir, project_uuids, merge_chunks, merge_projects, project_id_offset=0):
-    # Add project_id_offset parameter with default value of 0
+def process_group(group_idx, group_dirs, base_dir, project_uuids,
+                  merge_projects, project_id_offset=0, verbose=False):
+    """Merge one group of indices during hierarchical combining."""
     parent_dir = os.path.dirname(os.path.abspath(base_dir))
-    temp_group_dir = tempfile.mkdtemp(prefix="malva_group_", dir=parent_dir)
+    temp_group_dir = tempfile.mkdtemp(prefix="malva_pfix_group_", dir=parent_dir)
 
-    sorted_group = sorted(group)
-    
-    for folder in sorted_group:
+    for folder in sorted(group_dirs):
         src = os.path.join(base_dir, folder)
         dst = os.path.join(temp_group_dir, folder)
         try:
             os.symlink(src, dst)
-        except Exception as e:
-            logging.warning(f"Symlink failed for {src} with error {e}, using copytree instead.")
+        except Exception:
             shutil.copytree(src, dst)
-    
-    # Pass the project_id_offset to combine_indices
-    mapping, _ = combine_indices(temp_group_dir, None, project_id_offset=project_id_offset)
-    if merge_chunks:
-        process_merge_chunks(temp_group_dir, merge_projects)
-    
+
+    mapping, n = combine_indices(
+        temp_group_dir,
+        project_uuids=None,
+        project_id_offset=project_id_offset,
+        merge_projects=merge_projects,
+        verbose=verbose,
+    )
+
     return group_idx, mapping, temp_group_dir
 
-def hierarchical_combine(base_dir, project_uuids, merge_chunks=False, merge_projects=False, group_size=16, threads=1):
-    all_indices = [d for d in os.listdir(base_dir)
-                   if os.path.isdir(os.path.join(base_dir, d)) and 
-                      d not in ["malva_index.h5", f"malva_index.h5-r.h5", f"malva_index.h5-m.h5"]]
-    
-    all_indices.sort()
-    
+
+def hierarchical_combine(base_dir, project_uuids=None,
+                                merge_projects=False, group_size=16,
+                                threads=1, verbose=False):
+    """Hierarchically merge many indices in parallel groups, then final merge."""
+    all_indices = sorted([
+        d for d in os.listdir(base_dir)
+        if os.path.isdir(os.path.join(base_dir, d))
+        and os.path.exists(os.path.join(base_dir, d, 'meta.json'))
+    ])
+
+    if len(all_indices) == 0:
+        raise ValueError(f"No indices found in {base_dir}")
+
     if len(all_indices) <= group_size:
-        logging.info("Number of indices is within direct merge limit. Calling combine_indices directly.")
-        combine_indices(base_dir, project_uuids)
-        if merge_chunks:
-            process_merge_chunks(base_dir, merge_projects)
+        logging.debug("Direct merge (within group size limit)")
+        combine_indices(
+            base_dir,
+            project_uuids=project_uuids,
+            merge_projects=merge_projects,
+            verbose=verbose,
+        )
         return
 
-    logging.info(f"Performing hierarchical merge on {len(all_indices)} indices in groups of {group_size}")
+    logging.debug(f"Hierarchical merge: {len(all_indices)} indices in groups of {group_size}")
 
     groups = []
-    num_groups = 0
-    current_project_offset = 0
-    
+    current_offset = 0
     for i in range(0, len(all_indices), group_size):
         group = all_indices[i:i + group_size]
-        if group:
-            groups.append((num_groups, group, current_project_offset))
-            current_project_offset += len(group)
-            num_groups += 1
+        groups.append((len(groups), group, current_offset))
+        current_offset += len(group)
 
     results = []
     with ProcessPoolExecutor(max_workers=threads) as executor:
-        futures = {executor.submit(
-            process_group, 
-            group_idx, 
-            group, 
-            base_dir, 
-            project_uuids, 
-            merge_chunks, 
-            merge_projects,
-            project_id_offset
-        ): group_idx for group_idx, group, project_id_offset in groups}
-        
+        futures = {
+            executor.submit(
+                process_group, group_idx, group_dirs, base_dir,
+                project_uuids, merge_projects, offset, verbose
+            ): group_idx
+            for group_idx, group_dirs, offset in groups
+        }
+
         for future in as_completed(futures):
             try:
                 result = future.result()
                 results.append(result)
-                logging.info(f"Completed processing group {futures[future]}")
+                logging.info(f"Completed group {futures[future]}")
             except Exception as e:
-                logging.error(f"Error processing group {futures[future]}: {e}")
-    
-    # Sort results by group index to maintain correct order
-    results.sort(key=lambda x: x[0])
-    
-    group_mappings = []
-    intermediate_dirs = []
-    
-    # We now have proper project IDs from process_group, no need to update them
-    for group_idx, mapping, temp_group_dir in results:
-        group_mappings.append(mapping)
-        intermediate_dirs.append(temp_group_dir)
+                logging.error(f"Error in group {futures[future]}: {e}")
+                raise
 
-    # merge the intermediate merged indices into a final combined index
+    results.sort(key=lambda x: x[0])
+
+    intermediate_dirs = [r[2] for r in results]
+
     parent_dir = os.path.dirname(os.path.abspath(base_dir))
-    final_temp_dir = tempfile.mkdtemp(prefix="malva_final_", dir=parent_dir)
-    logging.info(f"Merging {len(intermediate_dirs)} intermediate indices into final index")
-    
+    final_temp_dir = tempfile.mkdtemp(prefix="malva_pfix_final_", dir=parent_dir)
+
     for idx, inter_dir in enumerate(intermediate_dirs):
-        link_name = os.path.join(final_temp_dir, f"intermediate_{idx}")
+        link_name = os.path.join(final_temp_dir, f"intermediate_{idx:04d}")
         try:
             os.symlink(inter_dir, link_name)
-        except Exception as e:
-            logging.warning(f"Symlink failed for {inter_dir} with error {e}, using copytree instead.")
+        except Exception:
             shutil.copytree(inter_dir, link_name)
-    
-    combine_indices(final_temp_dir, project_uuids=None)
-    if merge_chunks:
-        process_merge_chunks(final_temp_dir, merge_projects=False)
 
-    # project mappings from intermediate indices (most reliable way...)
-    final_mapping = {}
+    combine_indices(
+        final_temp_dir,
+        merge_projects=False,  # Already embedded at group level
+        verbose=verbose,
+    )
+
+    for fname in ['pi.bin', 'suffixes.bin', 'data.bin', 'meta.json', 'spatial_coord.npy']:
+        src = os.path.join(final_temp_dir, fname)
+        dst = os.path.join(base_dir, fname)
+        if os.path.exists(src):
+            shutil.move(src, dst)
+
+    all_mappings = {}
     global_chunk_idx = 0
+    for group_idx, mapping, _ in results:
+        for key in sorted(mapping.keys(), key=int):
+            proj_id, proj_uuid = mapping[key]
+            all_mappings[str(global_chunk_idx)] = [proj_id, proj_uuid]
+            global_chunk_idx += 1
 
-    logging.info("Reading project mappings from intermediate indices...")
-    for idx, inter_dir in enumerate(intermediate_dirs):
-        inter_index = os.path.join(inter_dir, "malva_index.h5")
-        try:
-            with h5py.File(inter_index, 'r', driver='split') as f:
-                if 'project_mapping' in f.attrs:
-                    sub_mapping = json.loads(f.attrs['project_mapping'])
-                    for key in sorted(sub_mapping.keys(), key=lambda x: int(x)):
-                        # Original project ID and UUID from the subindex
-                        if isinstance(sub_mapping[key], list):
-                            project_id, project_uuid = sub_mapping[key]
-                        else:
-                            project_id, project_uuid = sub_mapping[key]
-                        final_mapping[str(global_chunk_idx)] = [project_id, project_uuid]
-                        global_chunk_idx += 1
-        except Exception as e:
-            logging.error(f"Error reading project mapping from {inter_index}: {e}")
+    meta_path = os.path.join(base_dir, 'meta.json')
+    if os.path.exists(meta_path):
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        meta['project_mapping'] = all_mappings
+        with open(meta_path, 'w') as f:
+            json.dump(meta, f, indent=2)
 
-    final_index = os.path.join(final_temp_dir, "malva_index.h5")
-    with h5py.File(final_index, 'r+', driver='split') as f:
-        f.attrs['project_mapping'] = json.dumps(final_mapping)
-        logging.info(f"Updated final index with project mapping for {len(final_mapping)} chunks")
+    for temp_dir in intermediate_dirs:
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
+    if os.path.exists(final_temp_dir):
+        shutil.rmtree(final_temp_dir)
 
-    # Ensure file exists before moving
-    for suffix in ["", "-r.h5", "-m.h5"]:
-        source_file = f"{final_index}{suffix}"
-        target_file = os.path.join(base_dir, f"malva_index.h5{suffix}")
-        
-        if os.path.exists(source_file):
-            logging.info(f"Moving {source_file} to {target_file}")
-            shutil.copy2(source_file, target_file)
-            try:
-                os.remove(source_file)
-            except Exception as e:
-                logging.warning(f"Could not remove source file {source_file}: {e}")
-        else:
-            logging.warning(f"Source file {source_file} does not exist, skipping move operation")
+    logging.debug("Hierarchical merge complete")
 
-    # Clean up with error handling
-    try:
-        for temp_dir in intermediate_dirs:
-            if os.path.exists(temp_dir):
-                shutil.rmtree(temp_dir)
-        
-        if os.path.exists(final_temp_dir):
-            shutil.rmtree(final_temp_dir)
-    except Exception as e:
-        logging.error(f"Error during cleanup: {e}")
-    
-    logging.info("Hierarchical merge complete and temporary files cleaned up.")
 
 def _run_combine(args):
+    """CLI entry point for combining prefix indices."""
+    from malva.utils import check_directory_exists, check_file_exists, SUCCESS_MSG
+
     if not check_directory_exists(args.index_in):
         logging.error("Base directory does not exist")
         return
 
     project_uuids = None
     if args.merge_projects and check_file_exists(args.uuid):
-        with open(args.uuid) as file:
-            project_uuids = [line.rstrip() for line in file]
+        with open(args.uuid) as f:
+            project_uuids = [line.rstrip() for line in f]
 
-    index_out = os.path.join(args.index_in, "malva_index.h5")
-    # Check if the combined index already exists.
-    if check_file_exists(index_out + "-r.h5") and check_file_exists(index_out + "-m.h5"):
-        logging.warning(f"The combined (non-merged) index already exists at {index_out}")
+    if os.path.exists(os.path.join(args.index_in, 'meta.json')):
+        logging.warning("Combined index already exists")
+        return
+
+    index_dirs = [
+        d for d in os.listdir(args.index_in)
+        if os.path.isdir(os.path.join(args.index_in, d))
+        and os.path.exists(os.path.join(args.index_in, d, 'meta.json'))
+    ]
+
+    if len(index_dirs) <= 16:
+        logging.debug(f"Direct merge of {len(index_dirs)} indices")
+        combine_indices(
+            args.index_in,
+            project_uuids=project_uuids,
+            merge_projects=args.merge_projects,
+            verbose=True,
+        )
     else:
-        # Identify sub-indices in the base directory.
-        index_dirs = [d for d in os.listdir(args.index_in)
-                      if os.path.isdir(os.path.join(args.index_in, d)) and
-                      d not in ["malva_index.h5", f"malva_index.h5-r.h5", f"malva_index.h5-m.h5"]]
-        if len(index_dirs) <= 16:
-            logging.info("Number of indices is 16 or less, merging directly.")
-            combine_indices(args.index_in, project_uuids)
-        else:
-            logging.info("Large number of indices detected, performing hierarchical merging.")
-            hierarchical_combine(args.index_in, project_uuids, merge_chunks=args.merge_chunks,
-                                 merge_projects=args.merge_projects, threads=args.threads)
-            
-            # we re-configure the number of spatial merged coordinates
-            mindex = MalvaIndex(args.index_in, verbose=True)
-            mindex.open("r+")
-            mindex.index.attrs['n_spatial'] = 1_000_000_000
-            mindex.close()
+        logging.debug(f"Hierarchical merge of {len(index_dirs)} indices")
+        hierarchical_combine(
+            args.index_in,
+            project_uuids=project_uuids,
+            merge_projects=args.merge_projects,
+            threads=args.threads,
+            verbose=True,
+        )
 
-    # After combining, if merge_chunks is enabled and there is more than one chunk,
-    # perform a final chunk merge on the combined index.
-    if args.merge_chunks:
-        # Create a MalvaIndex instance for the final merged index.
-        mindex = MalvaIndex(args.index_in, verbose=True)
-        if mindex.n_chunks > 1:
-            logging.info(f"Now, {mindex.n_chunks} chunks will be merged at final level")
-            merged_file = f"{mindex.index_file}.merged"
-
-            if args.merge_projects:
-                logging.info("Merging projects with distinct project IDs at final level")
-
-            mindex.merge_chunks(merged_file, merge_projects=args.merge_projects)
-            os.remove(f'{mindex.index_file}-r.h5')
-            os.remove(f'{mindex.index_file}-m.h5')
-            shutil.move(f'{merged_file}-r.h5', f'{mindex.index_file}-r.h5')
-            shutil.move(f'{merged_file}-m.h5', f'{mindex.index_file}-m.h5')
-
-    logging.info("SUCCESS!")
-        
-
-if __name__ == "__main__":
-    from malva.cli import get_combine_parser
-
-    args = get_combine_parser().parse_args()
-    _run_combine()
+    logging.info(SUCCESS_MSG)

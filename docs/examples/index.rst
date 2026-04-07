@@ -1,7 +1,7 @@
 Examples
 ========
 
-Hands-on tutorials for analyzing single-cell RNA-seq data with Malva Tools.
+Hands-on tutorials for analyzing single-cell RNA-seq data with Malva.
 
 We use the **1k Human PBMCs** dataset from 10x Genomics (v3 chemistry) as a standard benchmark containing approximately 1,000 peripheral blood mononuclear cells.
 
@@ -42,7 +42,7 @@ Prerequisites
 .. grid:: 3
     :gutter: 2
 
-    .. grid-item-card:: :octicon:`package;1em` Malva Tools
+    .. grid-item-card:: :octicon:`package;1em` Malva
         :class-card: sd-border-0 sd-shadow-sm sd-text-center
 
         Installed via wheel

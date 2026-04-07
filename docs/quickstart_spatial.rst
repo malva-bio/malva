@@ -1,12 +1,12 @@
 Quick Start: Spatial Data
 =========================
 
-This guide covers indexing and analyzing spatial transcriptomics data with Malva Tools, using Open-ST as an example. The workflow applies to other spatial platforms (Visium, Stereo-seq, Slide-seq) with minor modifications.
+This guide covers indexing and analyzing spatial transcriptomics data with Malva, using Open-ST as an example. The workflow applies to other spatial platforms (Visium, Stereo-seq, Slide-seq) with minor modifications.
 
 Prerequisites
 -------------
 
-- Malva Tools installed (see :doc:`installation`)
+- Malva installed (see :doc:`installation`)
 - Spatial transcriptomics data with stitched coordinates
 - An AnnData file (h5ad) containing barcodes and spatial coordinates
 

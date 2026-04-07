@@ -1,0 +1,867 @@
+<!doctype html>
+<html class="no-js" lang="en" data-content_root="./">
+  <head><meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <meta name="color-scheme" content="light dark"><meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="author" title="About these documents" href="about.html" /><link rel="index" title="Index" href="genindex.html" /><link rel="search" title="Search" href="search.html" /><link rel="next" title="API Reference" href="api/modules.html" /><link rel="prev" title="Sequence Search with Malva" href="examples/3_sequence_search.html" />
+        <link rel="prefetch" href="_static/malva_logo.svg" as="image" />
+
+    <!-- Generated with Sphinx 8.2.3 and Furo 2025.07.19 -->
+        <title>Indexing &amp; Query Framework - Malva</title>
+      <link rel="stylesheet" type="text/css" href="_static/pygments.css?v=d111a655" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo.css?v=25af2a20" />
+    <link rel="stylesheet" type="text/css" href="_static/copybutton.css?v=76b2166b" />
+    <link rel="stylesheet" type="text/css" href="_static/sphinx-design.min.css?v=95c83b7e" />
+    <link rel="stylesheet" type="text/css" href="_static/styles/furo-extensions.css?v=8dab3a3b" />
+    <link rel="stylesheet" type="text/css" href="_static/custom.css?v=25e47f62" />
+    
+    
+
+
+<style>
+  body {
+    --color-code-background: #f2f2f2;
+  --color-code-foreground: #1e1e1e;
+  
+  }
+  @media not print {
+    body[data-theme="dark"] {
+      --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+    }
+    @media (prefers-color-scheme: dark) {
+      body:not([data-theme="light"]) {
+        --color-code-background: #2b2b2b;
+  --color-code-foreground: #f8f8f2;
+  
+      }
+    }
+  }
+</style></head>
+  <body>
+    
+    <script>
+      document.body.dataset.theme = localStorage.getItem("theme") || "auto";
+    </script>
+    
+
+<svg xmlns="http://www.w3.org/2000/svg" style="display: none;">
+  <symbol id="svg-toc" viewBox="0 0 24 24">
+    <title>Contents</title>
+    <svg stroke="currentColor" fill="currentColor" stroke-width="0" viewBox="0 0 1024 1024">
+      <path d="M408 442h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8zm-8 204c0 4.4 3.6 8 8 8h480c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8H408c-4.4 0-8 3.6-8 8v56zm504-486H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zm0 632H120c-4.4 0-8 3.6-8 8v56c0 4.4 3.6 8 8 8h784c4.4 0 8-3.6 8-8v-56c0-4.4-3.6-8-8-8zM115.4 518.9L271.7 642c5.8 4.6 14.4.5 14.4-6.9V388.9c0-7.4-8.5-11.5-14.4-6.9L115.4 505.1a8.74 8.74 0 0 0 0 13.8z"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-menu" viewBox="0 0 24 24">
+    <title>Menu</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-menu">
+      <line x1="3" y1="12" x2="21" y2="12"></line>
+      <line x1="3" y1="6" x2="21" y2="6"></line>
+      <line x1="3" y1="18" x2="21" y2="18"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-arrow-right" viewBox="0 0 24 24">
+    <title>Expand</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather-chevron-right">
+      <polyline points="9 18 15 12 9 6"></polyline>
+    </svg>
+  </symbol>
+  <symbol id="svg-sun" viewBox="0 0 24 24">
+    <title>Light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="feather-sun">
+      <circle cx="12" cy="12" r="5"></circle>
+      <line x1="12" y1="1" x2="12" y2="3"></line>
+      <line x1="12" y1="21" x2="12" y2="23"></line>
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+      <line x1="1" y1="12" x2="3" y2="12"></line>
+      <line x1="21" y1="12" x2="23" y2="12"></line>
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon" viewBox="0 0 24 24">
+    <title>Dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-moon">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M12 3c.132 0 .263 0 .393 0a7.5 7.5 0 0 0 7.92 12.446a9 9 0 1 1 -8.313 -12.454z" />
+    </svg>
+  </symbol>
+  <symbol id="svg-sun-with-moon" viewBox="0 0 24 24">
+    <title>Auto light/dark, in light mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path style="opacity: 50%" d="M 5.411 14.504 C 5.471 14.504 5.532 14.504 5.591 14.504 C 3.639 16.319 4.383 19.569 6.931 20.352 C 7.693 20.586 8.512 20.551 9.25 20.252 C 8.023 23.207 4.056 23.725 2.11 21.184 C 0.166 18.642 1.702 14.949 4.874 14.536 C 5.051 14.512 5.231 14.5 5.411 14.5 L 5.411 14.504 Z"/>
+      <line x1="14.5" y1="3.25" x2="14.5" y2="1.25"/>
+      <line x1="14.5" y1="15.85" x2="14.5" y2="17.85"/>
+      <line x1="10.044" y1="5.094" x2="8.63" y2="3.68"/>
+      <line x1="19" y1="14.05" x2="20.414" y2="15.464"/>
+      <line x1="8.2" y1="9.55" x2="6.2" y2="9.55"/>
+      <line x1="20.8" y1="9.55" x2="22.8" y2="9.55"/>
+      <line x1="10.044" y1="14.006" x2="8.63" y2="15.42"/>
+      <line x1="19" y1="5.05" x2="20.414" y2="3.636"/>
+      <circle cx="14.5" cy="9.55" r="3.6"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-moon-with-sun" viewBox="0 0 24 24">
+    <title>Auto light/dark, in dark mode</title>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round"
+      class="icon-custom-derived-from-feather-sun-and-tabler-moon">
+      <path d="M 8.282 7.007 C 8.385 7.007 8.494 7.007 8.595 7.007 C 5.18 10.184 6.481 15.869 10.942 17.24 C 12.275 17.648 13.706 17.589 15 17.066 C 12.851 22.236 5.91 23.143 2.505 18.696 C -0.897 14.249 1.791 7.786 7.342 7.063 C 7.652 7.021 7.965 7 8.282 7 L 8.282 7.007 Z"/>
+      <line style="opacity: 50%" x1="18" y1="3.705" x2="18" y2="2.5"/>
+      <line style="opacity: 50%" x1="18" y1="11.295" x2="18" y2="12.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="4.816" x2="14.464" y2="3.964"/>
+      <line style="opacity: 50%" x1="20.711" y1="10.212" x2="21.563" y2="11.063"/>
+      <line style="opacity: 50%" x1="14.205" y1="7.5" x2="13.001" y2="7.5"/>
+      <line style="opacity: 50%" x1="21.795" y1="7.5" x2="23" y2="7.5"/>
+      <line style="opacity: 50%" x1="15.316" y1="10.184" x2="14.464" y2="11.036"/>
+      <line style="opacity: 50%" x1="20.711" y1="4.789" x2="21.563" y2="3.937"/>
+      <circle style="opacity: 50%" cx="18" cy="7.5" r="2.169"/>
+    </svg>
+  </symbol>
+  <symbol id="svg-pencil" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-pencil-code">
+      <path d="M4 20h4l10.5 -10.5a2.828 2.828 0 1 0 -4 -4l-10.5 10.5v4" />
+      <path d="M13.5 6.5l4 4" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+  <symbol id="svg-eye" viewBox="0 0 24 24">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      stroke-width="1" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler-eye-code">
+      <path stroke="none" d="M0 0h24v24H0z" fill="none" />
+      <path d="M10 12a2 2 0 1 0 4 0a2 2 0 0 0 -4 0" />
+      <path
+        d="M11.11 17.958c-3.209 -.307 -5.91 -2.293 -8.11 -5.958c2.4 -4 5.4 -6 9 -6c3.6 0 6.6 2 9 6c-.21 .352 -.427 .688 -.647 1.008" />
+      <path d="M20 21l2 -2l-2 -2" />
+      <path d="M17 17l-2 2l2 2" />
+    </svg>
+  </symbol>
+</svg>
+
+<input type="checkbox" class="sidebar-toggle" name="__navigation" id="__navigation">
+<input type="checkbox" class="sidebar-toggle" name="__toc" id="__toc">
+<label class="overlay sidebar-overlay" for="__navigation">
+  <div class="visually-hidden">Hide navigation sidebar</div>
+</label>
+<label class="overlay toc-overlay" for="__toc">
+  <div class="visually-hidden">Hide table of contents sidebar</div>
+</label>
+
+<a class="skip-to-content muted-link" href="#furo-main-content">Skip to content</a>
+
+
+
+<div class="page">
+  <header class="mobile-header">
+    <div class="header-left">
+      <label class="nav-overlay-icon" for="__navigation">
+        <div class="visually-hidden">Toggle site navigation sidebar</div>
+        <i class="icon"><svg><use href="#svg-menu"></use></svg></i>
+      </label>
+    </div>
+    <div class="header-center">
+      <a href="index.html"><div class="brand">Malva</div></a>
+    </div>
+    <div class="header-right">
+      <div class="theme-toggle-container theme-toggle-header">
+        <button class="theme-toggle">
+          <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+          <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+          <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+          <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+          <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+        </button>
+      </div>
+      <label class="toc-overlay-icon toc-header-icon" for="__toc">
+        <div class="visually-hidden">Toggle table of contents sidebar</div>
+        <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+      </label>
+    </div>
+  </header>
+  <aside class="sidebar-drawer">
+    <div class="sidebar-container">
+      
+      <div class="sidebar-sticky"><a class="sidebar-brand" href="index.html">
+  <div class="sidebar-logo-container">
+    <img class="sidebar-logo" src="_static/malva_logo.svg" alt="Logo"/>
+  </div>
+  
+  <span class="sidebar-brand-text">Malva</span>
+  
+</a><form class="sidebar-search-container" method="get" action="search.html" role="search">
+  <input class="sidebar-search" placeholder="Search" name="q" aria-label="Search">
+  <input type="hidden" name="check_keywords" value="yes">
+  <input type="hidden" name="area" value="default">
+</form>
+<div id="searchbox"></div><div class="sidebar-scroll"><div class="sidebar-tree">
+  <p class="caption" role="heading"><span class="caption-text">Guides</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="about.html">About Malva Tools</a></li>
+<li class="toctree-l1"><a class="reference internal" href="installation.html">Installation</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart.html">Quick Start</a></li>
+<li class="toctree-l1"><a class="reference internal" href="quickstart_spatial.html">Quick Start: Spatial Data</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Command Reference</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference internal" href="cmd_index.html">index</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_quant.html">quant</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_show.html">show</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_serve.html">serve</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_combine.html">combine</a></li>
+<li class="toctree-l1"><a class="reference internal" href="cmd_cellxmer.html">cellxmer</a></li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Examples &amp; API</span></p>
+<ul class="current">
+<li class="toctree-l1 has-children"><a class="reference internal" href="examples/index.html">Examples</a><input class="toctree-checkbox" id="toctree-checkbox-1" name="toctree-checkbox-1" role="switch" type="checkbox"/><label for="toctree-checkbox-1"><div class="visually-hidden">Toggle navigation of Examples</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="examples/2_simple_analysis.html">Single-Cell Analysis of Malva Quantification</a></li>
+<li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
+</ul>
+</li>
+<li class="toctree-l1 current"><a class="current reference internal" href="#">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#index-construction">Index Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#querying">Querying</a></li>
+<li class="toctree-l1"><a class="reference internal" href="#parameters-summary">Parameters Summary</a></li>
+<li class="toctree-l1 current has-children"><a class="reference internal" href="api/modules.html">API Reference</a><input checked="" class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul class="current">
+<li class="toctree-l2 current current-page"><a class="current reference internal" href="#">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#index-construction">Index Construction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#querying">Querying</a></li>
+<li class="toctree-l2"><a class="reference internal" href="#parameters-summary">Parameters Summary</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/malva.indexes.html">malva.indexes module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/malva.spacemake.html">malva.spacemake module</a></li>
+<li class="toctree-l2"><a class="reference internal" href="api/malva.utils.html">malva.utils module</a></li>
+</ul>
+</li>
+</ul>
+<p class="caption" role="heading"><span class="caption-text">Links</span></p>
+<ul>
+<li class="toctree-l1"><a class="reference external" href="https://malva.bio">Malva Platform</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva">GitHub</a></li>
+<li class="toctree-l1"><a class="reference external" href="https://github.com/malva-bio/malva_client">Malva Client</a></li>
+</ul>
+
+</div>
+</div>
+
+      </div>
+      
+    </div>
+  </aside>
+  <div class="main">
+    <div class="content">
+      <div class="article-container">
+        <a href="#" class="back-to-top muted-link">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M13 20h-2V8l-5.5 5.5-1.42-1.42L12 4.16l7.92 7.92-1.42 1.42L13 8v12z"></path>
+          </svg>
+          <span>Back to top</span>
+        </a>
+        <div class="content-icon-container">
+          <div class="view-this-page">
+  <a class="muted-link" href="https://github.com/malva-bio/malva/blob/main/docs/indexing_framework.rst?plain=true" title="View this page">
+    <svg><use href="#svg-eye"></use></svg>
+    <span class="visually-hidden">View this page</span>
+  </a>
+</div><div class="edit-this-page">
+  <a class="muted-link" href="https://github.com/malva-bio/malva/edit/main/docs/indexing_framework.rst" rel="edit" title="Edit this page">
+    <svg><use href="#svg-pencil"></use></svg>
+    <span class="visually-hidden">Edit this page</span>
+  </a>
+</div><div class="theme-toggle-container theme-toggle-content">
+            <button class="theme-toggle">
+              <div class="visually-hidden">Toggle Light / Dark / Auto color theme</div>
+              <svg class="theme-icon-when-auto-light"><use href="#svg-sun-with-moon"></use></svg>
+              <svg class="theme-icon-when-auto-dark"><use href="#svg-moon-with-sun"></use></svg>
+              <svg class="theme-icon-when-dark"><use href="#svg-moon"></use></svg>
+              <svg class="theme-icon-when-light"><use href="#svg-sun"></use></svg>
+            </button>
+          </div>
+          <label class="toc-overlay-icon toc-content-icon" for="__toc">
+            <div class="visually-hidden">Toggle table of contents sidebar</div>
+            <i class="icon"><svg><use href="#svg-toc"></use></svg></i>
+          </label>
+        </div>
+        <article role="main" id="furo-main-content">
+          <section id="indexing-query-framework">
+<h1>Indexing &amp; Query Framework<a class="headerlink" href="#indexing-query-framework" title="Link to this heading">¶</a></h1>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This page documents the algorithmic design of the Malva index construction and query
+framework in full detail, enabling re-implementation and reproducibility.
+It corresponds to <em>Supplementary Note 4</em> of the Malva manuscript.</p>
+</div>
+<p>Malva implements an <strong>inverted index for the single-cell colored</strong> <span class="math notranslate nohighlight">\(k\)</span>-<strong>mer indexing
+problem</strong>. Given a collection of sequencing libraries <span class="math notranslate nohighlight">\(\mathcal{R} = \{R_1, \ldots, R_S\}\)</span>
+where each library <span class="math notranslate nohighlight">\(R_i\)</span> contains reads from <span class="math notranslate nohighlight">\(n_i\)</span> cells, the goal is to support
+queries that return, for any <span class="math notranslate nohighlight">\(k\)</span>-mer <span class="math notranslate nohighlight">\(x\)</span>, the set of cells</p>
+<div class="math-wrapper docutils container">
+<div class="math notranslate nohighlight">
+\[\text{Cells}(x) = \{(i,j) \mid x \text{ appears in cell } c_{ij}\}.\]</div>
+</div>
+<p>This problem differs from bulk-sample <span class="math notranslate nohighlight">\(k\)</span>-mer indexing in that the label space grows from
+<span class="math notranslate nohighlight">\(O(S)\)</span> samples to <span class="math notranslate nohighlight">\(O(\sum_i n_i)\)</span> cells — typically <span class="math notranslate nohighlight">\(10^6\)</span> to <span class="math notranslate nohighlight">\(10^{10}\)</span>
+unique labels — rendering traditional color-aggregative approaches impractical.</p>
+<hr class="docutils" />
+<section id="definitions">
+<h2>Definitions<a class="headerlink" href="#definitions" title="Link to this heading">¶</a></h2>
+<p>The following entities are used and tracked throughout the indexing process:</p>
+<dl class="simple">
+<dt><strong>Chunk</strong></dt><dd><p>A self-contained index unit comprising multiple samples. Each chunk is stored as an independent
+file and can be queried in parallel.</p>
+</dd>
+<dt><strong>Sample</strong></dt><dd><p>A sequencing dataset (e.g., one 10x Chromium run) containing reads from multiple cells. Each
+sample has associated sample-level metadata (e.g., tissue type, donor ID, experimental condition).</p>
+</dd>
+<dt><strong>Cell</strong></dt><dd><p>An individual cell within a sample, identified by its barcode. Each cell has associated
+cell-level metadata (e.g., cell type annotation, cluster assignment).</p>
+</dd>
+</dl>
+<p>These entities are linked to an external metadata database via composite identifiers, enabling
+queries to return not only matching cells but also their biological annotations.</p>
+</section>
+<hr class="docutils" />
+<section id="data-structure">
+<h2>Data Structure<a class="headerlink" href="#data-structure" title="Link to this heading">¶</a></h2>
+<p>Each chunk contains an inverted index stored in <strong>compressed sparse row (CSR) format</strong> comprising
+three arrays:</p>
+<div class="table-wrapper colwidths-given docutils container">
+<table class="docutils align-default">
+<colgroup>
+<col style="width: 10.0%" />
+<col style="width: 15.0%" />
+<col style="width: 75.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Array</p></th>
+<th class="head"><p>Name</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathbf{I}\)</span></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">indices</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(N\)</span> unique <span class="math notranslate nohighlight">\(k\)</span>-mers in lexicographically sorted order</p></td>
+</tr>
+<tr class="row-odd"><td><p><span class="math notranslate nohighlight">\(\mathbf{P}\)</span></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">indptr</span></code></p></td>
+<td><p>For each <span class="math notranslate nohighlight">\(k\)</span>-mer at position <span class="math notranslate nohighlight">\(i\)</span>, <span class="math notranslate nohighlight">\(\mathbf{P}[i]\)</span> stores the start
+offset into the location array; <span class="math notranslate nohighlight">\(\mathbf{P}[i+1] - \mathbf{P}[i]\)</span> gives the number
+of cells containing <span class="math notranslate nohighlight">\(k\)</span>-mer <span class="math notranslate nohighlight">\(i\)</span></p></td>
+</tr>
+<tr class="row-even"><td><p><span class="math notranslate nohighlight">\(\mathbf{D}\)</span></p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">data</span></code></p></td>
+<td><p><span class="math notranslate nohighlight">\(Z\)</span> total cell identifiers (as 32-bit composites), grouped by <span class="math notranslate nohighlight">\(k\)</span>-mer</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>This structure supports queries in <span class="math notranslate nohighlight">\(O(\log N + L_x)\)</span> time where
+<span class="math notranslate nohighlight">\(L_x = |\text{Cells}(x)|\)</span>.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Sequence array  I:  [ k₀  | k₁  | k₂  | k₃  | ···  | k_{N-1} ]
+                          ↓       ↓       ↓
+Pointer array   P:  [  0  |  2  |  5  |  6  |  9  | ···  |  Z  ]
+                      ↓              ↓              ↓
+Location array  D:  [ c₀ | c₁ | c₂ | c₃ | c₄ | c₅ | c₆ | c₇ | c₈ | ··· ]
+
+32-bit cell ID layout:
+┌─────────────────────┬──────────────────────────┐
+│   sample (s bits)   │   cell (32 − s bits)     │
+└─────────────────────┴──────────────────────────┘
+</pre></div>
+</div>
+<section id="cell-identifier-encoding">
+<h3>Cell Identifier Encoding<a class="headerlink" href="#cell-identifier-encoding" title="Link to this heading">¶</a></h3>
+<p>Cell identifiers stored in <span class="math notranslate nohighlight">\(\mathbf{D}\)</span> are <strong>32-bit integers</strong> partitioned into two
+components:</p>
+<ul class="simple">
+<li><p><strong>Upper</strong> <span class="math notranslate nohighlight">\(s\)</span> <strong>bits</strong>: sample ID within the chunk</p></li>
+<li><p><strong>Lower</strong> <span class="math notranslate nohighlight">\(32 - s\)</span> <strong>bits</strong>: cell ID within the sample</p></li>
+</ul>
+<p>For example, allocating 8 bits for sample ID and 24 bits for cell ID (default) permits up to 256
+samples per chunk with approximately 16 million cells each. Alternative allocations (e.g., 9 bits
+for sample, 23 bits for cell) allow 512 samples per chunk with approximately 8 million cells each.
+The choice depends on the expected cell counts per dataset.</p>
+<p>Chunks are kept relatively large (many samples) to improve query efficiency by reducing the number
+of separate index files that must be accessed. The chunk ID itself is stored as external metadata
+alongside the index file, not within the 32-bit cell identifier.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="index-construction">
+<h1>Index Construction<a class="headerlink" href="#index-construction" title="Link to this heading">¶</a></h1>
+<p>Construction proceeds in three phases:</p>
+<ol class="arabic simple">
+<li><p>Streaming extraction of <span class="math notranslate nohighlight">\(k\)</span>-mers from FASTQ files into temporary chunks</p></li>
+<li><p>Merging chunks within each sample</p></li>
+<li><p>Merging samples into multi-sample chunks</p></li>
+</ol>
+<section id="k-mer-encoding-and-sampling">
+<h2>K-mer Encoding and Sampling<a class="headerlink" href="#k-mer-encoding-and-sampling" title="Link to this heading">¶</a></h2>
+<p>Each <span class="math notranslate nohighlight">\(k\)</span>-mer is encoded as a <strong>64-bit unsigned integer</strong> using the standard 2-bit
+nucleotide representation (A→00, C→01, G→10, T→11), supporting <span class="math notranslate nohighlight">\(k \leq 32\)</span>.</p>
+<p>From each read of length <span class="math notranslate nohighlight">\(\ell\)</span>, <span class="math notranslate nohighlight">\(k\)</span>-mers are extracted at non-overlapping positions
+<span class="math notranslate nohighlight">\(\{0, k, 2k, \ldots\}\)</span> plus a final <span class="math notranslate nohighlight">\(k\)</span>-mer at position <span class="math notranslate nohighlight">\(\ell - k\)</span> to ensure
+complete coverage. The stride between consecutive <span class="math notranslate nohighlight">\(k\)</span>-mers equals <span class="math notranslate nohighlight">\(k\)</span>
+(non-overlapping). This sampling reduces storage by a factor of <span class="math notranslate nohighlight">\(\sim k\)</span> while guaranteeing
+that for any query window of length <span class="math notranslate nohighlight">\(\geq 2k\)</span>, at least one indexed <span class="math notranslate nohighlight">\(k\)</span>-mer will be
+found.</p>
+<p><span class="math notranslate nohighlight">\(K\)</span>-mers containing ambiguous nucleotides (N) or consisting entirely of a single nucleotide
+(homopolymers) are excluded. Chunk-level counts of <span class="math notranslate nohighlight">\(k\)</span>-mers can be computed from pointer
+array offsets. Indexing is <strong>associative</strong> and does not preserve counts per label.</p>
+<section id="barcode-handling">
+<h3>Barcode Handling<a class="headerlink" href="#barcode-handling" title="Link to this heading">¶</a></h3>
+<p>Cell barcodes are extracted from technology-specific read positions and validated against the
+manufacturer’s whitelist. Barcodes are encoded as 64-bit integers using the same 2-bit nucleotide
+representation as <span class="math notranslate nohighlight">\(k\)</span>-mers, allowing efficient storage and comparison.</p>
+<p>The barcode-to-cell mapping is maintained in an unsorted map associating each encoded barcode with
+its integer cell ID (or -1 if absent) within the sample. This structure supports <span class="math notranslate nohighlight">\(O(1)\)</span>
+lookup during read processing. During the final merge phase, local cell IDs are combined with the
+sample ID to form the 32-bit composite identifier described above.</p>
+</section>
+<section id="streaming-chunk-construction">
+<h3>Streaming Chunk Construction<a class="headerlink" href="#streaming-chunk-construction" title="Link to this heading">¶</a></h3>
+<p>FASTQ files are processed in a streaming fashion. For each read, the barcode is validated and
+<span class="math notranslate nohighlight">\(k\)</span>-mers are extracted. Pairs of <span class="math notranslate nohighlight">\((k\text{-mer},\,\text{cell-id})\)</span> are accumulated
+in an in-memory buffer until reaching threshold <span class="math notranslate nohighlight">\(T\)</span> (default <span class="math notranslate nohighlight">\(10^8\)</span> pairs), at which
+point the buffer is flushed to disk as a temporary chunk.</p>
+<div class="admonition-algorithm-1-chunk-flush-buffer-to-csr-arrays admonition">
+<p class="admonition-title">Algorithm 1: Chunk Flush — Buffer to CSR Arrays</p>
+<div class="line-block">
+<div class="line"><strong>Input:</strong> Buffer <span class="math notranslate nohighlight">\(B\)</span> of <span class="math notranslate nohighlight">\((k\text{-mer},\ \text{cell-id})\)</span> pairs</div>
+<div class="line"><strong>Output:</strong> Arrays <span class="math notranslate nohighlight">\(\mathbf{I}\)</span>, <span class="math notranslate nohighlight">\(\mathbf{P}\)</span>, <span class="math notranslate nohighlight">\(\mathbf{D}\)</span> written to disk</div>
+</div>
+<ol class="arabic simple">
+<li><p>Sort <span class="math notranslate nohighlight">\(B\)</span> lexicographically by <span class="math notranslate nohighlight">\((k\text{-mer},\ \text{cell-id})\)</span></p></li>
+<li><p>Initialize <span class="math notranslate nohighlight">\(\mathbf{I} \gets []\)</span>, <span class="math notranslate nohighlight">\(\mathbf{P} \gets [0]\)</span>, <span class="math notranslate nohighlight">\(\mathbf{D} \gets []\)</span></p></li>
+<li><p>Set <span class="math notranslate nohighlight">\((\texttt{prev\_k},\ \texttt{prev\_c}) \gets (\text{null},\ \text{null})\)</span></p></li>
+<li><p><strong>For each</strong> <span class="math notranslate nohighlight">\((x, c)\)</span> in <span class="math notranslate nohighlight">\(B\)</span>:</p>
+<ol class="loweralpha simple">
+<li><p><strong>If</strong> <span class="math notranslate nohighlight">\(x \neq \texttt{prev\_k}\)</span>:  <em>(new</em> <span class="math notranslate nohighlight">\(k\)</span>-<em>mer)</em></p>
+<ul class="simple">
+<li><p>Append <span class="math notranslate nohighlight">\(x\)</span> to <span class="math notranslate nohighlight">\(\mathbf{I}\)</span></p></li>
+<li><p>Append <span class="math notranslate nohighlight">\(|\mathbf{D}|\)</span> to <span class="math notranslate nohighlight">\(\mathbf{P}\)</span> <em>(record current position)</em></p></li>
+<li><p>Set <span class="math notranslate nohighlight">\(\texttt{prev\_c} \gets \text{null}\)</span></p></li>
+</ul>
+</li>
+<li><p><strong>If</strong> <span class="math notranslate nohighlight">\(c \neq \texttt{prev\_c}\)</span>:  <em>(deduplicate: presence/absence encoding)</em></p>
+<ul class="simple">
+<li><p>Append <span class="math notranslate nohighlight">\(c\)</span> to <span class="math notranslate nohighlight">\(\mathbf{D}\)</span></p></li>
+<li><p>Set <span class="math notranslate nohighlight">\(\texttt{prev\_c} \gets c\)</span></p></li>
+</ul>
+</li>
+<li><p>Set <span class="math notranslate nohighlight">\(\texttt{prev\_k} \gets x\)</span></p></li>
+</ol>
+</li>
+<li><p>Append <span class="math notranslate nohighlight">\(|\mathbf{D}|\)</span> to <span class="math notranslate nohighlight">\(\mathbf{P}\)</span> <em>(final pointer)</em></p></li>
+<li><p>Compress <span class="math notranslate nohighlight">\(\mathbf{I}\)</span>, <span class="math notranslate nohighlight">\(\mathbf{P}\)</span>, <span class="math notranslate nohighlight">\(\mathbf{D}\)</span> blockwise and write to disk</p></li>
+</ol>
+</div>
+<p>Arrays are compressed blockwise to enable random access. Each array is partitioned into blocks of
+<span class="math notranslate nohighlight">\(B = 512\)</span> elements. For sorted arrays (<span class="math notranslate nohighlight">\(\mathbf{I}\)</span>, <span class="math notranslate nohighlight">\(\mathbf{P}\)</span>), delta
+encoding may optionally be applied before compression. Compression is performed using the Blosc
+meta-compressor framework, which supports multiple underlying codecs including zstd (default), lz4,
+and zlib; the choice of codec can be configured based on the desired trade-off between compression
+ratio and speed. A chunk table records block offsets for random access.</p>
+</section>
+<section id="chunk-merging">
+<h3>Chunk Merging<a class="headerlink" href="#chunk-merging" title="Link to this heading">¶</a></h3>
+<p>After all reads are processed, temporary chunks must be merged. The merge algorithm processes
+<span class="math notranslate nohighlight">\(k\)</span>-mers in lexicographic order using proportional windows from each chunk to bound memory
+usage. The window size is set to 5% of each chunk’s size (capped at <span class="math notranslate nohighlight">\(10^7\)</span> entries).</p>
+<div class="admonition-algorithm-2-windowed-multi-chunk-merge admonition">
+<p class="admonition-title">Algorithm 2: Windowed Multi-Chunk Merge</p>
+<div class="line-block">
+<div class="line"><strong>Input:</strong> Chunks <span class="math notranslate nohighlight">\(C_1, \ldots, C_m\)</span>, each with arrays <span class="math notranslate nohighlight">\((\mathbf{I}_i, \mathbf{P}_i, \mathbf{D}_i)\)</span></div>
+<div class="line"><strong>Output:</strong> Merged index <span class="math notranslate nohighlight">\((\mathbf{I}, \mathbf{P}, \mathbf{D})\)</span> written to output</div>
+</div>
+<ol class="arabic simple">
+<li><p>Initialize <span class="math notranslate nohighlight">\(\texttt{ptr}[i] \gets 0\)</span> for all <span class="math notranslate nohighlight">\(i\)</span></p></li>
+<li><p>Set <span class="math notranslate nohighlight">\(\texttt{win}[i] \gets \min(0.05 \cdot |\mathbf{I}_i|,\ 10^7)\)</span> for all <span class="math notranslate nohighlight">\(i\)</span></p></li>
+<li><p><strong>While</strong> any chunk has unprocessed entries:</p>
+<ol class="loweralpha simple">
+<li><p><strong>Find</strong> the maximum <span class="math notranslate nohighlight">\(k\)</span>-mer safely processable this iteration:</p>
+<ul class="simple">
+<li><p>Set <span class="math notranslate nohighlight">\(k_{\max} \gets \infty\)</span></p></li>
+<li><p>For each active chunk <span class="math notranslate nohighlight">\(C_i\)</span>: set
+<span class="math notranslate nohighlight">\(\texttt{end} \gets \min(\texttt{ptr}[i] + \texttt{win}[i],\ |\mathbf{I}_i| - 1)\)</span>,
+then <span class="math notranslate nohighlight">\(k_{\max} \gets \min(k_{\max},\ \mathbf{I}_i[\texttt{end}])\)</span></p></li>
+</ul>
+</li>
+<li><p><strong>Collect</strong> all entries <span class="math notranslate nohighlight">\(\leq k_{\max}\)</span> from all chunks into set <span class="math notranslate nohighlight">\(E\)</span>:</p>
+<ul class="simple">
+<li><p>For each chunk <span class="math notranslate nohighlight">\(C_i\)</span>, while <span class="math notranslate nohighlight">\(\mathbf{I}_i[\texttt{ptr}[i]] \leq k_{\max}\)</span>:
+add <span class="math notranslate nohighlight">\(\bigl(x,\ \mathbf{D}_i[\mathbf{P}_i[\texttt{ptr}[i]]:\mathbf{P}_i[\texttt{ptr}[i]+1]]\bigr)\)</span>
+to <span class="math notranslate nohighlight">\(E\)</span> and advance <span class="math notranslate nohighlight">\(\texttt{ptr}[i]\)</span></p></li>
+</ul>
+</li>
+<li><p><strong>Merge</strong> entries sharing the same <span class="math notranslate nohighlight">\(k\)</span>-mer and write to output:</p>
+<ul class="simple">
+<li><p>For each unique <span class="math notranslate nohighlight">\(x\)</span> in <span class="math notranslate nohighlight">\(E\)</span>: write
+<span class="math notranslate nohighlight">\(\bigl(x,\ \text{sorted}(\bigcup\{\texttt{cells} : (x, \texttt{cells}) \in E\})\bigr)\)</span>
+to <span class="math notranslate nohighlight">\(\mathbf{I}, \mathbf{P}, \mathbf{D}\)</span></p></li>
+</ul>
+</li>
+</ol>
+</li>
+</ol>
+<p><strong>Key insight:</strong> By taking the <em>minimum</em> of the window-end <span class="math notranslate nohighlight">\(k\)</span>-mers across all chunks, the
+algorithm guarantees that all occurrences of any <span class="math notranslate nohighlight">\(k\)</span>-mer <span class="math notranslate nohighlight">\(\leq k_{\max}\)</span> have been
+seen, enabling correct merging without loading entire chunks into memory.</p>
+</div>
+<p>When merging samples into multi-sample chunks, cell IDs are remapped to incorporate the sample
+offset within the chunk. The composite identifier then allows downstream queries to recover the
+chunk ID, sample ID, and cell ID, which serve as keys into the external metadata database.</p>
+</section>
+<section id="hierarchical-page-index">
+<h3>Hierarchical Page Index<a class="headerlink" href="#hierarchical-page-index" title="Link to this heading">¶</a></h3>
+<p>For indices where the sequence array exceeds available memory, a hierarchical page structure is
+constructed. The sequence array is partitioned into pages of <span class="math notranslate nohighlight">\(P = 1024\)</span> <span class="math notranslate nohighlight">\(k\)</span>-mers.
+A second-level array samples every <span class="math notranslate nohighlight">\(P\)</span>-th element; a third level samples every <span class="math notranslate nohighlight">\(P\)</span>-th
+element from the second; and so on until the root level contains fewer than <span class="math notranslate nohighlight">\(P\)</span> elements.
+This structure is stored alongside the main index arrays.</p>
+<div class="highlight-text notranslate"><div class="highlight"><pre><span></span>Level 2 (root):        [         k_max         ]
+                        /          |           \
+Level 1:         [k₁₀₂₄]      [k₂₀₄₈]       [···]
+                 /      \      /      \
+Base pages:   [P₀]    [P₁]  [P₂]    [P₃]    [P₄]  [···]
+
+Each base page:    P = 1024 k-mers
+Each level-1 node: max k-mer of P base pages
+</pre></div>
+</div>
+<p>During lookup, navigation proceeds from root to leaf: at each level, binary search identifies which
+child page contains the target <span class="math notranslate nohighlight">\(k\)</span>-mer, narrowing the search space by factor <span class="math notranslate nohighlight">\(P\)</span> per
+level. For a sequence array of <span class="math notranslate nohighlight">\(N\)</span> <span class="math notranslate nohighlight">\(k\)</span>-mers, lookup requires <span class="math notranslate nohighlight">\(O(\log_P N)\)</span> page
+accesses, typically 3–4 for billion-scale indices. The root and intermediate levels are kept in
+memory; base pages are loaded on demand.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="querying">
+<h1>Querying<a class="headerlink" href="#querying" title="Link to this heading">¶</a></h1>
+<p>At query time, all chunks are accessed <strong>in parallel</strong>. For each chunk, the query sequence is
+decomposed into <span class="math notranslate nohighlight">\(k\)</span>-mers and matched against the chunk’s index. Results from all chunks are
+aggregated, and the composite cell identifiers are used to retrieve metadata from the external
+database.</p>
+<section id="window-based-matching">
+<h2>Window-Based Matching<a class="headerlink" href="#window-based-matching" title="Link to this heading">¶</a></h2>
+<p>The query algorithm evaluates sequence similarity using a <strong>windowed voting scheme</strong>. For a query
+sequence <span class="math notranslate nohighlight">\(Q\)</span>, a window of size <span class="math notranslate nohighlight">\(w\)</span> (default 64 bp) slides with stride 1 (overlapping
+windows). Within each window, non-overlapping <span class="math notranslate nohighlight">\(k\)</span>-mers at positions <span class="math notranslate nohighlight">\(\{0, k, 2k,
+\ldots\}\)</span> are extracted and looked up. A cell matches the window if at least fraction <span class="math notranslate nohighlight">\(\tau\)</span>
+(default 0.65) of the window’s <span class="math notranslate nohighlight">\(k\)</span>-mers are found in that cell. The final score for cell
+<span class="math notranslate nohighlight">\(c\)</span> is the count of windows where <span class="math notranslate nohighlight">\(c\)</span> achieved a match.</p>
+<p>The use of overlapping windows with stride 1 ensures sensitivity to matches at any position within
+the query, while the non-overlapping <span class="math notranslate nohighlight">\(k\)</span>-mer extraction within each window controls
+computational cost.</p>
+<div class="admonition-algorithm-3-window-based-query-scoring admonition">
+<p class="admonition-title">Algorithm 3: Window-Based Query Scoring</p>
+<div class="line-block">
+<div class="line"><strong>Input:</strong> Query sequence <span class="math notranslate nohighlight">\(Q\)</span>, index arrays <span class="math notranslate nohighlight">\((\mathbf{I}, \mathbf{P}, \mathbf{D})\)</span>, window size <span class="math notranslate nohighlight">\(w\)</span>, threshold <span class="math notranslate nohighlight">\(\tau\)</span></div>
+<div class="line"><strong>Input:</strong> Abundance filters <span class="math notranslate nohighlight">\(f_{\min}\)</span> (<code class="docutils literal notranslate"><span class="pre">count_at_least</span></code>), <span class="math notranslate nohighlight">\(f_{\max}\)</span> (<code class="docutils literal notranslate"><span class="pre">count_at_most</span></code>)</div>
+<div class="line"><strong>Output:</strong> Map from cell ID to pseudocount score</div>
+</div>
+<ol class="arabic simple">
+<li><p>Initialize <span class="math notranslate nohighlight">\(\texttt{scores} \gets \{\}\)</span> <em>(cell → count of matching windows)</em></p></li>
+<li><p><strong>For</strong> <span class="math notranslate nohighlight">\(p \gets 0\)</span> <strong>to</strong> <span class="math notranslate nohighlight">\(|Q| - w\)</span> <strong>step</strong> 1: <em>(overlapping windows, stride 1)</em></p>
+<ol class="loweralpha simple">
+<li><p><span class="math notranslate nohighlight">\(W \gets Q[p : p + w]\)</span></p></li>
+<li><p>Extract non-overlapping <span class="math notranslate nohighlight">\(k\)</span>-mers:
+<span class="math notranslate nohighlight">\(K \gets \{W[i \cdot k : (i+1) \cdot k] : i = 0, 1, \ldots, \lfloor w/k \rfloor - 1\}\)</span></p></li>
+<li><p>Filter: <span class="math notranslate nohighlight">\(K \gets \{x \in K : x \text{ contains no N}\}\)</span></p></li>
+<li><p>Initialize <span class="math notranslate nohighlight">\(\texttt{votes} \gets \{\}\)</span> <em>(cell → count of</em> <span class="math notranslate nohighlight">\(k\)</span>-<em>mers found)</em></p></li>
+<li><p><strong>For each</strong> <span class="math notranslate nohighlight">\(k\)</span>-mer <span class="math notranslate nohighlight">\(x \in K\)</span>:</p>
+<ol class="lowerroman simple">
+<li><p><span class="math notranslate nohighlight">\(i \gets \textsc{Lookup}(\mathbf{I}, x)\)</span> <em>(binary search or hierarchical lookup)</em></p></li>
+<li><p><strong>If</strong> <span class="math notranslate nohighlight">\(\mathbf{I}[i] \neq x\)</span>: skip <em>(</em><span class="math notranslate nohighlight">\(k\)</span>-<em>mer not in index)</em></p></li>
+<li><p><span class="math notranslate nohighlight">\(\texttt{cells} \gets \mathbf{D}[\mathbf{P}[i] : \mathbf{P}[i+1]]\)</span></p></li>
+<li><p><strong>If</strong> <span class="math notranslate nohighlight">\(|\texttt{cells}| &lt; f_{\min}\)</span> or <span class="math notranslate nohighlight">\(|\texttt{cells}| &gt; f_{\max}\)</span>: skip <em>(filter rare/ubiquitous</em> <span class="math notranslate nohighlight">\(k\)</span>-<em>mers)</em></p></li>
+<li><p>For each <span class="math notranslate nohighlight">\(c \in \texttt{cells}\)</span>: increment <span class="math notranslate nohighlight">\(\texttt{votes}[c]\)</span></p></li>
+</ol>
+</li>
+<li><p>Set <span class="math notranslate nohighlight">\(t \gets \lceil \tau \cdot |K| \rceil\)</span></p></li>
+<li><p><strong>For each</strong> <span class="math notranslate nohighlight">\((c, v) \in \texttt{votes}\)</span>: <strong>if</strong> <span class="math notranslate nohighlight">\(v \geq t\)</span>, increment <span class="math notranslate nohighlight">\(\texttt{scores}[c]\)</span></p></li>
+</ol>
+</li>
+<li><p><strong>Return</strong> <span class="math notranslate nohighlight">\(\texttt{scores}\)</span></p></li>
+</ol>
+</div>
+<div class="admonition-example-math-k-4-math-w-8-math-tau-0-65 admonition">
+<p class="admonition-title">Example: <span class="math notranslate nohighlight">\(k = 4\)</span>,  <span class="math notranslate nohighlight">\(w = 8\)</span>,  <span class="math notranslate nohighlight">\(\tau = 0.65\)</span></p>
+<p>The window yields two <span class="math notranslate nohighlight">\(k\)</span>-mers (ACGT, ACGA). Each is located in <span class="math notranslate nohighlight">\(\mathbf{I}\)</span> via
+binary search; pointers in <span class="math notranslate nohighlight">\(\mathbf{P}\)</span> give the cell range in <span class="math notranslate nohighlight">\(\mathbf{D}\)</span>.</p>
+<ul class="simple">
+<li><p>ACGT → cells <span class="math notranslate nohighlight">\(\{c_1, c_2\}\)</span></p></li>
+<li><p>ACGA → cells <span class="math notranslate nohighlight">\(\{c_1, c_3\}\)</span></p></li>
+</ul>
+<p>With <span class="math notranslate nohighlight">\(\tau = 0.65\)</span>, need <span class="math notranslate nohighlight">\(t = \lceil 0.65 \times 2 \rceil = 2\)</span> matching <span class="math notranslate nohighlight">\(k\)</span>-mers
+per window.</p>
+<ul class="simple">
+<li><p>Cell <span class="math notranslate nohighlight">\(c_1\)</span>: 2/2 <span class="math notranslate nohighlight">\(\geq t\)</span> → <strong>match</strong> (receives one window vote)</p></li>
+<li><p>Cell <span class="math notranslate nohighlight">\(c_2\)</span>: 1/2 <span class="math notranslate nohighlight">\(&lt; t\)</span> → no vote</p></li>
+<li><p>Cell <span class="math notranslate nohighlight">\(c_3\)</span>: 1/2 <span class="math notranslate nohighlight">\(&lt; t\)</span> → no vote</p></li>
+</ul>
+</div>
+<p>Users may specify query-time <strong>abundance filters</strong>:</p>
+<ul class="simple">
+<li><p><code class="docutils literal notranslate"><span class="pre">count_at_least</span></code> (default 0): excludes <span class="math notranslate nohighlight">\(k\)</span>-mers appearing in fewer than this many cells,
+filtering likely sequencing errors</p></li>
+<li><p><code class="docutils literal notranslate"><span class="pre">count_at_most</span></code> (default 100,000): excludes <span class="math notranslate nohighlight">\(k\)</span>-mers appearing in more than this many
+cells per chunk, filtering repetitive or ubiquitously expressed sequences that might dominate
+runtime and be uninformative</p></li>
+</ul>
+<p>Filters are applied after lookup; no abundance filtering is applied during index construction.</p>
+</section>
+<section id="query-batching-and-index-access-pattern">
+<h2>Query Batching and Index Access Pattern<a class="headerlink" href="#query-batching-and-index-access-pattern" title="Link to this heading">¶</a></h2>
+<p>For efficiency, all <span class="math notranslate nohighlight">\(k\)</span>-mers across all query windows are collected, deduplicated, and sorted
+lexicographically before lookup. Because the sequence array is sorted, this ensures <strong>sequential
+access</strong> through the index, maximizing cache locality and minimizing disk seeks.</p>
+<p>The access pattern proceeds as follows:</p>
+<ol class="arabic simple">
+<li><p>Collect all unique <span class="math notranslate nohighlight">\(k\)</span>-mers from all query windows</p></li>
+<li><p>Sort <span class="math notranslate nohighlight">\(k\)</span>-mers lexicographically</p></li>
+<li><p>For each <span class="math notranslate nohighlight">\(k\)</span>-mer in sorted order:</p>
+<ol class="loweralpha simple">
+<li><p>Binary search (or hierarchical lookup) in sequence array to find position <span class="math notranslate nohighlight">\(i\)</span></p></li>
+<li><p>Read <span class="math notranslate nohighlight">\(\texttt{indptr}[i]\)</span> and <span class="math notranslate nohighlight">\(\texttt{indptr}[i+1]\)</span> to determine cell range</p></li>
+<li><p>Read <span class="math notranslate nohighlight">\(\texttt{data}[\texttt{indptr}[i] : \texttt{indptr}[i+1]]\)</span> to retrieve cells</p></li>
+</ol>
+</li>
+<li><p>Redistribute results to originating windows for scoring</p></li>
+</ol>
+<p>For indices exceeding available memory, compressed array blocks are accessed via <strong>memory-mapped
+file I/O</strong>. The operating system’s virtual memory subsystem handles paging of index blocks on
+demand. Decompressed blocks are retained in an LRU cache (capacity <span class="math notranslate nohighlight">\(2 \times 10^6\)</span> blocks,
+approximately 4 GB) to avoid repeated decompression. With sequential access patterns, empirical
+cache hit rates exceed 90%.</p>
+<section id="metadata-integration">
+<h3>Metadata Integration<a class="headerlink" href="#metadata-integration" title="Link to this heading">¶</a></h3>
+<p>Query results return composite cell identifiers, which are decomposed into (chunk ID, sample ID,
+cell ID) tuples serving as keys into a pre-indexed external database. This database stores:</p>
+<ul class="simple">
+<li><p><strong>Sample-level metadata</strong>: tissue type, donor ID, experimental condition, sequencing platform,
+publication source</p></li>
+<li><p><strong>Cell-level metadata</strong>: cell type annotation, cluster assignment, quality metrics</p></li>
+</ul>
+<p>The separation of sequence index from metadata database allows efficient annotation updates without
+rebuilding the <span class="math notranslate nohighlight">\(k\)</span>-mer index.</p>
+</section>
+</section>
+</section>
+<hr class="docutils" />
+<section id="parameters-summary">
+<h1>Parameters Summary<a class="headerlink" href="#parameters-summary" title="Link to this heading">¶</a></h1>
+<div class="table-wrapper colwidths-given docutils container" id="id1">
+<table class="docutils align-default" id="id1">
+<caption><span class="caption-text">Default parameter values for index construction and querying</span><a class="headerlink" href="#id1" title="Link to this table">¶</a></caption>
+<colgroup>
+<col style="width: 30.0%" />
+<col style="width: 12.0%" />
+<col style="width: 15.0%" />
+<col style="width: 43.0%" />
+</colgroup>
+<thead>
+<tr class="row-odd"><th class="head"><p>Parameter</p></th>
+<th class="head"><p>Symbol</p></th>
+<th class="head"><p>Default</p></th>
+<th class="head"><p>Description</p></th>
+</tr>
+</thead>
+<tbody>
+<tr class="row-even"><td><p><strong>Indexing</strong></p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>K-mer length</p></td>
+<td><p><span class="math notranslate nohighlight">\(k\)</span></p></td>
+<td><p>24</p></td>
+<td><p>Nucleotides per <span class="math notranslate nohighlight">\(k\)</span>-mer</p></td>
+</tr>
+<tr class="row-even"><td><p>Buffer threshold</p></td>
+<td><p><span class="math notranslate nohighlight">\(T\)</span></p></td>
+<td><p><span class="math notranslate nohighlight">\(10^8\)</span></p></td>
+<td><p>Pairs before chunk flush</p></td>
+</tr>
+<tr class="row-odd"><td><p>Block size</p></td>
+<td><p><span class="math notranslate nohighlight">\(B\)</span></p></td>
+<td><p>512</p></td>
+<td><p>Elements per compressed block</p></td>
+</tr>
+<tr class="row-even"><td><p>Page size</p></td>
+<td><p><span class="math notranslate nohighlight">\(P\)</span></p></td>
+<td><p>1024</p></td>
+<td><p>Elements per hierarchical page</p></td>
+</tr>
+<tr class="row-odd"><td><p>Merge window</p></td>
+<td><p>—</p></td>
+<td><p>5%</p></td>
+<td><p>Fraction of chunk per iteration</p></td>
+</tr>
+<tr class="row-even"><td><p>Window cap</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(10^7\)</span></p></td>
+<td><p>Maximum entries per merge window</p></td>
+</tr>
+<tr class="row-odd"><td><p>Sample ID bits</p></td>
+<td><p><span class="math notranslate nohighlight">\(s\)</span></p></td>
+<td><p>8</p></td>
+<td><p>Bits for sample within chunk</p></td>
+</tr>
+<tr class="row-even"><td><p><strong>Querying</strong></p></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="row-odd"><td><p>Query window</p></td>
+<td><p><span class="math notranslate nohighlight">\(w\)</span></p></td>
+<td><p>64</p></td>
+<td><p>Nucleotides per scoring window</p></td>
+</tr>
+<tr class="row-even"><td><p>Window stride</p></td>
+<td><p>—</p></td>
+<td><p>1</p></td>
+<td><p>Overlapping windows</p></td>
+</tr>
+<tr class="row-odd"><td><p>Match threshold</p></td>
+<td><p><span class="math notranslate nohighlight">\(\tau\)</span></p></td>
+<td><p>0.65</p></td>
+<td><p>Fraction of <span class="math notranslate nohighlight">\(k\)</span>-mers required per window</p></td>
+</tr>
+<tr class="row-even"><td><p>Min abundance</p></td>
+<td><p><span class="math notranslate nohighlight">\(f_{\min}\)</span></p></td>
+<td><p>0</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">count_at_least</span></code> filter</p></td>
+</tr>
+<tr class="row-odd"><td><p>Max abundance</p></td>
+<td><p><span class="math notranslate nohighlight">\(f_{\max}\)</span></p></td>
+<td><p>100,000</p></td>
+<td><p><code class="docutils literal notranslate"><span class="pre">count_at_most</span></code> filter</p></td>
+</tr>
+<tr class="row-even"><td><p>Cache capacity</p></td>
+<td><p>—</p></td>
+<td><p><span class="math notranslate nohighlight">\(2 \times 10^6\)</span></p></td>
+<td><p>Blocks in LRU decompression cache</p></td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+
+        </article>
+      </div>
+      <footer>
+        
+        <div class="related-pages">
+          <a class="next-page" href="api/modules.html">
+              <div class="page-info">
+                <div class="context">
+                  <span>Next</span>
+                </div>
+                <div class="title">API Reference</div>
+              </div>
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+            </a>
+          <a class="prev-page" href="examples/3_sequence_search.html">
+              <svg class="furo-related-icon"><use href="#svg-arrow-right"></use></svg>
+              <div class="page-info">
+                <div class="context">
+                  <span>Previous</span>
+                </div>
+                
+                <div class="title">Sequence Search with Malva</div>
+                
+              </div>
+            </a>
+        </div>
+        <div class="bottom-of-page">
+          <div class="left-details">
+            <div class="copyright">
+                Copyright &#169; 2025, Malva Team
+            </div>
+            Made with <a href="https://www.sphinx-doc.org/">Sphinx</a> and <a class="muted-link" href="https://pradyunsg.me">@pradyunsg</a>'s
+            
+            <a href="https://github.com/pradyunsg/furo">Furo</a>
+            
+          </div>
+          <div class="right-details">
+            
+          </div>
+        </div>
+        
+      </footer>
+    </div>
+    <aside class="toc-drawer">
+      
+      
+      <div class="toc-sticky toc-scroll">
+        <div class="toc-title-container">
+          <span class="toc-title">
+            On this page
+          </span>
+        </div>
+        <div class="toc-tree-container">
+          <div class="toc-tree">
+            <ul>
+<li><a class="reference internal" href="#">Indexing &amp; Query Framework</a><ul>
+<li><a class="reference internal" href="#definitions">Definitions</a></li>
+<li><a class="reference internal" href="#data-structure">Data Structure</a><ul>
+<li><a class="reference internal" href="#cell-identifier-encoding">Cell Identifier Encoding</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#index-construction">Index Construction</a><ul>
+<li><a class="reference internal" href="#k-mer-encoding-and-sampling">K-mer Encoding and Sampling</a><ul>
+<li><a class="reference internal" href="#barcode-handling">Barcode Handling</a></li>
+<li><a class="reference internal" href="#streaming-chunk-construction">Streaming Chunk Construction</a></li>
+<li><a class="reference internal" href="#chunk-merging">Chunk Merging</a></li>
+<li><a class="reference internal" href="#hierarchical-page-index">Hierarchical Page Index</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#querying">Querying</a><ul>
+<li><a class="reference internal" href="#window-based-matching">Window-Based Matching</a></li>
+<li><a class="reference internal" href="#query-batching-and-index-access-pattern">Query Batching and Index Access Pattern</a><ul>
+<li><a class="reference internal" href="#metadata-integration">Metadata Integration</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a class="reference internal" href="#parameters-summary">Parameters Summary</a></li>
+</ul>
+
+          </div>
+        </div>
+      </div>
+      
+      
+    </aside>
+  </div>
+</div><script src="_static/documentation_options.js?v=38b66d78"></script>
+    <script src="_static/doctools.js?v=9bcbadda"></script>
+    <script src="_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="_static/scripts/furo.js?v=46bd48cc"></script>
+    <script src="_static/clipboard.min.js?v=a7894cd8"></script>
+    <script src="_static/copybutton.js?v=f281be69"></script>
+    <script src="_static/design-tabs.js?v=f930bc37"></script>
+    <script crossorigin="anonymous" integrity="sha256-Ae2Vz/4ePdIu6ZyI/5ZGsYnb+m0JlOmKPjt6XZ9JJkA=" src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.4/require.min.js"></script>
+    <script>window.MathJax = {"tex": {"inlineMath": [["$", "$"], ["\\(", "\\)"]], "processEscapes": true}, "options": {"ignoreHtmlClass": "tex2jax_ignore|mathjax_ignore|document", "processHtmlClass": "tex2jax_process|mathjax_process|math|output_area"}}</script>
+    <script defer="defer" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    </body>
+</html>

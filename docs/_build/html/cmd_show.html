@@ -227,7 +227,15 @@
 <li class="toctree-l2"><a class="reference internal" href="examples/3_sequence_search.html">Sequence Search with Malva</a></li>
 </ul>
 </li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l1"><a class="reference internal" href="indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l1 has-children"><a class="reference internal" href="api/modules.html">API Reference</a><input class="toctree-checkbox" id="toctree-checkbox-2" name="toctree-checkbox-2" role="switch" type="checkbox"/><label for="toctree-checkbox-2"><div class="visually-hidden">Toggle navigation of API Reference</div><i class="icon"><svg><use href="#svg-arrow-right"></use></svg></i></label><ul>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html">Indexing &amp; Query Framework</a></li>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html#index-construction">Index Construction</a></li>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html#querying">Querying</a></li>
+<li class="toctree-l2"><a class="reference internal" href="indexing_framework.html#parameters-summary">Parameters Summary</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.indexes.html">malva.indexes module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.fastq_processing.html">malva.fastq_processing module</a></li>
 <li class="toctree-l2"><a class="reference internal" href="api/malva.dbutils.html">malva.dbutils module</a></li>
@@ -289,8 +297,7 @@
 <h1>show<a class="headerlink" href="#show" title="Link to this heading">¶</a></h1>
 <p>Query a DNA/RNA sequence against a Malva Index and visualize spatial distribution
 (if spatial coordinates have been provided during indexing)</p>
-<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">malva</span> <span class="n">show</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">index</span><span class="o">-</span><span class="ow">in</span> <span class="n">INDEX_IN</span><span class="p">]</span> <span class="o">--</span><span class="n">query</span> <span class="n">QUERY</span> <span class="o">--</span><span class="n">image</span><span class="o">-</span><span class="n">out</span> <span class="n">IMAGE_OUT</span> <span class="p">[</span><span class="o">--</span><span class="n">multichannel</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save</span><span class="o">-</span><span class="n">npy</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">scalebar</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">render</span><span class="o">-</span><span class="n">scale</span> <span class="n">RENDER_SCALE</span><span class="p">]</span>
-                  <span class="p">[</span><span class="o">--</span><span class="n">render</span><span class="o">-</span><span class="n">smoothing</span> <span class="n">RENDER_SMOOTHING</span><span class="p">]</span>
+<div class="highlight-default notranslate"><div class="highlight"><pre><span></span><span class="n">usage</span><span class="p">:</span> <span class="n">malva</span> <span class="n">show</span> <span class="p">[</span><span class="o">-</span><span class="n">h</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">index</span><span class="o">-</span><span class="ow">in</span> <span class="n">INDEX_IN</span><span class="p">]</span> <span class="o">--</span><span class="n">query</span> <span class="n">QUERY</span> <span class="o">--</span><span class="n">image</span><span class="o">-</span><span class="n">out</span> <span class="n">IMAGE_OUT</span> <span class="p">[</span><span class="o">--</span><span class="n">multichannel</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">save</span><span class="o">-</span><span class="n">npy</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">scalebar</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">render</span><span class="o">-</span><span class="n">scale</span> <span class="n">RENDER_SCALE</span><span class="p">]</span> <span class="p">[</span><span class="o">--</span><span class="n">render</span><span class="o">-</span><span class="n">smoothing</span> <span class="n">RENDER_SMOOTHING</span><span class="p">]</span>
 </pre></div>
 </div>
 <section id="cmdline_parser-named-arguments">
