@@ -160,11 +160,16 @@ Documentation
 
 .. toctree::
    :maxdepth: 1
-   :caption: Examples & API
+   :caption: Examples
 
    examples/index
-   indexing_framework
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
+
    api/modules
+   indexing_framework
 
 .. toctree::
    :maxdepth: 1
