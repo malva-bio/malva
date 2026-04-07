@@ -114,7 +114,7 @@ For a single query, index into the result list with ``[0]``:
 
 .. code-block:: python
 
-   from malva.index import MalvaIndex
+   from malva.malva_index import MalvaIndex
    import pandas as pd
 
    mindex = MalvaIndex("indices/pbmc_1k_v3")

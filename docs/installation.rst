@@ -78,7 +78,7 @@ Option 1: Python Wheel
 .. code-block:: python
 
    import malva
-   from malva.index import MalvaIndex
+   from malva.malva_index import MalvaIndex
 
 **What you can do:**
 

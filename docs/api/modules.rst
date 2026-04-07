@@ -16,10 +16,4 @@ The following modules are available in the open-source Python distribution:
 .. toctree::
    :maxdepth: 4
 
-   malva.indexes
-   malva.fastq_processing
-   malva.dbutils
-   malva.spacemake
-   malva.utils
-
-
+   malva

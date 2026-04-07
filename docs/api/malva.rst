@@ -15,18 +15,18 @@ Submodules
 .. toctree::
    :maxdepth: 4
 
+   malva.malva_index
    malva.autoannotate
+   malva.barcodes
    malva.cellxmer
    malva.cli
    malva.combine
    malva.complexity
-   malva.compressed_index
    malva.contrib
-   malva.datastore
+   malva.convert
    malva.dbutils
    malva.fast_map
    malva.fastq_processing
-   malva.filter_minimizers
    malva.index
    malva.indexes
    malva.kmer_processing
