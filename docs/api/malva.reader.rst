@@ -6,11 +6,6 @@ malva.reader module
    This is a Cython extension module. API documentation is only available when
    Malva is built from source with Cython extensions compiled.
 
-.. automodule:: malva.reader
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 The ``malva.reader`` module provides compiled FASTA/FASTQ file readers.
 
 Key components:

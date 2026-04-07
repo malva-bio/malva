@@ -6,12 +6,11 @@ malva.indexes module
    This is a Cython extension module. API documentation is only available when
    Malva is built from source with Cython extensions compiled.
 
-.. automodule:: malva.indexes
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 The ``malva.indexes`` module provides the core compiled indexing and query engine.
+
+.. note::
+
+   For the high-level Python API, see :doc:`malva.malva_index`.
 
 Key components:
 

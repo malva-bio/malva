@@ -6,11 +6,6 @@ malva.kmer\_processing module
    This is a Cython extension module. API documentation is only available when
    Malva is built from source with Cython extensions compiled.
 
-.. automodule:: malva.kmer_processing
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 The ``malva.kmer_processing`` module provides compiled k-mer encoding and
 decoding routines.
 

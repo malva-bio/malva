@@ -6,11 +6,6 @@ malva.barcodes module
    This is a Cython extension module. API documentation is only available when
    Malva is built from source with Cython extensions compiled.
 
-.. automodule:: malva.barcodes
-   :members:
-   :show-inheritance:
-   :undoc-members:
-
 The ``malva.barcodes`` module provides compiled barcode handling for spatial and
 single-cell data.
 

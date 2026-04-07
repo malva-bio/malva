@@ -169,6 +169,11 @@ Documentation
    :caption: API Reference
 
    api/modules
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Technical Reference
+
    indexing_framework
 
 .. toctree::
