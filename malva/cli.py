@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 import argparse
 import logging
 
@@ -506,6 +511,48 @@ def cmd_run_combine(args):
 
     _run_combine(args)
 
+CONVERT_HELP = "Convert legacy Malva HDF5 index to new prefix-bucketed format"
+
+
+def get_convert_parser():
+    parser = argparse.ArgumentParser(
+        description=CONVERT_HELP,
+        allow_abbrev=False,
+        add_help=False,
+    )
+
+    sub = parser.add_subparsers(dest='command')
+
+    p = sub.add_parser('convert')
+    p.add_argument("--input", required=True)
+    p.add_argument("--output", required=True)
+    p.add_argument("--l-prefix", type=int, default=12)
+    p.add_argument("--chunk-size", type=int, default=5_000_000)
+
+    p = sub.add_parser('verify')
+    p.add_argument("--old", required=True)
+    p.add_argument("--new", required=True)
+    p.add_argument("--n-sample", type=int, default=100000)
+    p.add_argument("--seed", type=int, default=42)
+    return parser
+
+
+def setup_convert_parser(parent_parser):
+    parser = parent_parser.add_parser(
+        "convert",
+        help=CONVERT_HELP,
+        parents=[get_convert_parser()],
+    )
+    parser.set_defaults(func=cmd_run_convert)
+
+    return parser
+
+
+def cmd_run_convert(args):
+    from malva.convert import _run_convert
+
+    _run_convert(args)
+
 
 SERVE_HELP = "Webserver for interactive spatial querying of malva indexes"
 
@@ -637,6 +684,7 @@ def cmdline_args():
     parent_parser = argparse.ArgumentParser(
         allow_abbrev=False,
         description="malva: fast indexing and querying of genomic sequences from spatial transcriptomics data",
+        epilog="Set MALVA_DEBUG=1 to enable verbose debug logging.",
     )
 
     parent_parser_subparsers = parent_parser.add_subparsers(title="commands", dest="subcommand")
@@ -650,6 +698,7 @@ def cmdline_args():
     setup_combine_parser(parent_parser_subparsers)
     setup_autoannotate_parser(parent_parser_subparsers)
     setup_search_parser(parent_parser_subparsers)
+    setup_convert_parser(parent_parser_subparsers)
 
     parsed_args = parent_parser.parse_args()
 
@@ -670,6 +719,7 @@ def cmdline_parser():
     setup_quant_parser(parent_parser_subparsers)
     setup_cellxmer_parser(parent_parser_subparsers)
     setup_combine_parser(parent_parser_subparsers)
+    setup_convert_parser(parent_parser_subparsers)
 
     return parent_parser
 
@@ -690,8 +740,8 @@ def cmdline_main():
         del args.version
 
     if "func" in args:
-        logging.info(f"malva {args.subcommand} - running with the following parameters:")
-        logging.info(args.__dict__)
+        logging.debug(f"malva {args.subcommand} - running with the following parameters:")
+        logging.debug(args.__dict__)
         args.func(args)
     else:
         parser.print_help()

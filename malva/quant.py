@@ -1,14 +1,20 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 import gzip
 import logging
 import os
 
 import numpy as np
 
-from malva.indexes import MalvaIndex, BackgroundModel
+from malva.barcodes import BackgroundModel
+from malva.malva_index import MalvaIndex
 from malva.reader import iterate_fasta
 from malva.spacemake import create_meshed_adata
 from malva.utils import (check_directory_exists, check_file_exists,
-                         get_reference_cache)
+                         get_reference_cache, SUCCESS_MSG)
 
 N_EACH_REPORT = 100
 
@@ -36,6 +42,7 @@ def process_batch(
     single_count: bool = False,
     use_background_model: bool = True
 ):
+    kmer_index.verbose = True
     results = kmer_index.where(
         seqs_batch,
         sliding_size=sliding_size,
@@ -45,16 +52,9 @@ def process_batch(
         single_count=single_count,
         max_mem="1M",
         use_background_model=use_background_model,
-        use_batched=True
+        use_batched=False
     )
 
-    # we have to clip otherwise we wouldn't count those that have many
-    # entries in the reference (e.g., many alternative 3'UTRs) but only
-    # one count was found 
-    # TODO: if one of the sequences has a lot of counts but not another,
-    # this will lead undercounting because of the large number of "seqs_gene"
-    # counts = np.clip((counts / len(seqs_gene)), 1, 10_000).astype(int)
-    
     total_nnz = 0
     for i, (locs, counts, _) in enumerate(results):
         current_col = start_col + i
@@ -73,7 +73,6 @@ def resave_h5ad(folder, kmer_index):
     try:
         import anndata as ad
     except ImportError:
-        # TODO: decide if we make a dependency, or if we import the code here (we don't use full functionality...)
         raise ImportError("Please install anndata: `pip install anndata`")
     import pandas as pd
 
@@ -83,14 +82,12 @@ def resave_h5ad(folder, kmer_index):
     features_file = os.path.join(folder, "features.tsv.gz")
     check_file_exists(features_file, except_when=False)
 
-    # will except if the file exists
     h5ad_file = os.path.join(folder, "pseudoquant.h5ad")
     check_file_exists(h5ad_file, except_when=True)
 
     adata = ad.read_mtx(matrix_file)
     adata.var_names = pd.read_csv(features_file, header=None, sep="\t")[0]
 
-    # TODO: load more efficiently when too large to reduce memory usage
     kmer_index.open(mode='r')
     if 'spatial_coord' in kmer_index.index:
         adata.obsm["spatial"] = kmer_index.spatial_coord[:]
@@ -125,11 +122,9 @@ def process_reference(
         current_col = 0
         total_nnz = 0
 
-        # Batch processing containers
-        batch_seqs = []  # List of lists of sequences
-        batch_genes = []  # List of gene names
+        batch_seqs = []
+        batch_genes = []
 
-        # we reserve the size of the header
         write_mtx_header(mtx_file, (0, 0, 0))
 
         def process_current_batch():
@@ -150,11 +145,8 @@ def process_reference(
             
             if it_gene_name != current_gene:
                 if seqs_gene:
-                    # Add current gene to batch
                     batch_seqs.append(seqs_gene)
                     batch_genes.append(current_gene)
-                    
-                    # Process batch if full
                     if len(batch_seqs) >= batch_size:
                         process_current_batch()
                         batch_seqs = []
@@ -168,23 +160,17 @@ def process_reference(
                 
             seqs_gene.append(seq[1])
 
-        # Process last gene
         if seqs_gene:
             batch_seqs.append(seqs_gene)
             batch_genes.append(current_gene)
-        
-        # Process final batch
+
         if batch_seqs:
             process_current_batch()
 
-        # TODO: write the barcodes file, optionally it will contain the spatial coordinates...
-
     kmer_index.close()
 
-    # the n_spatial is calcualted from lims, but sum one, otherwise not correct!
     if 'spatial_coord' in kmer_index.index:
         n_spatial = kmer_index.n_spatial
-    # we need to add +1 because indices from mtx file start at 1, not 0 (for the scRNA data)
     else:
         n_spatial = kmer_index.n_spatial
 
@@ -198,7 +184,6 @@ def process_reference(
 def _run_quant(args):
     kmer_index = MalvaIndex(args.index_in)
 
-    # the output directory must not exist
     outdir_exists = check_directory_exists(args.folder_out)
     if not outdir_exists:
         logging.warning("The specified output directory did not exist. Creating...")
@@ -251,7 +236,7 @@ def _run_quant(args):
         check_file_exists(h5ad_mesh_file, except_when=True)
         mesh_adata.write_h5ad(h5ad_mesh_file)
 
-    logging.info("SUCCESS!")
+    logging.info(SUCCESS_MSG)
 
 
 if __name__ == "__main__":

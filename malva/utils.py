@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 import logging
 import os
 import pathlib
@@ -9,6 +14,22 @@ from pathlib import Path
 
 import numpy as np
 from rich.progress import track
+
+# ── Citation notice ───────────────────────────────────────────────────────────
+# Set _CITATION to the full citation string once the paper is published.
+# When None, SUCCESS_MSG is just "Done!".
+_CITATION = None
+# _CITATION = (
+#     "León-Periñán et al. (2026) Malva: ultrafast, large-scale sequence\n"
+#     "  discovery in single cells. Nature.\n"
+#     "  https://doi.org/10.XXXX/XXXXX"
+# )
+
+SUCCESS_MSG = "Done!" + (
+    f"\nIf you use malva in your research, please cite:\n  {_CITATION}"
+    if _CITATION else ""
+)
+# ─────────────────────────────────────────────────────────────────────────────
 
 
 class FormatError(Exception):
@@ -167,7 +188,7 @@ def check_adata_structure(f):
             raise KeyError("The Open-ST h5 object does not have the 'obs/total_counts' property.")
 
         if "spatial_aligned" in file:
-            logging.warning("The Open-ST h5 object has a 'spatial_aligned' layer")
+            logging.debug("The Open-ST h5 object has a 'spatial_aligned' layer")
 
 
 def load_properties_from_adata(f, properties: list = ["obsm/spatial"], backed: bool = False) -> dict:
@@ -398,11 +419,13 @@ def defragment_hdf5_file(input_file, output_file, dataset_name, chunk_size=None,
 
 def download_url_to_file(url, dst, progress=True):
     r"""Download object at the given URL to a local path.
-            Thanks to torch & cellpose
+
+    Thanks to torch & cellpose.
+
     Args:
         url (string): URL of the object to download
-        dst (string): Full path where object will be saved, e.g. `/tmp/temporary_file`
-        progress (bool, optional): whether or not to display a progress bar to stderr
+        dst (string): Full path where object will be saved, e.g. ``/tmp/temporary_file``
+        progress (bool, optional): whether or not to display a progress bar to stderr.
             Default: True
     """
 
@@ -465,18 +488,13 @@ EXISTING_REFERENCES = {"human_utr": "human_utr.fa.gz",
 REFERENCES_DIR = pathlib.Path.home().joinpath(".malva", "references")
 _MODEL_URL = "http://bimsbstatic.mdc-berlin.de/rajewsky/malva/references"
 def get_reference_cache(reference):
-    """
-    Get the path to a cached reference file, downloading it if necessary.
-    
-    Parameters:
-    -----------
-    reference : str
-        Name of the reference to retrieve, must be in EXISTING_REFERENCES
-        
+    """Get the path to a cached reference file, downloading it if necessary.
+
+    Args:
+        reference (str): Name of the reference to retrieve, must be in EXISTING_REFERENCES.
+
     Returns:
-    --------
-    str
-        Path to the cached reference file
+        str: Path to the cached reference file.
     """
     if os.path.isfile(reference):
         return reference
@@ -501,16 +519,16 @@ def convert_to_bytes(max_mem: str) -> int:
     """Convert a memory size string to its equivalent in bytes.
 
     Args:
-    max_mem (str): A string representing memory size, e.g., '100M', '2G', '500K'.
-                   Supports units 'K', 'M', 'G', 'T' (case-insensitive).
-                   The 'B' suffix for bytes is optional.
-                   If no unit is specified, the input is assumed to be in bytes.
+        max_mem (str): A string representing memory size, e.g., ``'100M'``, ``'2G'``, ``'500K'``.
+            Supports units ``K``, ``M``, ``G``, ``T`` (case-insensitive).
+            The ``B`` suffix for bytes is optional.
+            If no unit is specified, the input is assumed to be in bytes.
 
     Returns:
-    int: The equivalent size in bytes.
+        int: The equivalent size in bytes.
 
     Raises:
-    ValueError: If the input string format is invalid.
+        ValueError: If the input string format is invalid.
 
     Examples:
     >>> convert_to_bytes('100M')

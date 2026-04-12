@@ -59,8 +59,59 @@ html_theme_options = {
 html_static_path = ['_static']
 html_css_files = ['custom.css']
 
+# Mock imports: Cython extensions (not importable without a build) and
+# optional runtime deps that are not installed in the doc-build environment.
+autodoc_mock_imports = [
+    # Cython extensions (not importable without a build)
+    'malva.barcodes',
+    'malva.fast_map',
+    'malva.fastq_processing',
+    'malva.indexes',
+    'malva.kmer_processing',
+    'malva.reader',
+    # Optional runtime dependencies
+    'scanpy',
+    'anndata',
+    'yaml',
+    'dnaio',
+    'tifffile',
+    'scipy',
+    'scipy.sparse',
+    'scipy.stats',
+    'scipy.optimize',
+    'scipy.spatial',
+    'rich',
+    'rich.progress',
+    'requests',
+    'flask',
+    'flask_session',
+    'flask_cors',
+    'PIL',
+    'datashader',
+    'skimage',
+    'skimage.filters',
+    'pandas',
+    'matplotlib',
+    'matplotlib.pyplot',
+    'werkzeug',
+    'werkzeug.middleware',
+    'werkzeug.middleware.proxy_fix',
+    'ollama',
+    'Bio',
+    'Bio.Seq',
+    'Bio.SeqRecord',
+    'sklearn',
+    'sklearn.metrics',
+    'sklearn.metrics.pairwise',
+]
+
 # Settings
-suppress_warnings = ['autodoc.duplicate_object']
+suppress_warnings = [
+    'autodoc.duplicate_object',
+    'autodoc.mocked_object',
+    'ref.duplicate',
+    'sphinx_autodoc_typehints.forward_reference',
+]
 autodoc_default_options = {
     'members': True,
     'member-order': 'bysource',

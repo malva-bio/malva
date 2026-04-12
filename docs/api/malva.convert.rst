@@ -1,7 +1,7 @@
-malva.indexes module
+malva.convert module
 ====================
 
-.. automodule:: malva.indexes
+.. automodule:: malva.convert
    :members:
    :show-inheritance:
    :undoc-members:

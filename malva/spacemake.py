@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 """
 This code is adapted from spacemake.
 """
@@ -15,22 +20,24 @@ def nonsingular(vmin, vmax, expander=0.001, tiny=1e-15, increasing=True):
     This code was adapted from matplotlib.transforms
     "Copyright (c) 2012- Matplotlib Development Team; All Rights Reserved"
 
-    Args
-        vmin, vmax: float, the initial endpoints.
-        expander: float, default: 0.001, fractional amount by which *vmin* and
-                  *vmax* are expanded if the original interval is too small,
-                  based on *tiny*.
-        tiny : float, default: 1e-15, hreshold for the ratio of the interval to
+    Args:
+        vmin: float, the initial minimum endpoint.
+        vmax: float, the initial maximum endpoint.
+        expander: float, default 0.001, fractional amount by which *vmin* and
+            *vmax* are expanded if the original interval is too small,
+            based on *tiny*.
+        tiny: float, default 1e-15, threshold for the ratio of the interval to
             the maximum absolute value of its endpoints.
             If the interval is smaller than this, it will be expanded.
             This value should be around 1e-15 or larger;
             otherwise the interval will be approaching the double precision
             resolution limit.
-        increasing: bool, default: True, if True, swap *vmin*, *vmax* if *vmin* > *vmax*.
+        increasing: bool, default True, if True, swap *vmin*, *vmax* if *vmin* > *vmax*.
+
     Returns:
-        vmin, vmax: float, endpoints, expanded and/or swapped if necessary.
-                    If either input is inf or NaN, or if both inputs are 0 or very
-                    close to zero, it returns -*expander*, *expander*.
+        Tuple of (vmin, vmax) endpoints, expanded and/or swapped if necessary.
+        If either input is inf or NaN, or if both inputs are 0 or very
+        close to zero, it returns (-expander, expander).
     """
     if (not np.isfinite(vmin)) or (not np.isfinite(vmax)):
         return -expander, expander
@@ -97,18 +104,20 @@ def binning_hexagon(x, y, gridsize, extent=None, last_row=False):
     This code was adapted from matplotlib
     "Copyright (c) 2012- Matplotlib Development Team; All Rights Reserved"
 
-    Args
-        x, y: numpy.ndarray, x, y spatial coordinates of points
+    Args:
+        x: numpy.ndarray, x spatial coordinates of points
+        y: numpy.ndarray, y spatial coordinates of points
         gridsize: float or tuple, the amount of hexagons in x direction (float);
-                  y direction is automatically computed; or specified if gridsize is
-                  a tuple.
+            y direction is automatically computed; or specified if gridsize is
+            a tuple.
         extent: tuple, of (x_min, x_max, y_min, y_max)
         last_row: bool, whether a last row is created in mesh or not
+
     Returns:
-        coordinates: numpy.ndarray, a (x_mesh x y_mesh) x 2 matrix, with the coordinates
-                     (centres) of each hexagon in the binned mesh
-        accumulated: list, contains the indices from the x, y arrays that were binned
-                     to each hexagon in the mesh.
+        Tuple of (coordinates, accumulated) where coordinates is a numpy.ndarray
+        (x_mesh x y_mesh) x 2 matrix with the centres of each hexagon in the
+        binned mesh, and accumulated is a list containing the indices from the
+        x, y arrays that were binned to each hexagon in the mesh.
     """
     if np.iterable(gridsize):
         nx, ny = gridsize

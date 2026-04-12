@@ -1,42 +1,58 @@
 malva package
 =============
 
+Core API
+--------
+
+.. toctree::
+   :maxdepth: 1
+
+   malva.malva_index
+   malva.index
+   malva.quant
+   malva.search
+   malva.show
+   malva.combine
+   malva.cellxmer
+   malva.autoannotate
+   malva.dbutils
+   malva.spacemake
+   malva.cli
+
 Subpackages
 -----------
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 1
 
    malva.serve
 
-Submodules
-----------
+Cython Extensions
+-----------------
+
+These modules are compiled Cython extensions. Their API is documented when
+Malva is built from source; otherwise, a summary of key components is provided.
 
 .. toctree::
-   :maxdepth: 4
+   :maxdepth: 1
 
-   malva.autoannotate
-   malva.cellxmer
-   malva.cli
-   malva.combine
-   malva.complexity
-   malva.compressed_index
-   malva.contrib
-   malva.datastore
-   malva.dbutils
-   malva.fast_map
-   malva.fastq_processing
-   malva.filter_minimizers
-   malva.index
-   malva.indexes
+   malva.barcodes
    malva.kmer_processing
-   malva.quant
+   malva.fastq_processing
+   malva.fast_map
    malva.reader
-   malva.search
-   malva.show
-   malva.spacemake
+
+Utilities & Helpers
+-------------------
+
+.. toctree::
+   :maxdepth: 1
+
    malva.utils
    malva.xopen
+   malva.complexity
+   malva.contrib
+   malva.convert
 
 Module contents
 ---------------
@@ -45,3 +61,4 @@ Module contents
    :members:
    :show-inheritance:
    :undoc-members:
+   :no-index:

@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 # cython: language_level=3
 
 from libcpp.vector cimport vector
@@ -18,7 +23,7 @@ cdef class FastKmerProcessor:
         unordered_set[uint64_t] unique_kmers
         int min_valid_sequence_size
 
-    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) nogil except -1
+    cdef int process_sequence_chunk(self, const unsigned char* seq_ptr, Py_ssize_t length) except -1 nogil
     cdef np.ndarray process_sequences(self, sequences)
 
 cdef class KmerFastqParser:

@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 import dnaio
 import numpy as np
 import logging
@@ -6,7 +11,7 @@ import re
 import tifffile
 
 from malva.index import MalvaIndex
-from malva.utils import check_directory_exists
+from malva.utils import check_directory_exists, SUCCESS_MSG
 
 class MalvaPlot:
     def __init__(self, index):
@@ -91,9 +96,9 @@ def _run_show(args):
                 continue
 
             logging.info(f"[{i}/n] Querying sequence {record.name}")
-            locs, ints, _ = kmer_index.where(record.sequence, lazy_index=False)
+            locs, ints, _ = kmer_index.where(record.sequence, lazy_index=False)[0]
 
-            logging.info(f"[{i}/n] Plotting")
+            logging.debug(f"[{i}/n] Plotting")
             im = plotter.image(locs, ints, args.render_scale, args.render_smoothing)
 
             if args.multichannel:
@@ -105,15 +110,15 @@ def _run_show(args):
         
         if args.multichannel and len(multi_out) > 0:
             _multi_out_file = os.path.join(args.image_out, "malva_multichannel.tif")
-            logging.info(f"Saving multichannel file into {_multi_out_file}")
+            logging.debug(f"Saving multichannel file into {_multi_out_file}")
 
             multi_out_np = np.vstack([l[np.newaxis] for l in list(multi_out.values())])
             print(multi_out_np.shape)
 
             tifffile.imwrite(_multi_out_file, multi_out_np, metadata={"axes": "CYX", "Labels": list(multi_out.keys())}, imagej=True, bigtiff=True)
 
-    logging.info("SUCCESS!")
-    
+    logging.info(SUCCESS_MSG)
+
 
 if __name__ == "__main__":
     from malva.cli import get_show_parser

@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 # distutils: language = c++
 #cython: boundscheck=False, wraparound=False, initializedcheck=False, overflowcheck=False, cdivision=True, language_level=3
 
@@ -126,7 +131,7 @@ cdef class FastKmerExtractor:
         self.kmer_size = kmer_size
         self.remove_noncomplex = remove_noncomplex
         
-    cdef void get_sliding_sequences(self, const char* sequence, int sliding_size) nogil:
+    cdef void get_sliding_sequences(self, const char* sequence, int sliding_size) noexcept nogil:
         """Extract sliding sequences efficiently."""
         cdef:
             size_t seq_len = strlen(sequence)

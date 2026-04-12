@@ -1,7 +1,7 @@
 Installation
 ============
 
-Malva Tools are distributed in two formats. Choose the one that fits your use case, or install both.
+Malva is distributed in two formats. Choose the one that fits your use case, or install both.
 
 .. grid:: 2
     :gutter: 3
@@ -27,9 +27,9 @@ Availability
 
 .. note::
 
-   Malva Tools are provided **free of charge** for academic non-profit research.
+   Malva is provided **free of charge** for academic non-profit research.
 
-   Pre-built binaries (wheel + container) are available upon request.
+   Code and pre-built binaries (wheel + container) are available via pip and in our [GitHub repository](https://github.com/malva-bio/malva)
 
 **To request access:** Contact daniel.leonperinan@mdc-berlin.de with your name, institution, and intended use case.
 
@@ -65,20 +65,18 @@ Option 1: Python Wheel
 
    This is the **recommended** method for most users. It enables full Python API access.
 
-**Step 1: Download the wheel file** (provided upon request)
-
-**Step 2: Install with pip**
+**Install with pip**
 
 .. code-block:: bash
 
-   pip install malva-0.2.0-cp311-cp311-linux_x86_64.whl
+   pip install malva
 
 **Step 3: Verify the installation**
 
 .. code-block:: python
 
    import malva
-   from malva.index import MalvaIndex
+   from malva.malva_index import MalvaIndex
 
 **What you can do:**
 

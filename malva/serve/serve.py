@@ -1,3 +1,8 @@
+# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+#                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
+#
+# Non-commercial and academic use only. See LICENSE for full terms.
+
 import io
 import logging
 import numpy as np
@@ -29,8 +34,6 @@ from malva.serve.reportgen import HTMLReportGenerator
 # from malva.serve.modeling import handle_natural_query, setup_model
 # from malva.serve.templates.strings import HINT_SEQUENCE_QUERY
 
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Errors
@@ -47,8 +50,11 @@ MAX_SEQUENCE_LENGTH = 1000
 
 EMPTY_TILE = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
 EMPTY_TILE_BYTES = io.BytesIO()
-Image.fromarray(EMPTY_TILE).save(EMPTY_TILE_BYTES, format='PNG')
-EMPTY_TILE_BYTES.seek(0)
+try:
+    Image.fromarray(EMPTY_TILE).save(EMPTY_TILE_BYTES, format='PNG')
+    EMPTY_TILE_BYTES.seek(0)
+except Exception:
+    pass
 
 def interactive_query_standard(
     sequence: str,
@@ -59,7 +65,7 @@ def interactive_query_standard(
     countminkmer: int = 10,
 ) -> Tuple[np.ndarray, np.ndarray, List]:
     """Process standard sequence query"""
-    logger.info(f"Querying sequence '{sequence}'")
+    logger.debug(f"Querying sequence '{sequence}'")
     
     result = global_state.kmer_index.where(
         sequence,
@@ -153,26 +159,13 @@ class GlobalState:
                 self.kmer_index = MalvaIndex(index_path, verbose=True)
                 self.kmer_index.open()
 
-                # Load the initial data points
-                if len(self.kmer_index.index[f"index_0_data"]) >= 2*MAX_LOAD_ALL:
-                    self._loc_all, self._abu_all = np.unique(
-                        self.kmer_index.index[f"index_0_data"][MAX_LOAD_ALL:(2*MAX_LOAD_ALL)],
-                        return_counts=True,
-                    )
-                else:
-                    self._loc_all, self._abu_all = np.unique(
-                        self.kmer_index.index[f"index_0_data"][0:MAX_LOAD_ALL],
-                        return_counts=True,
-                    )
+                n_cells = self.kmer_index.n_spatial
+                self._loc_all = np.arange(n_cells, dtype=np.uint32)
+                self._abu_all = np.ones(n_cells, dtype=np.uint32)
 
-                logger.info("Loading the pointers into memory. Might take a while.")
-                self.kmer_index.where(
-                    "A" * self.kmer_index.kmer_size + "T",
-                    max_mem=max_mem,
-                    use_background_model=False
-                )
+                logger.debug("Warming up the index...")
+                self.kmer_index._ensure_index_open()
 
-                # Set up the coordinate bounds
                 self.bounds = (
                     self.kmer_index.coord_lims[0],  # xmin
                     self.kmer_index.coord_lims[1] + 1,  # xmax
@@ -180,7 +173,6 @@ class GlobalState:
                     self.kmer_index.coord_lims[3] + 1   # ymax
                 )
                 
-                # Store the spatial coordinates
                 self.xy = self.kmer_index.spatial_coord[:]
                 self.initialized = True
                 
@@ -229,7 +221,7 @@ class UserSession:
         """Initialize session with background data from global state"""
         if global_state.initialized and global_state._loc_all is not None:
             with self.lock:
-                logger.info("Initializing background data for session")
+                logger.debug("Initializing background data for session")
                 background_coords = global_state.xy[global_state._loc_all]
                 background_values = global_state._abu_all
                 
@@ -241,7 +233,7 @@ class UserSession:
                     'intensities': background_values
                 }
                 self.background_tree = cKDTree(background_coords)
-                logger.info(f"Background data initialized with intensity range: {self.background_intensity_range}")
+                logger.debug(f"Background data initialized with intensity range: {self.background_intensity_range}")
 
     def _calculate_intensity_range(self, values: np.ndarray) -> Tuple[float, float]:
         """Calculate robust intensity range for values"""
@@ -269,7 +261,7 @@ class UserSession:
                 'intensities': intensities
             }
             self.query_tree = cKDTree(locations)
-            logger.info(f"Query results added with intensity range: {self.query_intensity_range}")
+            logger.debug(f"Query results added with intensity range: {self.query_intensity_range}")
 
 
     def add_background_data(self, coordinates: np.ndarray, values: np.ndarray):
@@ -375,7 +367,6 @@ class UserSession:
         
         _sigma = 1 if zoom <= 1 else 1.2
 
-        # Initialize empty RGBA image
         img_all = np.zeros((TILE_SIZE, TILE_SIZE, 4), dtype=np.uint8)
 
         # Add background data to first channel (red)
@@ -435,7 +426,6 @@ def create_app(init_state=True, _uuid=None):
 
     Session(app)
     
-    # Session management
     user_sessions = {}
     session_lock = threading.Lock()
     
@@ -505,7 +495,6 @@ def create_app(init_state=True, _uuid=None):
                 "scores": scores
             }
             
-            # Set correct content type header
             return jsonify(response_data)
             
         except Exception as e:
@@ -691,7 +680,7 @@ def create_app(init_state=True, _uuid=None):
                 raise SequenceValidationError("No sequence provided", 
                     "Please enter a sequence or gene name")
             
-            logger.info("Starting sequence processing...")
+            logger.debug("Starting sequence processing...")
             
             # Get parameters
             sliding_size = int(request.args.get("sliding_size", 128))
@@ -702,7 +691,7 @@ def create_app(init_state=True, _uuid=None):
             
             # Process input
             processed_sequences = process_sequence_input(query)
-            logger.info(f"Initial processing returned {len(processed_sequences)} sequences")
+            logger.debug(f"Initial processing returned {len(processed_sequences)} sequences")
             
             if not processed_sequences:
                 raise SequenceValidationError(
@@ -758,7 +747,7 @@ def create_app(init_state=True, _uuid=None):
                     errors.append(f"Error processing {seq[:20]}: {str(e)}")
                     continue
             
-            logger.info(f"Final processing yielded {len(final_sequences)} sequences")
+            logger.debug(f"Final processing yielded {len(final_sequences)} sequences")
             
             if not final_sequences:
                 error_msg = "No valid sequences could be processed."
@@ -822,7 +811,7 @@ def create_app(init_state=True, _uuid=None):
             if errors:
                 response["errors"] = errors
             
-            logger.info("Search completed successfully")
+            logger.debug("Search completed successfully")
             return jsonify(response)
             
         except SequenceValidationError as e:
@@ -881,7 +870,7 @@ def _run_serve(args):
         # Initialize global state first
         global_state = GlobalState()
         global_state.initialize_from_index(args.index_in, max_mem=args.max_mem)
-        logger.info("Initialized global state from index")
+        logger.debug("Initialized global state from index")
         
         # Create app only once after global state is initialized
         app = create_app(init_state=True, _uuid=args.uuid)

@@ -14,17 +14,17 @@ from malva.utils import get_reference_cache, check_directory_exists
 
 def load_marker_genes(json_path, exclude_technical=True):
     """
-    Load marker genes from a JSON file, optionally excluding technical genes
-    
-    Parameters:
-    -----------
+    Load marker genes from a JSON file, optionally excluding technical genes.
+
+    Parameters
+    ----------
     json_path : str
         Path to the marker gene JSON file
     exclude_technical : bool
-        If True, exclude any gene categories that start with 'technical_'
-        
-    Returns:
-    --------
+        If True, exclude any gene categories that start with ``technical_``
+
+    Returns
+    -------
     dict
         Dictionary of filtered marker genes
     """
@@ -95,7 +95,7 @@ def preprocess_adata(adata, umi_cutoff=500, cell_cutoff=2):
     ----------
     adata : AnnData
         AnnData object containing raw counts (not filtered nor normalized)
-        umi_cutoff : int
+    umi_cutoff : int
         UMI count threshold used for cell filtering
     cell_cutoff : int
         Cell count threshold used for gene filtering
@@ -116,17 +116,17 @@ def preprocess_adata(adata, umi_cutoff=500, cell_cutoff=2):
 
 def score_cells_by_cell_type(adata, cell_markers):
     """
-    Score cells for each cell type based on marker gene expression
-    
-    Parameters:
-    -----------
+    Score cells for each cell type based on marker gene expression.
+
+    Parameters
+    ----------
     adata : AnnData
         Annotated data matrix with cells as rows and genes as columns
     cell_markers : dict
         Dictionary mapping cell types to lists of marker genes
-        
-    Returns:
-    --------
+
+    Returns
+    -------
     adata : AnnData
         Input object with scores added to obs
     """
@@ -157,19 +157,19 @@ def score_cells_by_cell_type(adata, cell_markers):
 
 def get_top_cell_types(adata, n_types=3, score_prefix="score_"):
     """
-    For each cell, get the top scoring cell types
-    
-    Parameters:
-    -----------
+    For each cell, get the top scoring cell types.
+
+    Parameters
+    ----------
     adata : AnnData
         Annotated data with cell type scores
     n_types : int
         Number of top cell types to retrieve
     score_prefix : str
         Prefix for score columns
-        
-    Returns:
-    --------
+
+    Returns
+    -------
     top_cell_types : pd.DataFrame
         DataFrame with top cell types and scores for each cell
     """
@@ -196,10 +196,10 @@ def get_top_cell_types(adata, n_types=3, score_prefix="score_"):
 
 def annotate_clusters(adata, cell_markers, cluster_key='leiden', threshold=0.4, min_markers=3, savefig=None):
     """
-    Score and annotate cell types based on cluster-level expression signatures
-    
-    Parameters:
-    -----------
+    Score and annotate cell types based on cluster-level expression signatures.
+
+    Parameters
+    ----------
     adata : AnnData
         Annotated data matrix with clustering results
     cell_markers : dict
@@ -212,9 +212,9 @@ def annotate_clusters(adata, cell_markers, cluster_key='leiden', threshold=0.4, 
         Minimum number of markers needed for a cell type to be assigned
     savefig : str
         Path where the plots will be saved. If None, then no plots are saved
-        
-    Returns:
-    --------
+
+    Returns
+    -------
     adata : AnnData
         Input object with cell type annotations added
     annotations : pd.DataFrame
@@ -398,10 +398,10 @@ def get_detailed_cluster_annotations(adata, cluster_key='leiden'):
 
 def analyze_technical_genes(adata, housekeeping_genes, savefig=None):
     """
-    Analyze technical and housekeeping genes to assess data quality
-    
-    Parameters:
-    -----------
+    Analyze technical and housekeeping genes to assess data quality.
+
+    Parameters
+    ----------
     adata : AnnData
         Annotated data matrix
     housekeeping_genes : dict
@@ -956,15 +956,15 @@ def emptydrops_refinement(adata, adata_filtered=None, threshold=None, ambient_mi
 
 def load_markers(marker_source):
     """
-    Load marker genes and prepare technical/non-technical gene lists
-    
-    Parameters:
-    -----------
+    Load marker genes and prepare technical/non-technical gene lists.
+
+    Parameters
+    ----------
     marker_source : str
         Either 'human_markers', 'human_markers_hallmarks', 'mouse_markers', or a path to a custom JSON file
-        
-    Returns:
-    --------
+
+    Returns
+    -------
     tuple
         (cell_markers_nontechnical, cell_markers, nontechnical_genes)
     """
@@ -991,19 +991,19 @@ def load_markers(marker_source):
 
 def score_annotate(adata, cell_markers, savefig=None):
     """
-    Score cells for each cell type and annotate with top cell types
-    
-    Parameters:
-    -----------
+    Score cells for each cell type and annotate with top cell types.
+
+    Parameters
+    ----------
     adata : AnnData
         Clustered AnnData object
     cell_markers : dict
         Dictionary mapping cell types to marker genes
     savefig : str
         Path where the plots will be saved. If None, then no plots are saved
-        
-    Returns:
-    --------
+
+    Returns
+    -------
     AnnData
         AnnData with cell type scores and annotations
     """

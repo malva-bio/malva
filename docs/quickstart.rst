@@ -8,7 +8,7 @@ The full example with notebooks is available in the `examples/malva_tools <https
 Prerequisites
 -------------
 
-- Malva Tools installed via Python wheel or Apptainer (see :doc:`installation`)
+- Malva installed via pip, source, Python wheel or Apptainer (see :doc:`installation`)
 - ~20 GB disk space for this example
 
 Step 1: Prepare the Data
@@ -114,7 +114,7 @@ For a single query, index into the result list with ``[0]``:
 
 .. code-block:: python
 
-   from malva.index import MalvaIndex
+   from malva.malva_index import MalvaIndex
    import pandas as pd
 
    mindex = MalvaIndex("indices/pbmc_1k_v3")

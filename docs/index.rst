@@ -1,13 +1,13 @@
-Malva Tools
+Malva
 ===========
 
 **Build and query sequence indices on your own single-cell and spatial transcriptomics data, locally.**
 
-Malva Tools bring the power of the `Malva Platform <https://malva.bio>`_ to your private datasets. Process raw sequencing reads into searchable k-mer indices and perform sequence-level queries without uploading data to external servers.
+Malva brings the power of the `Malva Platform <https://malva.bio>`_ to your private datasets. Process raw sequencing reads into searchable k-mer indices and perform sequence-level queries without uploading data to external servers.
 
 .. note::
 
-   Malva Tools are provided **free of charge** for academic non-profit research.
+   Malva is provided **free of charge** for academic non-profit research.
    See :doc:`installation` for download instructions.
 
 ----
@@ -23,7 +23,7 @@ Getting Started
         :link-type: doc
         :class-card: sd-border-0 sd-shadow-sm
 
-        Download and set up Malva Tools on your system via Python wheel or Apptainer container.
+        Download and set up Malva on your system via Python wheel or Apptainer container.
 
     .. grid-item-card:: :octicon:`rocket;1em` Quick Start: Single-Cell
         :link: quickstart
@@ -160,11 +160,21 @@ Documentation
 
 .. toctree::
    :maxdepth: 1
-   :caption: Examples & API
+   :caption: Examples
 
    examples/index
-   indexing_framework
+
+.. toctree::
+   :maxdepth: 1
+   :caption: API Reference
+
    api/modules
+
+.. toctree::
+   :maxdepth: 1
+   :caption: Technical Reference
+
+   indexing_framework
 
 .. toctree::
    :maxdepth: 1
