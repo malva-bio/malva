@@ -1,4 +1,4 @@
-# Copyright (c) 2025 Daniel León-Periñán and Nikolaos Karaiskos
+# Copyright (c) 2026 Daniel León-Periñán and Nikolaos Karaiskos and Nikolaus Rajewsky
 #                    Rajewsky Lab, Max Delbrück Center for Molecular Medicine (MDC), Berlin
 #
 # Non-commercial and academic use only. See LICENSE for full terms.
@@ -64,6 +64,7 @@ class MalvaIndex:
         self.CELL_ID_MASK = (1 << (32 - project_bits)) - 1
         self.HAS_MERGED_PROJECTS = False
         self.project_mapping = None
+        self.global_sample_id_mapping = None
 
         # The underlying Cython PrefixIndex for queries
         self._prefix_index = None
@@ -121,6 +122,8 @@ class MalvaIndex:
             self.CELL_ID_MASK = meta['cell_id_mask']
         if 'project_mapping' in meta:
             self.project_mapping = {int(k): v for k, v in meta['project_mapping'].items()}
+        if 'global_sample_id_mapping' in meta:
+            self.global_sample_id_mapping = meta['global_sample_id_mapping']
 
     def set_spatial_index(self, sindex):
         """Set a spatial index (with coordinates)."""
@@ -160,10 +163,14 @@ class MalvaIndex:
         meta['merge_projects'] = self.HAS_MERGED_PROJECTS
         meta['project_id_shift'] = self.PROJECT_ID_SHIFT
         meta['cell_id_mask'] = int(self.CELL_ID_MASK)
+
         if self.coord_lims:
             meta['coord_lims'] = [float(x) for x in self.coord_lims]
         if self.project_mapping:
             meta['project_mapping'] = {str(k): v for k, v in self.project_mapping.items()}
+        if self.global_sample_id_mapping:
+            meta['global_sample_id_mapping'] = self.global_sample_id_mapping
+
         with open(self.meta_path, 'w') as f:
             json.dump(meta, f, indent=2)
 
