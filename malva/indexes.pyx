@@ -575,7 +575,7 @@ cdef extern from *:
     } OAHash32;
 
     static inline void oahash_init(OAHash32* h, uint32_t expected) {
-        /* Round up to next power of 2, then 2× for load factor ≤ 0.5 */
+        /* Round up to next power of 2, then 2x for load factor <= 0.5 */
         uint32_t sz = 1;
         while (sz < expected * 2 + 16) sz <<= 1;
         h->keys = (uint32_t*)malloc((size_t)sz * 4);
@@ -645,7 +645,7 @@ cdef uint32_t VERSION = 2
 # Threshold for sparse-hit path in phase2.
 # Buckets with <= this many hits use scan_to_byte_offset per hit.
 # Buckets with more hits use build_bo_fast (amortises the full scan).
-# Value of 4 means: 1-4 hits → sparse path, 5+ hits → dense path.
+# Value of 4 means: 1-4 hits -> sparse path, 5+ hits -> dense path.
 # Given ~99% of buckets are single-hit, almost all buckets use sparse path.
 DEF SPARSE_HIT_THRESHOLD = 4
 
@@ -1374,7 +1374,7 @@ cdef class PrefixIndex:
           kmer_keys[N_found]       - sorted kmer values (uint64)
           cell_data[total_cells]   - flat packed remapped cell IDs (uint32)
           cell_indptr[N_found+1]   - CSR offsets (uint64)
-          orig_cell_ids[N_unique]  - compact_id → original cell ID mapping
+          orig_cell_ids[N_unique]  - compact_id -> original cell ID mapping
           N_unique                 - number of unique cells
 
         Uses _csr_mode flag to bypass unordered_map construction inside query_batch.
@@ -2357,7 +2357,7 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
         uint64_t data_block_len
         # Typed references to keep numpy arrays alive while raw pointers are in use.
         # Without these, Cython may release the Python objects early, allowing GC
-        # to free the backing buffer → dangling pointer → SIGSEGV under memory pressure.
+        # to free the backing buffer -> dangling pointer -> SIGSEGV under memory pressure.
         np.ndarray indices_arr, indptr_arr, ends_arr, data_block
         int64_t reduced_n
         uint64_t max_pairs_per_chunk
@@ -2390,8 +2390,8 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
     # Adaptive chunk size: if cells-per-kmer is high, reduce chunk_size to
     # cap peak memory.  bucket_pairs holds (suffix, cell) pairs - 8 bytes each.
     # data_block holds cell IDs - 4 bytes each.  Peak memory per chunk iteration
-    # is roughly: data_block + bucket_pairs ≈ 2 × data_block_size.
-    # Cap at ~2GB combined → max ~250M cell references per chunk.
+    # is roughly: data_block + bucket_pairs ~= 2 * data_block_size.
+    # Cap at ~2GB combined -> max ~250M cell references per chunk.
     max_pairs_per_chunk = 250000000  # 250M pairs = ~2GB
 
     # Hard cap on bucket_pairs size.  When a single prefix accumulates more
