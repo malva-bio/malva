@@ -1051,7 +1051,6 @@ cdef class PrefixIndex:
             for bki in range(n_bkts):
                 release_range(<const void*>(self.suffix_mmap + bkt_so[bki]),
                               <size_t>bkt_suf_sz[bki])
-        free(bkt_suf_sz)
         free(bkt_peek)
         acc_suf += time.perf_counter() - t0
 
@@ -1076,6 +1075,7 @@ cdef class PrefixIndex:
             free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
             free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
             free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            free(bkt_suf_sz)
             raise MemoryError()
 
         qi = 0
@@ -1109,6 +1109,7 @@ cdef class PrefixIndex:
                         free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
                         free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
                         free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+                        free(bkt_suf_sz)
                         raise MemoryError()
                 prov_km[n_prov]   = km
                 prov_bidx[n_prov] = bidx
@@ -1123,11 +1124,12 @@ cdef class PrefixIndex:
                 if bkt_max_hit_pos[bki] != <uint32_t>0xFFFFFFFF:
                     decode_lengths_upto(
                         <const uint8_t*>(self.suffix_mmap + bkt_so[bki]),
-                        65536,
+                        <int>bkt_suf_sz[bki],
                         bkt_len_sec[bki],
                         lb_pool + bkt_pool_off[bki],
                         bkt_max_hit_pos[bki])
         free(bkt_len_sec)
+        free(bkt_suf_sz)
 
         for i in range(n_prov):
             bidx = prov_bidx[i]
@@ -2154,7 +2156,7 @@ def quantify_where(
         logging.info(f"  Parsed {len(all_kmer_list):,} unique kmers from {num_groups} groups in {t_phase-t_start:.2f}s")
 
     if len(all_kmer_list) == 0:
-        return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * num_groups
+        return [(np.array([], dtype=np.uint32), np.array([], dtype=np.uint32), [])] * num_groups
 
     t_phase = time.time()
 
@@ -2190,7 +2192,7 @@ def quantify_where(
         logging.info(f"  Remapped {n_unique_cells:,} unique cells (max_cell_id={max_cell_id:,})")
 
     if csr_n_keys == 0:
-        return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * num_groups
+        return [(np.array([], dtype=np.uint32), np.array([], dtype=np.uint32), [])] * num_groups
 
     t_phase = time.time()
 
