@@ -2024,7 +2024,7 @@ def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=Fa
     finally: free(sb);free(dob);free(dlb);free(ddb_dec)
     fclose(sfh); fclose(dfh)
     with open(pp,'wb') as f: f.write(oso.tobytes()); f.write(odo.tobytes()); f.write(ods.tobytes())
-    tnc=sum(p.n_cells for p in indices)
+    tnc=sum((<PrefixIndex>p).n_cells for p in indices)
     meta={'magic':int(MAGIC),'version':int(VERSION),'kmer_size':ks,'l_prefix':lp,'l_suffix':ls,'n_kmers':int(tk2),'n_cells':int(tnc),'n_prefixes':int(np2),'merge_projects':merge_projects,'project_id_shift':project_id_shift,'cell_id_mask':int(cell_id_mask)}
     if project_mapping: meta['project_mapping']={str(kk):v for kk,v in project_mapping.items()}
     with open(mp,'w') as f: json.dump(meta,f,indent=2)
