@@ -203,7 +203,70 @@ class MalvaIndex:
 
         self._chunk_paths = chunk_paths
         self._build_from_chunks()
-        
+
+        self._save_metadata()
+
+    def add_reads_sra(self, sra_path, kmer_size=None, l_prefix=None, jump_amount=None,
+                      trim_start=0, trim_end=28, chunksize=100_000_000,
+                      n_report=1_000_000, threads=1,
+                      barcode_segment=None, cdna_segment=None):
+        """
+        Add reads from an SRA archive and build the index.
+
+        When *barcode_segment* or *cdna_segment* are ``None``, layout
+        auto-detection is performed by sampling the first 1 000 spots.
+        """
+        from malva.io_readers import process_sra_reads
+
+        chunk_paths = process_sra_reads(
+            sra_path=sra_path,
+            output_dir=self.index_dir,
+            spatial_index=self.spatial_index,
+            kmer_size=kmer_size or self.kmer_size,
+            l_prefix=l_prefix or self.l_prefix,
+            jump_amount=jump_amount or self.jump_amount,
+            trim_start=trim_start,
+            trim_end=trim_end,
+            chunksize=chunksize,
+            n_report=n_report,
+            threads=threads,
+            barcode_segment=barcode_segment,
+            cdna_segment=cdna_segment,
+        )
+
+        self._chunk_paths = chunk_paths
+        self._build_from_chunks()
+        self._save_metadata()
+
+    def add_reads_bam(self, bam_path, kmer_size=None, l_prefix=None, jump_amount=None,
+                      chunksize=100_000_000, n_report=1_000_000, threads=1,
+                      barcode_tag='CB', sequence_tag=None):
+        """
+        Add reads from a BAM file and build the index.
+
+        Args:
+            barcode_tag: BAM tag for the cell barcode (default ``'CB'``).
+            sequence_tag: BAM tag for the cDNA sequence; uses the SEQ
+                          field when ``None`` (default).
+        """
+        from malva.io_readers import process_bam_reads
+
+        chunk_paths = process_bam_reads(
+            bam_path=bam_path,
+            output_dir=self.index_dir,
+            spatial_index=self.spatial_index,
+            kmer_size=kmer_size or self.kmer_size,
+            l_prefix=l_prefix or self.l_prefix,
+            jump_amount=jump_amount or self.jump_amount,
+            chunksize=chunksize,
+            n_report=n_report,
+            threads=threads,
+            barcode_tag=barcode_tag,
+            sequence_tag=sequence_tag,
+        )
+
+        self._chunk_paths = chunk_paths
+        self._build_from_chunks()
         self._save_metadata()
 
     def _build_from_chunks(self):

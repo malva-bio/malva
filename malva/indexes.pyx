@@ -1922,6 +1922,26 @@ def _write_empty_index(str od, int ks, int lp, int ls, uint64_t nc):
     with open(os.path.join(od,'meta.json'),'w') as f: json.dump({'magic':0x4D4C5650,'version':2,'kmer_size':ks,'l_prefix':lp,'l_suffix':ls,'n_kmers':0,'n_cells':int(nc),'n_prefixes':int(np2),'n_buckets_written':0},f,indent=2)
 
 
+def write_sorted_chunk_py(np.ndarray[np.uint64_t, ndim=1] ak_arr,
+                          np.ndarray[np.uint32_t, ndim=1] ac_arr,
+                          Py_ssize_t tp, str chunk_path):
+    """Python-accessible wrapper: sort and write a (kmer, cell_id) chunk file."""
+    cdef uint64_t n = <uint64_t>tp
+    cdef uint64_t* ak = <uint64_t*>ak_arr.data
+    cdef uint32_t* ac = <uint32_t*>ac_arr.data
+    _write_sorted_chunk(ak, ac, n, chunk_path)
+
+
+def build_index_radix_py(np.ndarray[np.uint64_t, ndim=1] ak_arr,
+                         np.ndarray[np.uint32_t, ndim=1] ac_arr,
+                         Py_ssize_t tp, str output_dir, int kmer_size, int l_prefix):
+    """Python-accessible wrapper: build the prefix-bucketed index from arrays via radix sort."""
+    cdef uint64_t n = <uint64_t>tp
+    cdef uint64_t* ak = <uint64_t*>ak_arr.data
+    cdef uint32_t* ac = <uint32_t*>ac_arr.data
+    _build_index_radix(ak, ac, n, output_dir, kmer_size, l_prefix, 0)
+
+
 def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=False, dict project_mapping=None,
     int project_id_shift=23, uint32_t cell_id_mask=0x007FFFFF, bint verbose=False):
     logger=logging.getLogger("PrefixIndex.merge")

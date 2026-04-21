@@ -20,9 +20,21 @@ def get_index_parser():
         "--reads-in",
         type=str,
         required=True,
-        nargs=2,
-        help="""Pair of FASTQ files containing the transcriptomic information, 
-        UMI and cell (spatial) barcode (in R1/R2 structure, paired-end)""",
+        nargs='+',
+        help="""Input reads.  Three modes are supported:
+
+  FASTQ (default): provide exactly two files — R1 and R2.
+    --reads-in sample_R1.fastq.gz sample_R2.fastq.gz
+
+  SRA: provide a single .sra file.  The barcode and cDNA segments are
+  auto-detected from the file structure; use --sra-barcode-segment /
+  --sra-cdna-segment to override.
+    --reads-in SRR12345678.sra
+
+  BAM: provide a single .bam file.  The barcode is read from the tag
+  specified by --bam-barcode-tag (default: CB, taken from --flavor).
+    --reads-in sample.bam
+""",
     )
     parser.add_argument(
         "--spatial-bc-in",
@@ -94,6 +106,72 @@ def get_index_parser():
         default=1,
         help="""Number of threads used for parallel processing""",
     )
+
+    # ------------------------------------------------------------------
+    # SRA-specific options (only relevant when --reads-in is a .sra file)
+    # ------------------------------------------------------------------
+    sra_group = parser.add_argument_group(
+        "SRA options",
+        "Used when --reads-in is a single .sra file. "
+        "By default, the barcode and cDNA segments are auto-detected.",
+    )
+    sra_group.add_argument(
+        "--sra-barcode-segment",
+        type=int,
+        default=None,
+        metavar="INT",
+        help="Index (0-based) of the SRA segment containing the cell barcode. "
+             "Default: auto-detect from read structure.",
+    )
+    sra_group.add_argument(
+        "--sra-cdna-segment",
+        type=int,
+        default=None,
+        metavar="INT",
+        help="Index (0-based) of the SRA segment containing the cDNA sequence. "
+             "Default: auto-detect from read structure.",
+    )
+    sra_group.add_argument(
+        "--sra-barcode-start",
+        type=int,
+        default=None,
+        metavar="INT",
+        help="Start position (inclusive, 0-based) within the barcode segment. "
+             "Default: taken from --flavor.",
+    )
+    sra_group.add_argument(
+        "--sra-barcode-end",
+        type=int,
+        default=None,
+        metavar="INT",
+        help="End position (exclusive, 0-based) within the barcode segment. "
+             "Default: taken from --flavor.",
+    )
+
+    # ------------------------------------------------------------------
+    # BAM-specific options (only relevant when --reads-in is a .bam file)
+    # ------------------------------------------------------------------
+    bam_group = parser.add_argument_group(
+        "BAM options",
+        "Used when --reads-in is a single .bam file.",
+    )
+    bam_group.add_argument(
+        "--bam-barcode-tag",
+        type=str,
+        default=None,
+        metavar="TAG",
+        help="BAM tag that carries the cell barcode (e.g. CB, CR, XC). "
+             "Default: taken from the --flavor configuration (usually 'CB').",
+    )
+    bam_group.add_argument(
+        "--bam-sequence-tag",
+        type=str,
+        default=None,
+        metavar="TAG",
+        help="BAM tag that carries the cDNA sequence. "
+             "When omitted, the main SEQ field is used (the typical case).",
+    )
+
     return parser
 
 
