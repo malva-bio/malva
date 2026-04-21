@@ -125,6 +125,15 @@ def get_extensions():
             define_macros=macros,
         ),
         Extension(
+            "malva.filter_minimizers",
+            ["malva/filter_minimizers.pyx"],
+            include_dirs=common_include_dirs,
+            language="c++",
+            extra_compile_args=compile_args,
+            extra_link_args=link_args,
+            define_macros=macros,
+        ),
+        Extension(
             "malva.kmer_processing",
             ["malva/kmer_processing.pyx"],
             include_dirs=common_include_dirs,
