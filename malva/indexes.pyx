@@ -1955,11 +1955,12 @@ def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=Fa
     cdef uint32_t* ddb_dec=<uint32_t*>malloc(merge_data_cap*4)
     cdef int raw_bytes2
     cdef uint32_t total_cells2
+    cdef PrefixIndex _fi
     if not sb or not dob or not dlb or not ddb_dec: free(sb);free(dob);free(dlb);free(ddb_dec); raise MemoryError()
     indices=[]
     for d in index_dirs: p=PrefixIndex(); p.open(d); indices.append(p)
     if len(indices)==0: free(sb);free(dob);free(dlb);free(ddb_dec); raise ValueError("No indices")
-    ks=indices[0].kmer_size; lp=indices[0].l_prefix; ls=indices[0].l_suffix; np2=indices[0].n_prefixes
+    _fi=<PrefixIndex>indices[0]; ks=_fi.kmer_size; lp=_fi.l_prefix; ls=_fi.l_suffix; np2=_fi.n_prefixes
     if not os.path.exists(output_dir): os.makedirs(output_dir)
     pp=os.path.join(output_dir,'pi.bin'); sp=os.path.join(output_dir,'suffixes.bin')
     dp2=os.path.join(output_dir,'data.bin'); mp=os.path.join(output_dir,'meta.json')
