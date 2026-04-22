@@ -145,6 +145,22 @@ class MalvaIndex:
         np.save(os.path.join(self.index_dir, 'spatial_coord.npy'), coords)
         self._save_metadata()
 
+    def _index_state_meta(self) -> dict:
+        """Return the index-state fields that Cython build functions omit."""
+        meta = {
+            'n_cells': int(self.n_spatial),
+            'merge_projects': self.HAS_MERGED_PROJECTS,
+            'project_id_shift': self.PROJECT_ID_SHIFT,
+            'cell_id_mask': int(self.CELL_ID_MASK),
+        }
+        if self.coord_lims:
+            meta['coord_lims'] = [float(x) for x in self.coord_lims]
+        if self.project_mapping:
+            meta['project_mapping'] = {str(k): v for k, v in self.project_mapping.items()}
+        if self.global_sample_id_mapping:
+            meta['global_sample_id_mapping'] = self.global_sample_id_mapping
+        return meta
+
     def _save_metadata(self):
         """Save/update metadata to meta.json, preserving fields from the index build."""
         meta = {}
@@ -232,6 +248,7 @@ class MalvaIndex:
             threads=threads,
             barcode_segment=barcode_segment,
             cdna_segment=cdna_segment,
+            extra_meta=self._index_state_meta(),
         )
 
         self._chunk_paths = chunk_paths
@@ -263,6 +280,7 @@ class MalvaIndex:
             threads=threads,
             barcode_tag=barcode_tag,
             sequence_tag=sequence_tag,
+            extra_meta=self._index_state_meta(),
         )
 
         self._chunk_paths = chunk_paths
@@ -280,12 +298,14 @@ class MalvaIndex:
 
         if len(self._chunk_paths) == 0:
             # Single-chunk radix build was done inside process_*_reads; the
-            # Cython function wrote a minimal meta.json with n_cells=0.  Patch it.
+            # Cython function wrote a minimal meta.json.  Patch it with the
+            # full index state in case extra_meta wasn't propagated.
             logging.debug("Index built directly (no chunk merge needed)")
             chunk_dir = os.path.join(self.index_dir, '_chunks')
             if os.path.exists(chunk_dir):
                 shutil.rmtree(chunk_dir)
-            self._save_metadata()
+            from malva.io_readers import _patch_meta
+            _patch_meta(self.index_dir, self.n_spatial, self._index_state_meta())
             return
 
         logging.info(f"Merging {len(self._chunk_paths)} chunks with n_cells={self.n_spatial}")
@@ -298,8 +318,10 @@ class MalvaIndex:
             verbose=self.verbose,
         )
 
-        # Patch the minimal meta.json written by the Cython merge function.
-        self._save_metadata()
+        # build_from_sorted_chunks writes a minimal meta.json — patch it with
+        # the full index state immediately so it is never left incomplete.
+        from malva.io_readers import _patch_meta
+        _patch_meta(self.index_dir, self.n_spatial, self._index_state_meta())
 
         meta_check_path = os.path.join(self.index_dir, 'meta.json')
         if os.path.exists(meta_check_path):
