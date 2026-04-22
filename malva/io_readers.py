@@ -39,14 +39,17 @@ def detect_input_type(reads_in: list) -> str:
     if isinstance(reads_in[0], int):
         return 'fastq'
 
-    ext = os.path.splitext(str(reads_in[0]).lower())[1]
-    if ext == '.sra':
+    path = str(reads_in[0]).lower()
+    # Use endswith rather than splitext so .sralite is matched correctly
+    # (splitext('.sralite') → ('.sralite',) but that still works — just
+    # be explicit to avoid any ambiguity).
+    if path.endswith('.sra') or path.endswith('.sralite'):
         return 'sra'
-    if ext == '.bam':
+    if path.endswith('.bam'):
         return 'bam'
     raise ValueError(
         f"Cannot determine input type from '{reads_in[0]}'. "
-        "Provide a single .sra or .bam file, or two FASTQ files for R1/R2."
+        "Provide a single .sra / .sralite or .bam file, or two FASTQ files for R1/R2."
     )
 
 
@@ -243,6 +246,41 @@ def process_bam_reads(
         "SEQ field" if sequence_tag is None else f"tag={sequence_tag!r}",
     )
 
+    # ------------------------------------------------------------------
+    # Pre-scan first reads to verify barcode tag is present
+    # ------------------------------------------------------------------
+    _N_PROBE = 200
+    _probe_bc_missing = 0
+    _probe_tags: dict[str, int] = {}
+    with pysam.AlignmentFile(bam_path, 'rb', threads=threads) as _bam_probe:
+        for _i, _read in enumerate(_bam_probe.fetch(until_eof=True)):
+            if _i >= _N_PROBE:
+                break
+            try:
+                _read.get_tag(barcode_tag)
+            except KeyError:
+                _probe_bc_missing += 1
+            for _tag, _val in _read.get_tags():
+                _probe_tags[_tag] = _probe_tags.get(_tag, 0) + 1
+
+    if _probe_tags:
+        _probe_total = min(_N_PROBE, max(_probe_tags.values()))
+        _bc_miss_rate = _probe_bc_missing / max(_probe_total, 1)
+        if _bc_miss_rate > 0.5:
+            _present = sorted(_probe_tags, key=lambda t: -_probe_tags[t])
+            logging.warning(
+                "BAM: barcode tag '%s' absent in %.0f%% of first %d reads. "
+                "Tags present (by frequency): %s. "
+                "Use --bam-barcode-tag to specify the correct tag.",
+                barcode_tag, _bc_miss_rate * 100, _probe_total,
+                ", ".join(f"'{t}' ({_probe_tags[t]}x)" for t in _present[:10]),
+            )
+        else:
+            logging.debug(
+                "BAM probe (%d reads): tag '%s' found in %.0f%% of reads.",
+                _probe_total, barcode_tag, (1 - _bc_miss_rate) * 100,
+            )
+
     chunk_dir = os.path.join(output_dir, '_chunks')
     os.makedirs(chunk_dir, exist_ok=True)
 
@@ -258,6 +296,7 @@ def process_bam_reads(
 
     bc_batch: list = []
     seq_batch: list = []
+    ns_bc_missing: int = 0
 
     def _flush_bam_batch():
         nonlocal tp, cap, ak, ac
@@ -286,6 +325,7 @@ def process_bam_reads(
                 bc = read.get_tag(barcode_tag)
             except KeyError:
                 bc = None
+                ns_bc_missing += 1
 
             if sequence_tag is not None:
                 try:
@@ -330,6 +370,14 @@ def process_bam_reads(
         "BAM: %s reads, %s pairs, %d chunks",
         f"{ns:,}", f"{total_pairs + tp:,}", chunk_num,
     )
+    if ns > 0 and ns_bc_missing / ns > 0.5:
+        logging.warning(
+            "BAM: tag '%s' was missing in %s/%s reads (%.0f%%). "
+            "The index will likely be empty. "
+            "Use --bam-barcode-tag to specify the correct tag.",
+            barcode_tag, f"{ns_bc_missing:,}", f"{ns:,}",
+            ns_bc_missing / ns * 100,
+        )
 
     return _finalise(ak, ac, tp, chunk_num, chunk_paths, chunk_dir,
                      output_dir, kmer_size, l_prefix)
@@ -356,6 +404,13 @@ def _finalise(ak, ac, tp, chunk_num, chunk_paths, chunk_dir,
     )
 
     if tp == 0 and chunk_num == 0:
+        logging.warning(
+            "No k-mer pairs were extracted — the index will be empty (n_cells=0). "
+            "Likely causes: "
+            "(1) wrong barcode segment/tag — check --sra-barcode-segment or --bam-barcode-tag; "
+            "(2) all barcodes are absent from the spatial barcode index; "
+            "(3) the file contains no reads with a valid barcode+cDNA pair."
+        )
         _write_empty_index(output_dir, kmer_size, l_prefix,
                            kmer_size - l_prefix, 0)
         return []
