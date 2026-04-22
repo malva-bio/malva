@@ -26,9 +26,10 @@ def get_index_parser():
   FASTQ (default): provide exactly two files — R1 and R2.
     --reads-in sample_R1.fastq.gz sample_R2.fastq.gz
 
-  SRA: provide a single .sra file.  The barcode and cDNA segments are
-  auto-detected from the file structure; use --sra-barcode-segment /
-  --sra-cdna-segment to override.
+  SRA: provide a single .sra (.sralite) file.  Segment 0 is assumed to
+  be the barcode and segment 1 the cDNA by default; override with
+  --sra-barcode-segment / --sra-cdna-segment (or use generate_manifest.py
+  to detect the correct values automatically).
     --reads-in SRR12345678.sra
 
   BAM: provide a single .bam file.  The barcode is read from the tag
@@ -112,24 +113,23 @@ def get_index_parser():
     # ------------------------------------------------------------------
     sra_group = parser.add_argument_group(
         "SRA options",
-        "Used when --reads-in is a single .sra file. "
-        "By default, the barcode and cDNA segments are auto-detected.",
+        "Used when --reads-in is a single .sra file.",
     )
     sra_group.add_argument(
         "--sra-barcode-segment",
         type=int,
-        default=None,
+        default=0,
         metavar="INT",
-        help="Index (0-based) of the SRA segment containing the cell barcode. "
-             "Default: auto-detect from read structure.",
+        help="Index (0-based) of the SRA segment containing the cell barcode "
+             "(default: 0).",
     )
     sra_group.add_argument(
         "--sra-cdna-segment",
         type=int,
-        default=None,
+        default=1,
         metavar="INT",
-        help="Index (0-based) of the SRA segment containing the cDNA sequence. "
-             "Default: auto-detect from read structure.",
+        help="Index (0-based) of the SRA segment containing the cDNA sequence "
+             "(default: 1).",
     )
     sra_group.add_argument(
         "--sra-barcode-start",

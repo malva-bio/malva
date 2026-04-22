@@ -137,14 +137,9 @@ def _run_index(args):
         from malva.utils import check_cell_string
         _, trim_start, trim_end = check_cell_string(_cell)
 
-        # CLI overrides take priority, then flavor defaults, then None (auto)
-        barcode_seg = getattr(args, 'sra_barcode_segment', None)
-        cdna_seg = getattr(args, 'sra_cdna_segment', None)
-
-        if barcode_seg is None:
-            barcode_seg = flavor_config.get('sra_barcode_segment', None)
-        if cdna_seg is None:
-            cdna_seg = flavor_config.get('sra_cdna_segment', None)
+        # CLI args always carry a value (default 0/1 if not explicitly set)
+        barcode_seg = args.sra_barcode_segment
+        cdna_seg = args.sra_cdna_segment
 
         if getattr(args, 'sra_barcode_start', None) is not None:
             trim_start = args.sra_barcode_start

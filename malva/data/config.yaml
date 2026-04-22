@@ -2,53 +2,33 @@ barcode_flavors:
   openst:
     bam_tags: CB:{cell}
     cell: r1[2:27]
-    # SRA: barcode in segment 0, cDNA in segment 1
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   seq_scope_v1:
     bam_tags: CB:{cell}
     cell: r1[0:20]
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   stereo_seq:
     bam_tags: CB:{cell}
     cell: r1[0:25]
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   visium:
     bam_tags: CR:{cell}
     cell: r1[0:16]
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   slide_seq:
     bam_tags: XC:{cell}
     cell: r1[0:14]
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   sc_10x_v3:
     bam_tags: CB:{cell}
     cell: r1[0:16]
-    # 10x v3: segment 0 = barcode+UMI (28 bp), segment 1 = cDNA
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   sc_10x_v2:
     bam_tags: CB:{cell}
     cell: r1[0:16]
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   sc_10x_v1:
     bam_tags: CB:{cell}
     cell: r1[0:14]
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   sc_dropseq:
     bam_tags: CB:{cell}
     cell: r1[0:12]
-    sra_barcode_segment: 0
-    sra_cdna_segment: 1
   bulk:
     bam_tags: CB:{cell}
     cell: r1[0:12]
-    # bulk has no barcode segment; sra_barcode_segment: null means skip
+    # bulk has no barcode segment; null means skip barcode lookup
     sra_barcode_segment: null
     sra_cdna_segment: 0
