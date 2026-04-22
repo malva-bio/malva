@@ -14,6 +14,7 @@ the inner k-mer extraction loop in C.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import time
@@ -175,8 +176,9 @@ def process_sra_reads(
         f"{ns:,}", f"{total_pairs + tp:,}", chunk_num,
     )
 
+    n_cells = spatial_index.num_items() if spatial_index is not None else 0
     return _finalise(ak, ac, tp, chunk_num, chunk_paths, chunk_dir,
-                     output_dir, kmer_size, l_prefix)
+                     output_dir, kmer_size, l_prefix, n_cells=n_cells)
 
 
 # ---------------------------------------------------------------------------
@@ -364,8 +366,9 @@ def process_bam_reads(
             ns_bc_missing / ns * 100,
         )
 
+    n_cells = spatial_index.num_items() if spatial_index is not None else 0
     return _finalise(ak, ac, tp, chunk_num, chunk_paths, chunk_dir,
-                     output_dir, kmer_size, l_prefix)
+                     output_dir, kmer_size, l_prefix, n_cells=n_cells)
 
 
 # ---------------------------------------------------------------------------
@@ -381,8 +384,28 @@ def _grow(ak: np.ndarray, ac: np.ndarray, new_cap: int):
     return ak_new, ac_new
 
 
+def _patch_meta_ncells(output_dir: str, n_cells: int) -> None:
+    """Overwrite n_cells in the meta.json written by the Cython build functions.
+
+    The Cython functions (_build_index_radix, build_from_sorted_chunks) always
+    write a minimal meta.json with n_cells=0 (the value is hardcoded in the
+    Python wrapper build_index_radix_py).  This helper reads that file, sets
+    the correct n_cells, and writes it back — preserving all other fields
+    (magic, version, n_kmers, n_buckets_written, …).
+    """
+    meta_path = os.path.join(output_dir, 'meta.json')
+    try:
+        with open(meta_path, 'r') as f:
+            meta = json.load(f)
+        meta['n_cells'] = int(n_cells)
+        with open(meta_path, 'w') as f:
+            json.dump(meta, f, indent=2)
+    except (OSError, json.JSONDecodeError) as exc:
+        logging.warning("Could not patch n_cells in meta.json: %s", exc)
+
+
 def _finalise(ak, ac, tp, chunk_num, chunk_paths, chunk_dir,
-              output_dir, kmer_size, l_prefix):
+              output_dir, kmer_size, l_prefix, n_cells: int = 0):
     """Handle the remaining data after the read loop and return chunk paths."""
     from malva.indexes import (
         write_sorted_chunk_py, build_index_radix_py, _write_empty_index
@@ -403,6 +426,8 @@ def _finalise(ak, ac, tp, chunk_num, chunk_paths, chunk_dir,
     if chunk_num == 0:
         logging.info("Single chunk (%s pairs) — using radix build", f"{tp:,}")
         build_index_radix_py(ak, ac, tp, output_dir, kmer_size, l_prefix)
+        # build_index_radix_py always writes n_cells=0 — patch it immediately.
+        _patch_meta_ncells(output_dir, n_cells)
         return []
 
     if tp > 0:
