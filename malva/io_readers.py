@@ -84,7 +84,7 @@ def process_sra_reads(
     Returns a list of chunk file paths (empty when a single radix-build sufficed).
     """
     try:
-        from sra_reader import SRAReader, detect_layout
+        from sra_reader import SRAReader
     except ImportError:
         raise ImportError(
             "sra-reader is required for SRA input.\n"
@@ -100,27 +100,12 @@ def process_sra_reads(
     if jump_amount == 0:
         jump_amount = kmer_size
 
-    # ------------------------------------------------------------------
-    # Auto-detect read layout when segment indices are not explicit
-    # ------------------------------------------------------------------
     if barcode_segment is None or cdna_segment is None:
-        logging.info("Auto-detecting SRA read layout (sampling first 1 000 spots)…")
-        layout = detect_layout(sra_path)
-        logging.info("Detected layout:\n%s", layout.describe())
-        if barcode_segment is None:
-            if layout.barcode_segment is None:
-                raise ValueError(
-                    "Could not auto-detect the barcode segment from the SRA file. "
-                    "Specify it with --sra-barcode-segment."
-                )
-            barcode_segment = layout.barcode_segment
-        if cdna_segment is None:
-            if layout.cdna_segment is None:
-                raise ValueError(
-                    "Could not auto-detect the cDNA segment from the SRA file. "
-                    "Specify it with --sra-cdna-segment."
-                )
-            cdna_segment = layout.cdna_segment
+        raise ValueError(
+            "barcode_segment and cdna_segment must be specified for SRA input. "
+            "Pass --sra-barcode-segment and --sra-cdna-segment on the command line, "
+            "or use generate_manifest.py to detect them automatically."
+        )
 
     logging.info(
         "SRA mode: barcode=segment[%d][%d:%d], cDNA=segment[%d]",
