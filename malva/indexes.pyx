@@ -2050,7 +2050,7 @@ cdef extern from *:
             QW_BASE_ENC_storage[(unsigned char)'T'] = 2;
             QW_BASE_ENC_storage[(unsigned char)'U'] = 2;
             QW_BASE_ENC_storage[(unsigned char)'G'] = 3;
-            QW_BASE_ENC_storage[(unsigned char)'N'] = 3;
+            QW_BASE_ENC_storage[(unsigned char)'N'] = 4;  /* treat N as invalid, not G */
         }
     } _qw_init;
 
