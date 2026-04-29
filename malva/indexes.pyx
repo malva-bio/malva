@@ -1780,6 +1780,7 @@ def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
     if chunk_num == 0:
         logging.info(f"Single chunk with {tp:,} pairs - using radix build")
         _build_index_radix(ak, ac, tp, output_dir, kmer_size, l_prefix, 0)
+        free(ak); free(ac)
         return []
     else:
         if tp > 0:
@@ -1798,23 +1799,23 @@ cdef void _build_index_radix(uint64_t* ak, uint32_t* ac, uint64_t tp, str output
     cdef double t0=time.time(), t1, t2, t3, now
     logging.info(f"Radix partition {tp:,} entries -> {np2:,} prefixes...")
     cdef uint32_t* cnt=<uint32_t*>malloc(np2*4)
-    if cnt==NULL: free(ak);free(ac); raise MemoryError()
+    if cnt==NULL: raise MemoryError()
     memset(cnt,0,np2*4)
     for i in range(tp): cnt[ak[i]>>rshift]+=1
     t1=time.time(); logging.info(f"  Count: {t1-t0:.2f}s")
     cdef uint64_t* ofs=<uint64_t*>malloc(np2*8)
     cdef uint64_t* wp=<uint64_t*>malloc(np2*8)
-    if ofs==NULL or wp==NULL: free(cnt);free(ofs);free(wp);free(ak);free(ac); raise MemoryError()
+    if ofs==NULL or wp==NULL: free(cnt);free(ofs);free(wp); raise MemoryError()
     ofs[0]=0; wp[0]=0
     for i in range(1,np2): ofs[i]=ofs[i-1]+cnt[i-1]; wp[i]=ofs[i]
     cdef uint32_t* ps=<uint32_t*>malloc(tp*4)
     cdef uint32_t* pcc=<uint32_t*>malloc(tp*4)
-    if ps==NULL or pcc==NULL: free(cnt);free(ofs);free(wp);free(ps);free(pcc);free(ak);free(ac); raise MemoryError()
+    if ps==NULL or pcc==NULL: free(cnt);free(ofs);free(wp);free(ps);free(pcc); raise MemoryError()
     cdef uint64_t w
     for i in range(tp):
         pc=ak[i]>>rshift; w=wp[pc]; ps[w]=<uint32_t>(ak[i]&smask); pcc[w]=ac[i]; wp[pc]=w+1
     t2=time.time(); logging.info(f"  Scatter: {t2-t1:.2f}s")
-    free(ak); free(ac); free(wp)
+    free(wp)
     pp=os.path.join(output_dir,'pi.bin'); sp=os.path.join(output_dir,'suffixes.bin')
     dp=os.path.join(output_dir,'data.bin'); mp=os.path.join(output_dir,'meta.json')
     cdef np.ndarray[np.uint64_t,ndim=1] pis=np.zeros(np2,dtype=np.uint64)
