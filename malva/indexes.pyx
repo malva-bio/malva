@@ -1755,6 +1755,23 @@ def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
 
     logging.info(f"Read {ns:,} sequences total, {total_pairs+tp:,} pairs, {chunk_num} chunks written")
 
+    # Close FASTQ file handles now so that background feeder threads are joined
+    # and bgzip subprocesses are fully terminated before the memory-intensive
+    # index build begins.  Without this, a feeder thread may still be alive
+    # during _build_index_radix, and concurrent use of the C heap from the
+    # feeder thread and the radix build has been observed to cause a SIGSEGV
+    # during cleanup of the large temporary arrays.
+    if not is_bulk and ir1 is not None:
+        try:
+            ir1.file.close()
+        except Exception:
+            pass
+    if ir2 is not None:
+        try:
+            ir2.file.close()
+        except Exception:
+            pass
+
     if tp == 0 and chunk_num == 0:
         free(ak); free(ac)
         _write_empty_index(output_dir, kmer_size, l_prefix, kmer_size - l_prefix, 0)

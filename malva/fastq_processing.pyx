@@ -169,6 +169,11 @@ cdef class KmerFastqParser:
             raise ValueError("Starting buffer size too small")
 
     def __dealloc__(self):
+        if self.file is not None:
+            try:
+                self.file.close()
+            except Exception:
+                pass
         PyMem_Free(self.buffer)
 
     cdef _read_into_buffer(self):
@@ -375,6 +380,11 @@ cdef class SequenceFastqParser:
 
 
     def __dealloc__(self):
+        if self.file is not None:
+            try:
+                self.file.close()
+            except Exception:
+                pass
         PyMem_Free(self.buffer)
 
     cdef _read_into_buffer(self):
