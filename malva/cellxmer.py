@@ -66,7 +66,7 @@ def malva_to_cellxmer(
     _diff_counts_idx = diff_counts > -1
 
     n_kmer_filter = diff_counts[_diff_counts_idx].shape
-    interesting_kmers = indices[np.append(_diff_counts_idx, np.array([False]))]
+    interesting_kmers = indices[_diff_counts_idx]
 
     if verbose:
         logging.debug(f"There are {n_kmer_filter[0]:,} {kmer_index.kmer_size}-mers with "

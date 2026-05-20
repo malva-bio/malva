@@ -1,5 +1,5 @@
 barcode_flavors:
-  openst:                                                                                                                                                                                                                                                                                                                                                                                                     
+  openst:
     bam_tags: CB:{cell}
     cell: r1[2:27]
   seq_scope_v1:
@@ -29,3 +29,6 @@ barcode_flavors:
   bulk:
     bam_tags: CB:{cell}
     cell: r1[0:12]
+    # bulk has no barcode segment; null means skip barcode lookup
+    sra_barcode_segment: null
+    sra_cdna_segment: 0

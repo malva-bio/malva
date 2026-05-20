@@ -145,6 +145,22 @@ class MalvaIndex:
         np.save(os.path.join(self.index_dir, 'spatial_coord.npy'), coords)
         self._save_metadata()
 
+    def _index_state_meta(self) -> dict:
+        """Return the index-state fields that Cython build functions omit."""
+        meta = {
+            'n_cells': int(self.n_spatial),
+            'merge_projects': self.HAS_MERGED_PROJECTS,
+            'project_id_shift': self.PROJECT_ID_SHIFT,
+            'cell_id_mask': int(self.CELL_ID_MASK),
+        }
+        if self.coord_lims:
+            meta['coord_lims'] = [float(x) for x in self.coord_lims]
+        if self.project_mapping:
+            meta['project_mapping'] = {str(k): v for k, v in self.project_mapping.items()}
+        if self.global_sample_id_mapping:
+            meta['global_sample_id_mapping'] = self.global_sample_id_mapping
+        return meta
+
     def _save_metadata(self):
         """Save/update metadata to meta.json, preserving fields from the index build."""
         meta = {}
@@ -203,18 +219,93 @@ class MalvaIndex:
 
         self._chunk_paths = chunk_paths
         self._build_from_chunks()
-        
+
+        self._save_metadata()
+
+    def add_reads_sra(self, sra_path, kmer_size=None, l_prefix=None, jump_amount=None,
+                      trim_start=0, trim_end=28, chunksize=100_000_000,
+                      n_report=1_000_000, threads=1,
+                      barcode_segment=None, cdna_segment=None):
+        """
+        Add reads from an SRA archive and build the index.
+
+        When *barcode_segment* or *cdna_segment* are ``None``, layout
+        auto-detection is performed by sampling the first 1 000 spots.
+        """
+        from malva.io_readers import process_sra_reads
+
+        chunk_paths = process_sra_reads(
+            sra_path=sra_path,
+            output_dir=self.index_dir,
+            spatial_index=self.spatial_index,
+            kmer_size=kmer_size or self.kmer_size,
+            l_prefix=l_prefix or self.l_prefix,
+            jump_amount=jump_amount or self.jump_amount,
+            trim_start=trim_start,
+            trim_end=trim_end,
+            chunksize=chunksize,
+            n_report=n_report,
+            threads=threads,
+            barcode_segment=barcode_segment,
+            cdna_segment=cdna_segment,
+            extra_meta=self._index_state_meta(),
+        )
+
+        self._chunk_paths = chunk_paths
+        self._build_from_chunks()
+        self._save_metadata()
+
+    def add_reads_bam(self, bam_path, kmer_size=None, l_prefix=None, jump_amount=None,
+                      chunksize=100_000_000, n_report=1_000_000, threads=1,
+                      barcode_tag='CB', sequence_tag=None):
+        """
+        Add reads from a BAM file and build the index.
+
+        Args:
+            barcode_tag: BAM tag for the cell barcode (default ``'CB'``).
+            sequence_tag: BAM tag for the cDNA sequence; uses the SEQ
+                          field when ``None`` (default).
+        """
+        from malva.io_readers import process_bam_reads
+
+        chunk_paths = process_bam_reads(
+            bam_path=bam_path,
+            output_dir=self.index_dir,
+            spatial_index=self.spatial_index,
+            kmer_size=kmer_size or self.kmer_size,
+            l_prefix=l_prefix or self.l_prefix,
+            jump_amount=jump_amount or self.jump_amount,
+            chunksize=chunksize,
+            n_report=n_report,
+            threads=threads,
+            barcode_tag=barcode_tag,
+            sequence_tag=sequence_tag,
+            extra_meta=self._index_state_meta(),
+        )
+
+        self._chunk_paths = chunk_paths
+        self._build_from_chunks()
         self._save_metadata()
 
     def _build_from_chunks(self):
-        """Build the index from sorted chunk files."""
+        """Build the index from sorted chunk files.
+
+        The Cython build functions (_build_index_radix, build_from_sorted_chunks)
+        always write a minimal meta.json (9 fields, n_cells=0).  We patch it
+        immediately afterward with the correct n_cells and all extra fields.
+        """
         from malva.indexes import build_from_sorted_chunks
 
         if len(self._chunk_paths) == 0:
+            # Single-chunk radix build was done inside process_*_reads; the
+            # Cython function wrote a minimal meta.json.  Patch it with the
+            # full index state in case extra_meta wasn't propagated.
             logging.debug("Index built directly (no chunk merge needed)")
             chunk_dir = os.path.join(self.index_dir, '_chunks')
             if os.path.exists(chunk_dir):
                 shutil.rmtree(chunk_dir)
+            from malva.io_readers import _patch_meta
+            _patch_meta(self.index_dir, self.n_spatial, self._index_state_meta())
             return
 
         logging.info(f"Merging {len(self._chunk_paths)} chunks with n_cells={self.n_spatial}")
@@ -226,6 +317,11 @@ class MalvaIndex:
             n_cells=self.n_spatial,
             verbose=self.verbose,
         )
+
+        # build_from_sorted_chunks writes a minimal meta.json — patch it with
+        # the full index state immediately so it is never left incomplete.
+        from malva.io_readers import _patch_meta
+        _patch_meta(self.index_dir, self.n_spatial, self._index_state_meta())
 
         meta_check_path = os.path.join(self.index_dir, 'meta.json')
         if os.path.exists(meta_check_path):

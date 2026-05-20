@@ -169,6 +169,11 @@ cdef class KmerFastqParser:
             raise ValueError("Starting buffer size too small")
 
     def __dealloc__(self):
+        if self.file is not None:
+            try:
+                self.file.close()
+            except Exception:
+                pass
         PyMem_Free(self.buffer)
 
     cdef _read_into_buffer(self):
@@ -375,6 +380,11 @@ cdef class SequenceFastqParser:
 
 
     def __dealloc__(self):
+        if self.file is not None:
+            try:
+                self.file.close()
+            except Exception:
+                pass
         PyMem_Free(self.buffer)
 
     cdef _read_into_buffer(self):
@@ -495,3 +505,164 @@ cdef class SequenceFastqParser:
 
     def __next__(self):
         return self.next()
+
+
+def process_sra_batch(
+    tuple segs_batch,
+    int barcode_segment,
+    int cdna_segment,
+    object spatial_index,
+    np.ndarray[np.uint64_t, ndim=1] ak,
+    np.ndarray[np.uint32_t, ndim=1] ac,
+    Py_ssize_t tp,
+    int trim_start,
+    int trim_end,
+    int kmer_size,
+    int jump_amount,
+    Py_ssize_t cap,
+):
+    """
+    Batch-process SRA spots from iter_raw_batched() output.
+
+    segs_batch: tuple of list[bytes], one list per segment (from SRAReader.iter_raw_batched)
+    barcode_segment: index of the segment containing the barcode
+    cdna_segment: index of the segment containing the cDNA
+    spatial_index: SpatialIndex object with lookup(uint64) -> uint32
+    ak / ac: output arrays of k-mers and cell IDs (pre-allocated, length >= cap)
+    tp: current write offset into ak/ac
+    trim_start / trim_end: slice applied to the barcode segment bytes
+    kmer_size / jump_amount: k-mer extraction parameters
+    cap: capacity of ak/ac buffers
+
+    Returns: new tp value, or -1 if buffer was full (caller should resize and retry).
+    """
+    cdef:
+        list bc_list = segs_batch[barcode_segment]
+        list cdna_list = segs_batch[cdna_segment]
+        int n = len(bc_list)
+        int i, j, num_kmers
+        bytes bc_bytes, cdna_bytes
+        const unsigned char* bc_ptr
+        const unsigned char* cdna_ptr
+        Py_ssize_t cdna_len, bc_raw_len
+        uint64_t r1bc, kmer
+        uint32_t cid
+        int bc_len = trim_end - trim_start
+        uint64_t* ak_ptr = <uint64_t*>ak.data
+        uint32_t* ac_ptr = <uint32_t*>ac.data
+
+    for i in range(n):
+        bc_bytes = bc_list[i]
+        bc_raw_len = len(bc_bytes)
+        if bc_raw_len < trim_end:
+            continue
+        bc_ptr = <const unsigned char*>PyBytes_AS_STRING(bc_bytes)
+        r1bc = encode_kmer(bc_ptr + trim_start, bc_len)
+        if r1bc == 0:
+            continue
+        cid = <uint32_t>spatial_index.lookup(r1bc)
+        if cid == 0:
+            continue
+
+        cdna_bytes = cdna_list[i]
+        cdna_ptr = <const unsigned char*>PyBytes_AS_STRING(cdna_bytes)
+        cdna_len = len(cdna_bytes)
+
+        if cdna_len < kmer_size:
+            continue
+
+        num_kmers = (cdna_len - kmer_size) // jump_amount + 1
+        for j in range(num_kmers):
+            if j * jump_amount + kmer_size > cdna_len:
+                break
+            if tp >= cap:
+                return <Py_ssize_t>(-1)
+            kmer = encode_kmer(cdna_ptr + j * jump_amount, kmer_size)
+            ak_ptr[tp] = kmer
+            ac_ptr[tp] = cid
+            tp += 1
+
+    return tp
+
+
+def process_bam_batch(
+    list barcode_strs,
+    list cdna_strs,
+    object spatial_index,
+    np.ndarray[np.uint64_t, ndim=1] ak,
+    np.ndarray[np.uint32_t, ndim=1] ac,
+    Py_ssize_t tp,
+    int kmer_size,
+    int jump_amount,
+    Py_ssize_t cap,
+):
+    """
+    Batch-process BAM records.
+
+    barcode_strs: list of str (or None) — barcode tag values
+    cdna_strs: list of str (or None) — sequence values (query_sequence or tag)
+    spatial_index: SpatialIndex object with lookup(uint64) -> uint32
+    ak / ac: output arrays (pre-allocated, length >= cap)
+    tp: current write offset
+    kmer_size / jump_amount: k-mer extraction parameters
+    cap: buffer capacity
+
+    Returns: new tp value, or -1 if buffer was full.
+    """
+    cdef:
+        int n = len(barcode_strs)
+        int i, j, num_kmers
+        object bc_obj, cdna_obj
+        bytes bc_bytes, cdna_bytes
+        const unsigned char* bc_ptr
+        const unsigned char* cdna_ptr
+        Py_ssize_t bc_len, cdna_len
+        uint64_t r1bc, kmer
+        uint32_t cid
+        uint64_t* ak_ptr = <uint64_t*>ak.data
+        uint32_t* ac_ptr = <uint32_t*>ac.data
+
+    for i in range(n):
+        bc_obj = barcode_strs[i]
+        if bc_obj is None:
+            continue
+        if isinstance(bc_obj, str):
+            bc_bytes = (<str>bc_obj).encode('ascii')
+        else:
+            bc_bytes = bc_obj
+        bc_ptr = <const unsigned char*>PyBytes_AS_STRING(bc_bytes)
+        bc_len = len(bc_bytes)
+        if bc_len == 0:
+            continue
+        r1bc = encode_kmer(bc_ptr, bc_len)
+        if r1bc == 0:
+            continue
+        cid = <uint32_t>spatial_index.lookup(r1bc)
+        if cid == 0:
+            continue
+
+        cdna_obj = cdna_strs[i]
+        if cdna_obj is None:
+            continue
+        if isinstance(cdna_obj, str):
+            cdna_bytes = (<str>cdna_obj).encode('ascii')
+        else:
+            cdna_bytes = cdna_obj
+        cdna_ptr = <const unsigned char*>PyBytes_AS_STRING(cdna_bytes)
+        cdna_len = len(cdna_bytes)
+
+        if cdna_len < kmer_size:
+            continue
+
+        num_kmers = (cdna_len - kmer_size) // jump_amount + 1
+        for j in range(num_kmers):
+            if j * jump_amount + kmer_size > cdna_len:
+                break
+            if tp >= cap:
+                return <Py_ssize_t>(-1)
+            kmer = encode_kmer(cdna_ptr + j * jump_amount, kmer_size)
+            ak_ptr[tp] = kmer
+            ac_ptr[tp] = cid
+            tp += 1
+
+    return tp

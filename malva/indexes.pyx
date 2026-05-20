@@ -575,7 +575,7 @@ cdef extern from *:
     } OAHash32;
 
     static inline void oahash_init(OAHash32* h, uint32_t expected) {
-        /* Round up to next power of 2, then 2× for load factor ≤ 0.5 */
+        /* Round up to next power of 2, then 2x for load factor <= 0.5 */
         uint32_t sz = 1;
         while (sz < expected * 2 + 16) sz <<= 1;
         h->keys = (uint32_t*)malloc((size_t)sz * 4);
@@ -645,7 +645,7 @@ cdef uint32_t VERSION = 2
 # Threshold for sparse-hit path in phase2.
 # Buckets with <= this many hits use scan_to_byte_offset per hit.
 # Buckets with more hits use build_bo_fast (amortises the full scan).
-# Value of 4 means: 1-4 hits → sparse path, 5+ hits → dense path.
+# Value of 4 means: 1-4 hits -> sparse path, 5+ hits -> dense path.
 # Given ~99% of buckets are single-hit, almost all buckets use sparse path.
 DEF SPARSE_HIT_THRESHOLD = 4
 
@@ -1051,7 +1051,6 @@ cdef class PrefixIndex:
             for bki in range(n_bkts):
                 release_range(<const void*>(self.suffix_mmap + bkt_so[bki]),
                               <size_t>bkt_suf_sz[bki])
-        free(bkt_suf_sz)
         free(bkt_peek)
         acc_suf += time.perf_counter() - t0
 
@@ -1076,6 +1075,7 @@ cdef class PrefixIndex:
             free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
             free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
             free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+            free(bkt_suf_sz)
             raise MemoryError()
 
         qi = 0
@@ -1109,6 +1109,7 @@ cdef class PrefixIndex:
                         free(bkt_max_hit_pos); free(bkt_hit_count); free(bkt_len_sec)
                         free(bkt_so); free(bkt_dbo); free(bkt_dbs); free(bkt_ne)
                         free(hit_km); free(hit_bidx); free(hit_spos); free(hit_dl)
+                        free(bkt_suf_sz)
                         raise MemoryError()
                 prov_km[n_prov]   = km
                 prov_bidx[n_prov] = bidx
@@ -1123,11 +1124,12 @@ cdef class PrefixIndex:
                 if bkt_max_hit_pos[bki] != <uint32_t>0xFFFFFFFF:
                     decode_lengths_upto(
                         <const uint8_t*>(self.suffix_mmap + bkt_so[bki]),
-                        65536,
+                        <int>bkt_suf_sz[bki],
                         bkt_len_sec[bki],
                         lb_pool + bkt_pool_off[bki],
                         bkt_max_hit_pos[bki])
         free(bkt_len_sec)
+        free(bkt_suf_sz)
 
         for i in range(n_prov):
             bidx = prov_bidx[i]
@@ -1372,7 +1374,7 @@ cdef class PrefixIndex:
           kmer_keys[N_found]       - sorted kmer values (uint64)
           cell_data[total_cells]   - flat packed remapped cell IDs (uint32)
           cell_indptr[N_found+1]   - CSR offsets (uint64)
-          orig_cell_ids[N_unique]  - compact_id → original cell ID mapping
+          orig_cell_ids[N_unique]  - compact_id -> original cell ID mapping
           N_unique                 - number of unique cells
 
         Uses _csr_mode flag to bypass unordered_map construction inside query_batch.
@@ -1753,6 +1755,23 @@ def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
 
     logging.info(f"Read {ns:,} sequences total, {total_pairs+tp:,} pairs, {chunk_num} chunks written")
 
+    # Close FASTQ file handles now so that background feeder threads are joined
+    # and bgzip subprocesses are fully terminated before the memory-intensive
+    # index build begins.  Without this, a feeder thread may still be alive
+    # during _build_index_radix, and concurrent use of the C heap from the
+    # feeder thread and the radix build has been observed to cause a SIGSEGV
+    # during cleanup of the large temporary arrays.
+    if not is_bulk and ir1 is not None:
+        try:
+            ir1.file.close()
+        except Exception:
+            pass
+    if ir2 is not None:
+        try:
+            ir2.file.close()
+        except Exception:
+            pass
+
     if tp == 0 and chunk_num == 0:
         free(ak); free(ac)
         _write_empty_index(output_dir, kmer_size, l_prefix, kmer_size - l_prefix, 0)
@@ -1761,6 +1780,7 @@ def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
     if chunk_num == 0:
         logging.info(f"Single chunk with {tp:,} pairs - using radix build")
         _build_index_radix(ak, ac, tp, output_dir, kmer_size, l_prefix, 0)
+        free(ak); free(ac)
         return []
     else:
         if tp > 0:
@@ -1779,23 +1799,23 @@ cdef void _build_index_radix(uint64_t* ak, uint32_t* ac, uint64_t tp, str output
     cdef double t0=time.time(), t1, t2, t3, now
     logging.info(f"Radix partition {tp:,} entries -> {np2:,} prefixes...")
     cdef uint32_t* cnt=<uint32_t*>malloc(np2*4)
-    if cnt==NULL: free(ak);free(ac); raise MemoryError()
+    if cnt==NULL: raise MemoryError()
     memset(cnt,0,np2*4)
     for i in range(tp): cnt[ak[i]>>rshift]+=1
     t1=time.time(); logging.info(f"  Count: {t1-t0:.2f}s")
     cdef uint64_t* ofs=<uint64_t*>malloc(np2*8)
     cdef uint64_t* wp=<uint64_t*>malloc(np2*8)
-    if ofs==NULL or wp==NULL: free(cnt);free(ofs);free(wp);free(ak);free(ac); raise MemoryError()
+    if ofs==NULL or wp==NULL: free(cnt);free(ofs);free(wp); raise MemoryError()
     ofs[0]=0; wp[0]=0
     for i in range(1,np2): ofs[i]=ofs[i-1]+cnt[i-1]; wp[i]=ofs[i]
     cdef uint32_t* ps=<uint32_t*>malloc(tp*4)
     cdef uint32_t* pcc=<uint32_t*>malloc(tp*4)
-    if ps==NULL or pcc==NULL: free(cnt);free(ofs);free(wp);free(ps);free(pcc);free(ak);free(ac); raise MemoryError()
+    if ps==NULL or pcc==NULL: free(cnt);free(ofs);free(wp);free(ps);free(pcc); raise MemoryError()
     cdef uint64_t w
     for i in range(tp):
         pc=ak[i]>>rshift; w=wp[pc]; ps[w]=<uint32_t>(ak[i]&smask); pcc[w]=ac[i]; wp[pc]=w+1
     t2=time.time(); logging.info(f"  Scatter: {t2-t1:.2f}s")
-    free(ak); free(ac); free(wp)
+    free(wp)
     pp=os.path.join(output_dir,'pi.bin'); sp=os.path.join(output_dir,'suffixes.bin')
     dp=os.path.join(output_dir,'data.bin'); mp=os.path.join(output_dir,'meta.json')
     cdef np.ndarray[np.uint64_t,ndim=1] pis=np.zeros(np2,dtype=np.uint64)
@@ -1922,6 +1942,26 @@ def _write_empty_index(str od, int ks, int lp, int ls, uint64_t nc):
     with open(os.path.join(od,'meta.json'),'w') as f: json.dump({'magic':0x4D4C5650,'version':2,'kmer_size':ks,'l_prefix':lp,'l_suffix':ls,'n_kmers':0,'n_cells':int(nc),'n_prefixes':int(np2),'n_buckets_written':0},f,indent=2)
 
 
+def write_sorted_chunk_py(np.ndarray[np.uint64_t, ndim=1] ak_arr,
+                          np.ndarray[np.uint32_t, ndim=1] ac_arr,
+                          Py_ssize_t tp, str chunk_path):
+    """Python-accessible wrapper: sort and write a (kmer, cell_id) chunk file."""
+    cdef uint64_t n = <uint64_t>tp
+    cdef uint64_t* ak = <uint64_t*>ak_arr.data
+    cdef uint32_t* ac = <uint32_t*>ac_arr.data
+    _write_sorted_chunk(ak, ac, n, chunk_path)
+
+
+def build_index_radix_py(np.ndarray[np.uint64_t, ndim=1] ak_arr,
+                         np.ndarray[np.uint32_t, ndim=1] ac_arr,
+                         Py_ssize_t tp, str output_dir, int kmer_size, int l_prefix):
+    """Python-accessible wrapper: build the prefix-bucketed index from arrays via radix sort."""
+    cdef uint64_t n = <uint64_t>tp
+    cdef uint64_t* ak = <uint64_t*>ak_arr.data
+    cdef uint32_t* ac = <uint32_t*>ac_arr.data
+    _build_index_radix(ak, ac, n, output_dir, kmer_size, l_prefix, 0)
+
+
 def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=False, dict project_mapping=None,
     int project_id_shift=23, uint32_t cell_id_mask=0x007FFFFF, bint verbose=False):
     logger=logging.getLogger("PrefixIndex.merge")
@@ -1933,11 +1973,12 @@ def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=Fa
     cdef uint32_t* ddb_dec=<uint32_t*>malloc(merge_data_cap*4)
     cdef int raw_bytes2
     cdef uint32_t total_cells2
+    cdef PrefixIndex _fi
     if not sb or not dob or not dlb or not ddb_dec: free(sb);free(dob);free(dlb);free(ddb_dec); raise MemoryError()
     indices=[]
     for d in index_dirs: p=PrefixIndex(); p.open(d); indices.append(p)
     if len(indices)==0: free(sb);free(dob);free(dlb);free(ddb_dec); raise ValueError("No indices")
-    ks=indices[0].kmer_size; lp=indices[0].l_prefix; ls=indices[0].l_suffix; np2=indices[0].n_prefixes
+    _fi=<PrefixIndex>indices[0]; ks=_fi.kmer_size; lp=_fi.l_prefix; ls=_fi.l_suffix; np2=_fi.n_prefixes
     if not os.path.exists(output_dir): os.makedirs(output_dir)
     pp=os.path.join(output_dir,'pi.bin'); sp=os.path.join(output_dir,'suffixes.bin')
     dp2=os.path.join(output_dir,'data.bin'); mp=os.path.join(output_dir,'meta.json')
@@ -2001,7 +2042,12 @@ def merge_prefix_indices(list index_dirs, str output_dir, bint merge_projects=Fa
     finally: free(sb);free(dob);free(dlb);free(ddb_dec)
     fclose(sfh); fclose(dfh)
     with open(pp,'wb') as f: f.write(oso.tobytes()); f.write(odo.tobytes()); f.write(ods.tobytes())
-    tnc=sum(p.n_cells for p in indices)
+    # merge_projects=True: different samples, each with their own whitelist → sum cells.
+    # merge_projects=False: same sample, multiple lanes sharing one whitelist → max cells.
+    if merge_projects:
+        tnc=sum((<PrefixIndex>p).n_cells for p in indices)
+    else:
+        tnc=max((<PrefixIndex>p).n_cells for p in indices)
     meta={'magic':int(MAGIC),'version':int(VERSION),'kmer_size':ks,'l_prefix':lp,'l_suffix':ls,'n_kmers':int(tk2),'n_cells':int(tnc),'n_prefixes':int(np2),'merge_projects':merge_projects,'project_id_shift':project_id_shift,'cell_id_mask':int(cell_id_mask)}
     if project_mapping: meta['project_mapping']={str(kk):v for kk,v in project_mapping.items()}
     with open(mp,'w') as f: json.dump(meta,f,indent=2)
@@ -2027,7 +2073,7 @@ cdef extern from *:
             QW_BASE_ENC_storage[(unsigned char)'T'] = 2;
             QW_BASE_ENC_storage[(unsigned char)'U'] = 2;
             QW_BASE_ENC_storage[(unsigned char)'G'] = 3;
-            QW_BASE_ENC_storage[(unsigned char)'N'] = 3;
+            QW_BASE_ENC_storage[(unsigned char)'N'] = 4;  /* treat N as invalid, not G */
         }
     } _qw_init;
 
@@ -2134,7 +2180,7 @@ def quantify_where(
         logging.info(f"  Parsed {len(all_kmer_list):,} unique kmers from {num_groups} groups in {t_phase-t_start:.2f}s")
 
     if len(all_kmer_list) == 0:
-        return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * num_groups
+        return [(np.array([], dtype=np.uint32), np.array([], dtype=np.uint32), [])] * num_groups
 
     t_phase = time.time()
 
@@ -2170,7 +2216,7 @@ def quantify_where(
         logging.info(f"  Remapped {n_unique_cells:,} unique cells (max_cell_id={max_cell_id:,})")
 
     if csr_n_keys == 0:
-        return [(np.array([0], dtype=np.uint32), np.array([0], dtype=np.uint32), [[0, 1]])] * num_groups
+        return [(np.array([], dtype=np.uint32), np.array([], dtype=np.uint32), [])] * num_groups
 
     t_phase = time.time()
 
@@ -2335,7 +2381,7 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
         uint64_t data_block_len
         # Typed references to keep numpy arrays alive while raw pointers are in use.
         # Without these, Cython may release the Python objects early, allowing GC
-        # to free the backing buffer → dangling pointer → SIGSEGV under memory pressure.
+        # to free the backing buffer -> dangling pointer -> SIGSEGV under memory pressure.
         np.ndarray indices_arr, indptr_arr, ends_arr, data_block
         int64_t reduced_n
         uint64_t max_pairs_per_chunk
@@ -2368,8 +2414,8 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
     # Adaptive chunk size: if cells-per-kmer is high, reduce chunk_size to
     # cap peak memory.  bucket_pairs holds (suffix, cell) pairs - 8 bytes each.
     # data_block holds cell IDs - 4 bytes each.  Peak memory per chunk iteration
-    # is roughly: data_block + bucket_pairs ≈ 2 × data_block_size.
-    # Cap at ~2GB combined → max ~250M cell references per chunk.
+    # is roughly: data_block + bucket_pairs ~= 2 * data_block_size.
+    # Cap at ~2GB combined -> max ~250M cell references per chunk.
     max_pairs_per_chunk = 250000000  # 250M pairs = ~2GB
 
     # Hard cap on bucket_pairs size.  When a single prefix accumulates more
