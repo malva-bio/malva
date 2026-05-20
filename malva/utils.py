@@ -444,30 +444,32 @@ def download_url_to_file(url, dst, progress=True):
         content_length = meta.get_all("Content-Length")
     if content_length is not None and len(content_length) > 0:
         file_size = int(content_length[0])
-    # We deliberately save it in a temp file and move it after
+
+    # Download to a sibling tempfile, then atomically rename onto `dst` so a
+    # crashed download never leaves a half-written file at the destination path.
     dst = os.path.expanduser(dst)
     dst_dir = os.path.dirname(dst)
-    f = tempfile.NamedTemporaryFile(delete=False, dir=dst_dir)
+    tmp_fd, tmp_path = tempfile.mkstemp(prefix=".download-", dir=dst_dir)
     try:
-        with open(dst, 'wb') as f:
+        with os.fdopen(tmp_fd, "wb") as f:
             chunk_size = 8192
             chunks = iter(lambda: u.read(chunk_size), b'')
-            
+
             for chunk in track(
                 chunks,
                 total=file_size // chunk_size + (1 if file_size % chunk_size else 0),
                 description="Downloading"
             ):
                 f.write(chunk)
-        
-        shutil.move(f.name, dst)
-    finally:
-        f.close()
-        if os.path.exists(f.name):
-            os.remove(f.name)
+
+        os.replace(tmp_path, dst)
+    except BaseException:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+        raise
 
 
-EXISTING_REFERENCES = {"human_utr": "human_utr.fa.gz", 
+EXISTING_REFERENCES = {"human_utr": "human_utr.fa.gz",
                        "human_markers": "human_markers.fa.gz",
                        "human_markers_json": "markers_human.json",
                        "human_markers_hallmarks": "human_markers_hallmarks.fa.gz",
