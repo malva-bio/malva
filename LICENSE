@@ -1,32 +1,86 @@
-Copyright (c) 2026 Daniel León-Periñán, Nikolaos Karaiskos and Nikolaus Rajewsky
-Max Delbrück Center for Molecular Medicine (MDC), Berlin, Germany
+Copyright (c) 2026 Daniel León-Periñán, Nikolaos  Karaiskos  and
+Nikolaus  Rajewsky  Max  Delbrück Center for Molecular  Medicine
+(MDC), Berlin, Germany
 
-MDC (Licensor) grants to Licensee free of charge a non-exclusive, non-transferable, non-sublicensable right and license to use computer software called MALVA (the "Software") solely for internal academic purposes (the "Licensed Use") under the following terms and conditions.
+MDC (Licensor) grants to Licensee free of charge a non‐exclusive,
+non‐transferable, non‐sublicensable right and license to use com‐
+puter software called MALVA (the "Software") solely for  internal
+academic  purposes (the "Licensed Use") under the following terms
+and conditions.
 
-For the purposes of this Agreement, Licensed Use means non-commercial research, teaching, scientific evaluation and validation conducted within a university or other non-profit research institution. Licensed Use exclude, without limitation, commercial research, contract research for third parties, provision of services to third parties, use in a commercial product or service, or any use intended to obtain commercial advantage or monetary compensation.
+For the purposes of this Agreement, Licensed Use  means  non‐com‐
+mercial  research, teaching, scientific evaluation and validation
+conducted within a university or other non‐profit research insti‐
+tution. Licensed Use exclude, without limitation, commercial  re‐
+search,  clinical  use,  diagnostics  use,  contract research for
+third parties, provision of services to third parties, use  in  a
+commercial product or service, or any use intended to obtain com‐
+mercial advantage or monetary compensation.
 
-1.	Grant of license 
-Licensee may 
-   a.	install, copy, modify, and/or create derivatives of the Software, in source code and/or object code form, solely for the Licensed Use on computers or systems owned, leased or otherwise controlled by Licensee. Any modifications or derivatives shall remain subject to the terms of this Agreement;
-   b.	make such copies of the Software as are reasonably necessary for backup, archival and internal research purposes;
-   c.	publish scientific results obtained through use of the Software, provided that no confidential information or substantial portions of the Software source code are disclosed. Publications resulting from the use of the Software shall appropriately cite the corresponding scientific publication describing the Software in accordance to good scientific practice;
-   d.	include the above copyright notice and this permission notice in all copies or substantial portions of the Software.
+1. Grant of license:
+   Licensee may
+   a.   install,  copy,  modify, and/or create derivatives of the
+Software, in source code and/or object code form, solely for  the
+Licensed  Use  on computers or systems owned, leased or otherwise
+controlled by Licensee. Any modifications  or  derivatives  shall
+remain subject to the terms of this Agreement;
+   b.   make such copies of the Software as are reasonably neces‐
+sary for backup, archival and internal research purposes;
+   c.   publish  scientific  results  obtained through use of the
+Software, provided that no confidential information  or  substan‐
+tial portions of the Software source code are disclosed. Publica‐
+tions  resulting from the use of the Software shall appropriately
+cite the  corresponding  scientific  publication  describing  the
+Software in accordance to good scientific practice;
+   d.   include  the  above  copyright notice and this permission
+notice in all copies or substantial portions of the Software.
 
-2.	Restrictions:
-Licensee shall not
-   a.	Use, reproduce, distribute, modify or exploit the Software or any derivatives thereof except as expressly permitted under this Agreement. commercial use including but not limited to use in a commercial product or service, use by a for-profit entity or use to generate revenue is expressly prohibited without a separate written license (for commercial licensing inquiries, contact: Daniel León-Periñán daniel.leonperinan@mdc-berlin.de).
-   b.	reverse engineer, decompile or disassemble the Software in object code format, source code format or merge any part of the Software except to the extent expressly permitted by applicable mandatory law;
-   c.	rent, lease, sell, sub-license, assign, transfer or otherwise grant any rights in the Software to any third party;
-   d.	remove, alter obscure any copyright notices, labels or other trademarks from the Software or other materials received from MDC; or
-   e.	make the Software, in whole or in part, available to any third party without MDC's prior written consent.
-   Any breach of this Agreement shall automatically terminate the rights granted under this License.
+2. Restrictions: 
+   Licensee shall not
+   a.   Use, reproduce, distribute, modify or exploit  the  Soft‐
+ware or any derivatives thereof except as expressly permitted un‐
+der  this  Agreement. commercial use including but not limited to
+use in a commercial product or service, use by a  for‐profit  en‐
+tity or use to generate revenue is expressly prohibited without a
+separate  written  license  (for  commercial licensing inquiries,
+contact:    Daniel    LeÃ³n‐PeriÃ±Ã¡n     daniel.leonperinan@mdc‐
+berlin.de).
+   b.   reverse  engineer,  decompile or disassemble the Software
+in object code format, source code format or merge  any  part  of
+the Software except to the extent expressly permitted by applica‐
+ble mandatory law;
+   c.   rent,  lease, sell, sub‐license, assign, transfer or oth‐
+erwise grant any rights in the Software to any third party;
+   d.   remove, alter obscure any copyright  notices,  labels  or
+other  trademarks  from  the Software or other materials received
+from MDC; or
+   e.   make the Software, in whole or in part, available to  any
+third party without MDC’s prior written consent.
+   Any breach of this Agreement shall automatically terminate the
+rights granted under this License.
 
-3.	Intellectual Property Rights
-   a.	Title to and ownership to the Software including all copyrights, patent rights, trade secrets and other IP rights shall remain exclusively with MDC.
-   b.	Except for the rights expressly granted under this Agreement, no rights or licenses are granted, whether express or implied.
+3. Intellectual Property Rights
+   a.   Title  to  and  ownership  to  the Software including all
+copyrights, patent rights, trade  secrets  and  other  IP  rights
+shall remain exclusively with MDC.
+   b.   Except for the rights expressly granted under this Agree‐
+ment,  no  rights or licenses are granted, whether express or im‐
+plied.
 
-4.	Responsibility 
-   a.	Licensee shall be solely responsible for the management and control of its use of the Software including but not limited to determining the suitability of the Software for its intended research purposes and ensuring that the Software is used only by appropriately qualified personnel.
-   b.	Licensee shall be solely responsible for the accuracy, completeness and compliance of all data processed using the Software, the input of such data and the application of all information provided by the Software.
+4. Responsibility
+   a.   Licensee shall be solely responsible for  the  management
+and  control of its use of the Software including but not limited
+to determining the suitability of the Software for  its  intended
+research  purposes and ensuring that the Software is used only by
+appropriately qualified personnel.
+   b.   Licensee shall be solely responsible  for  the  accuracy,
+completeness and compliance of all data processed using the Soft‐
+ware,  the input of such data and the application of all informa‐
+tion provided by the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL MDC BE LIABLE FOR ANY CLAIM, DAMAGES ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF  ANY  KIND,
+EXPRESS  OR  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE  AND  NONIN‐
+FRINGEMENT.  IN  NO EVENT SHALL MDC BE LIABLE FOR ANY CLAIM, DAM‐
+AGES ARISING FROM, OUT OF OR IN CONNECTION WITH THE  SOFTWARE  OR
+ITS USE.
