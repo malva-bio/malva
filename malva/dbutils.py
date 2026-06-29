@@ -217,7 +217,7 @@ def process_dna_string(sequence):
         sequence (str): The input DNA sequence or FASTA-like format sequence.
 
     Returns:
-        str: A single line DNA sequence with only ATCG characters, other nucleotides replaced by A, and U replaced by T.
+        str: A single line DNA sequence with ATCGN characters, U replaced by T, and invalid characters removed.
     """
     sequence = sequence.strip()
 
@@ -226,7 +226,7 @@ def process_dna_string(sequence):
         return {"sequence": parse_multifasta(sequence)}
 
     sequence = re.sub(r"\s+", "", sequence)
-    valid_dna_chars = set("ATCG")
+    valid_dna_chars = set("ATCGN")
     result = []
 
     for char in sequence.upper():
@@ -234,8 +234,7 @@ def process_dna_string(sequence):
             result.append("T")
         elif char in valid_dna_chars:
             result.append(char)
-        else:
-            result.append("A")
+        # else: skip invalid characters entirely
 
     return {"sequence": "".join(result)}
 
@@ -246,7 +245,7 @@ def parse_multifasta(fasta_string):
     Args:
         fasta_string (str): FASTA-formatted sequence.
     Returns:
-        list: A list of single line DNA sequences with only ATCG characters, other nucleotides replaced by A, and U replaced by T.
+        list: A list of single line DNA sequences with ATCGN characters, U replaced by T, and invalid characters removed.
     """
     sequences = []
 
@@ -254,15 +253,14 @@ def parse_multifasta(fasta_string):
         lines = fasta_entry.split("\n")
         dna_sequence = "".join(line.strip() for line in lines[1:])
         dna_sequence = re.sub(r"\s+", "", dna_sequence)
-        valid_dna_chars = set("ATCG")
+        valid_dna_chars = set("ATCGN")
         result = []
         for char in dna_sequence.upper():
             if char == "U":
                 result.append("T")
             elif char in valid_dna_chars:
                 result.append(char)
-            else:
-                result.append("A")
+            # else: skip invalid characters entirely
         sequences.append("".join(result))
 
     return sequences
