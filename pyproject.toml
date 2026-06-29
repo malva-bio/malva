@@ -4,7 +4,7 @@ build-backend = "poetry.masonry.api"
 
 [tool.poetry]
 name = "malva"
-version = "1.0.0"
+version = "1.0.1"
 description = "malva: fast indexing and querying of genomic sequences from single-cell omics data"
 license = "LicenseRef-Malva-Academic-NonCommercial"
 authors = [
