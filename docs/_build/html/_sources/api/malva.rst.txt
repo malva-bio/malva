@@ -16,20 +16,22 @@ Submodules
    :maxdepth: 4
 
    malva.autoannotate
+   malva.barcodes
    malva.cellxmer
    malva.cli
    malva.combine
    malva.complexity
-   malva.compressed_index
    malva.contrib
-   malva.datastore
+   malva.convert
    malva.dbutils
    malva.fast_map
    malva.fastq_processing
    malva.filter_minimizers
    malva.index
    malva.indexes
+   malva.io_readers
    malva.kmer_processing
+   malva.malva_index
    malva.quant
    malva.reader
    malva.search

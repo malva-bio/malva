@@ -1,13 +1,13 @@
-About Malva Tools
+About Malva
 =================
 
-Malva Tools are utilities for building and querying sequence indices from single-cell and spatial transcriptomics data. They enable reference-free analysis at nucleotide resolution on your own private datasets.
+Malva is a tool to build sequence indices from single-cell omics data, enabling sequence search at single-cell resolution.
 
-While the public `Malva Index <https://malva.bio>`_ provides access to a large corpus of pre-indexed data, Malva Tools let you apply the same technology to your own experiments without uploading data to external servers.
+While the public `Malva Index <https://malva.bio>`_ provides access to a large corpus of pre-indexed data, Malva lets you apply the same technology to your own experiments without uploading data to external servers.
 
 ----
 
-What Malva Tools Can Do
+What Malva Can Do
 -----------------------
 
 .. grid:: 2
@@ -137,22 +137,31 @@ Availability
 
 .. note::
 
-   Malva Tools are provided **free of charge** for academic non-profit research.
+   Malva is provided **free of charge** for academic non-profit research.
    Any academic user with an ORCID account has free and unlimited access (within hardware constraints).
 
 **To get started:**
 
 1. Visit the `Malva Platform <https://malva.bio>`_ and sign in with your ORCID account
-2. Download the Python wheel or Apptainer container from the :doc:`installation` page
-3. See the :doc:`quickstart` guide for your first index and query
+2. See the :doc:`quickstart` guide for your first index and query
 
 ----
 
 Citation
 --------
 
-If you use Malva Tools in your research, please cite:
+If you use Malva in your research, please cite `our paper in Nature <https://www.nature.com/articles/s41586-026-10975-w>`:
 
 .. code-block:: text
 
-   [Citation to be added upon publication]
+   @article{LenPerin2026,
+    title = {Ultrafast and reference-free sequence discovery in single-cell data},
+    ISSN = {1476-4687},
+    url = {http://dx.doi.org/10.1038/s41586-026-10975-w},
+    DOI = {10.1038/s41586-026-10975-w},
+    journal = {Nature},
+    publisher = {Springer Science and Business Media LLC},
+    author = {León-Periñán,  Daniel and Karaiskos,  Nikos and Rajewsky,  Nikolaus},
+    year = {2026},
+    month = Aug 
+    }
