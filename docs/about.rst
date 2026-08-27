@@ -150,8 +150,18 @@ Availability
 Citation
 --------
 
-If you use Malva in your research, please cite:
+If you use Malva in your research, please cite `our paper in Nature <https://www.nature.com/articles/s41586-026-10975-w>`:
 
 .. code-block:: text
 
-   [Citation to be added upon publication]
+   @article{LenPerin2026,
+    title = {Ultrafast and reference-free sequence discovery in single-cell data},
+    ISSN = {1476-4687},
+    url = {http://dx.doi.org/10.1038/s41586-026-10975-w},
+    DOI = {10.1038/s41586-026-10975-w},
+    journal = {Nature},
+    publisher = {Springer Science and Business Media LLC},
+    author = {León-Periñán,  Daniel and Karaiskos,  Nikos and Rajewsky,  Nikolaus},
+    year = {2026},
+    month = Aug 
+    }
