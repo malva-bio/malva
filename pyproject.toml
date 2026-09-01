@@ -33,7 +33,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Bio-Informatics",
     "Topic :: Scientific/Engineering :: Visualization",
 ]
-include = ["malva/data/*.yaml", "malva/serve/static/index.html"]
+include = [
+    "malva/data/*.yaml",
+    "malva/serve/static/index.html",
+    "include/ankerl/*.h",
+]
 
 [tool.poetry.build]
 script = "build.py"
