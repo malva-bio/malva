@@ -8,7 +8,7 @@
 
 Malva is a nucleotide sequence indexer that enables sequence search at single-cell and spatial resolution: query any sequence across millions of single cells, in seconds.
 
-Malva powers [**Malva Index** and **Malva Explorer**](https://malva.mdc-berlin.de), a large collection of datasets spanning 75+ million human single cells.
+Malva powers [**Malva Index**](https://malva.mdc-berlin.de), a large collection of datasets spanning 75+ million human single cells.
 You can use the [Malva Client API](https://github.com/malva-bio/malva_client) to connect to and query the Malva Index.
 
 > **Code and binaries are freely available for academic non-profit use.** See [LICENSE](LICENSE) for details.
