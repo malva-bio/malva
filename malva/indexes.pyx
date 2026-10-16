@@ -716,9 +716,9 @@ cdef class PrefixIndex:
         self.kmer_size   = meta['kmer_size']
         self.n_kmers     = meta.get('n_kmers', 0)
         self.n_cells     = meta.get('n_cells', 0)
-        self.n_prefixes  = 1 << (2 * self.l_prefix)
+        self.n_prefixes  = (<uint64_t>1) << (2 * self.l_prefix)
         self.rshift      = 2 * self.l_suffix
-        self.suffix_mask = (1 << (2 * self.l_suffix)) - 1
+        self.suffix_mask = ((<uint64_t>1) << (2 * self.l_suffix)) - 1
 
         pi_mm = np.memmap(self.pi_path, dtype=np.uint8, mode='r')
         self._pi_arr_ref = pi_mm
@@ -1567,8 +1567,8 @@ cdef class PrefixIndexBuilder:
     def __cinit__(self, str output_dir, int kmer_size=24, int l_prefix=12, int jump_amount=0, bint verbose=False):
         self.output_dir = output_dir; self.kmer_size = kmer_size; self.l_prefix = l_prefix
         self.l_suffix = kmer_size - l_prefix; self.jump_amount = kmer_size if jump_amount==0 else jump_amount
-        self.n_prefixes = 1 << (2*l_prefix); self.rshift = 2*self.l_suffix
-        self.suffix_mask = (1 << (2*self.l_suffix)) - 1; self.verbose = verbose; self.buffer_count = 0
+        self.n_prefixes = (<uint64_t>1) << (2*l_prefix); self.rshift = 2*self.l_suffix
+        self.suffix_mask = ((<uint64_t>1) << (2*self.l_suffix)) - 1; self.verbose = verbose; self.buffer_count = 0
         if not os.path.exists(output_dir): os.makedirs(output_dir)
     cdef void _sort_buffer(self): stdsort(self.buffer.begin(), self.buffer.end(), &compare_kmer_cell)
     cdef void _write_buffer_to_chunk(self, str chunk_path):
@@ -1848,7 +1848,7 @@ cdef void _record_build_seconds(object metrics, double start):
 
 cdef void _build_index_radix(uint64_t* ak, uint32_t* ac, uint64_t tp, str output_dir, int kmer_size, int l_prefix, uint64_t n_cells):
     cdef int l_suffix=kmer_size-l_prefix
-    cdef uint64_t np2=1<<(2*l_prefix), rshift=2*l_suffix, smask=(1<<(2*l_suffix))-1
+    cdef uint64_t np2=(<uint64_t>1)<<(2*l_prefix), rshift=2*l_suffix, smask=((<uint64_t>1)<<(2*l_suffix))-1
     cdef uint64_t i, pc, tk=0, nb=0
     cdef double t0=time.time(), t1, t2, t3, now
     logging.info(f"Radix partition {tp:,} entries -> {np2:,} prefixes...")
@@ -1921,7 +1921,7 @@ cdef bint chunk_reader_next(ChunkReader* cr) nogil:
 
 def build_from_sorted_chunks(list chunk_paths, str output_dir, int kmer_size=24, int l_prefix=12, uint64_t n_cells=0, bint verbose=False):
     cdef int ls=kmer_size-l_prefix, nc=len(chunk_paths), i, mi, ac2=0
-    cdef uint64_t np2=1<<(2*l_prefix), rshift=2*ls, smask=(1<<(2*ls))-1
+    cdef uint64_t np2=(<uint64_t>1)<<(2*l_prefix), rshift=2*ls, smask=((<uint64_t>1)<<(2*ls))-1
     cdef uint64_t tk=0,nb=0,mk,nc2,kv,pc,ep=0
     cdef uint32_t mc,sc,cv,cp2=0xFFFFFFFF
     cdef uint64_t cpp=0xFFFFFFFFFFFFFFFF
@@ -1989,7 +1989,7 @@ def build_from_sorted_chunks(list chunk_paths, str output_dir, int kmer_size=24,
 
 
 def _write_empty_index(str od, int ks, int lp, int ls, uint64_t nc):
-    np2=1<<(2*lp); pi=np.zeros(np2,dtype=np.uint64)
+    np2=(<uint64_t>1)<<(2*lp); pi=np.zeros(np2,dtype=np.uint64)
     with open(os.path.join(od,'pi.bin'),'wb') as f: f.write(pi.tobytes()); f.write(pi.tobytes()); f.write(np.zeros(np2,dtype=np.uint32).tobytes())
     with open(os.path.join(od,'suffixes.bin'),'wb') as f: f.write(b'\x00\x00\x00\x00')
     with open(os.path.join(od,'data.bin'),'wb') as f: pass
@@ -2415,9 +2415,9 @@ def convert_h5_to_prefix(object indices_ds, object indptr_ds, object data_ds,
     """
     cdef:
         int l_suffix = kmer_size - l_prefix
-        uint64_t n_prefixes = 1 << (2 * l_prefix)
+        uint64_t n_prefixes = (<uint64_t>1) << (2 * l_prefix)
         uint64_t rshift_val = 2 * l_suffix
-        uint64_t suffix_mask_val = (1 << (2 * l_suffix)) - 1
+        uint64_t suffix_mask_val = ((<uint64_t>1) << (2 * l_suffix)) - 1
         uint64_t total_indices = len(indices_ds)
         uint64_t total_indptr = len(indptr_ds)
         uint64_t total_data = len(data_ds)
