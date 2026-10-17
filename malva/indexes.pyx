@@ -1762,8 +1762,8 @@ def process_fastq_reads(list reads_in, str output_dir, object spatial_index,
             cdna_len=ir2.last_sequence_length
             nt_read += cdna_len
             ns+=1
-            cid=spatial_index.lookup(r1bc)
-            if cid==0: continue
+            cid=spatial_index.lookup(r1bc, 0xFFFFFFFF)
+            if cid==0xFFFFFFFF: continue
             n_indexed+=1
             nt_indexed += cdna_len
             if cid <= n_cells: seen[cid]=1

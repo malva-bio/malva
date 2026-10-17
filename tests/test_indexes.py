@@ -60,9 +60,8 @@ class TestIndexBuildAndQuery:
             assert isinstance(counts, np.ndarray) and counts.dtype == np.uint32
             assert isinstance(matches, list)
 
-            # Every crafted read carries QUERY. Cell id 0 is the "not found"
-            # sentinel in the barcode map, so the barcodes that survive are 1..n-1.
-            assert set(locations.tolist()) == set(range(1, len(OPENST_BARCODES)))
+            # Every crafted read carries QUERY, including spatial cell id 0.
+            assert set(locations.tolist()) == set(range(len(OPENST_BARCODES)))
         finally:
             index.close()
 
