@@ -15,7 +15,7 @@ permissions:
 
 jobs:
   sdist:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v6
@@ -28,11 +28,7 @@ jobs:
           if-no-files-found: error
 
   wheels:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-14]
-    runs-on: ${{ matrix.os }}
+    runs-on: [self-hosted, linux, x64]
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@v6
@@ -46,6 +42,6 @@ jobs:
       - run: python -m cibuildwheel --output-dir dist
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-linux
           path: dist/*.whl
           if-no-files-found: error
