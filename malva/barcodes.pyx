@@ -59,9 +59,9 @@ cdef class SpatialIndex:
     cdef void add(self, uint64_t cell_bc, uint32_t i) nogil:
         self.index[cell_bc] = i
 
-    def lookup(self, uint64_t key):
-        """Python-accessible barcode lookup. Returns 0 if not found."""
-        return self.get_key(key)
+    def lookup(self, uint64_t key, uint32_t missing=0):
+        """Python-accessible barcode lookup, returning ``missing`` if absent."""
+        return self.get_key(key, missing)
 
     def get_coords(self):
         """Return all coordinates as an (N, 2) float32 array."""
@@ -76,9 +76,12 @@ cdef class SpatialIndex:
         """Number of registered barcodes."""
         return self.index.size()
 
-    cdef uint32_t get_key(self, uint64_t key) noexcept nogil:
-        """Return the index for a barcode (0 if absent)."""
-        return self.index[key]
+    cdef uint32_t get_key(self, uint64_t key, uint32_t missing=0) noexcept:
+        """Return the index for a barcode without inserting missing keys."""
+        cdef map[uint64_t, uint32_t].iterator it = self.index.find(key)
+        if it == self.index.end():
+            return missing
+        return deref(it).second
 
     def save_binary(self, str filename):
         """Write index to binary: [size: size_t][key: uint64, x: float, y: float, ...]."""
