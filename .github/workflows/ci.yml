@@ -19,7 +19,7 @@ permissions:
 
 jobs:
   lint:
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","x64"]') }}
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","arm64"]') }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -30,7 +30,7 @@ jobs:
   # ty only checks the pure-Python subset (tests/); the compiled .pyx modules
   # carry no stubs, so the unresolved-import rule is disabled in pyproject.toml.
   typecheck:
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","x64"]') }}
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","arm64"]') }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -39,7 +39,7 @@ jobs:
 
   # fails if any third-party import is not declared in pyproject.toml
   dependencies:
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","x64"]') }}
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","arm64"]') }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -51,7 +51,7 @@ jobs:
   # but do not fail). malva itself is allowed: it is deliberately academic
   # non-commercial. The full report is uploaded for inspection.
   licenses:
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","x64"]') }}
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","arm64"]') }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -69,7 +69,7 @@ jobs:
           path: licenses.json
 
   test:
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","x64"]') }}
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","arm64"]') }}
     timeout-minutes: 45
     strategy:
       fail-fast: false
@@ -86,7 +86,7 @@ jobs:
   # a line-traced build (MALVA_DEBUG_BUILD=1) plus the Cython.Coverage plugin,
   # both wired in here. Reported, not gated: the XML is uploaded for inspection.
   coverage:
-    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","x64"]') }}
+    runs-on: ${{ github.event_name == 'pull_request' && fromJSON('["ubuntu-latest"]') || fromJSON('["self-hosted","linux","arm64"]') }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v6
