@@ -16,6 +16,24 @@ from malva.kmer_processing import decode_kmer
 from malva.utils import SUCCESS_MSG, check_directory_exists
 
 
+def _zero_based_cell_ids(kmer_index, cell_ids):
+    """Convert single-cell whitelist IDs to zero-based matrix indices.
+
+    Spatial barcodes are stored with zero-based IDs, while barcode-only
+    single-cell indices reserve 0 as the not-found sentinel and assign cells
+    IDs 1..N. SciPy sparse matrix column indices must be in 0..N-1.
+    """
+    has_spatial_coords = os.path.exists(os.path.join(kmer_index.index_dir, "spatial_coord.npy"))
+    if (
+        not has_spatial_coords
+        and cell_ids.size
+        and cell_ids.min() >= 1
+        and cell_ids.max() <= kmer_index.n_spatial
+    ):
+        return cell_ids - 1
+    return cell_ids
+
+
 def _get_csr_arrays(kmer_index, verbose=True):
     """
     Extract CSR-compatible arrays (indices, indptr, data) from a MalvaIndex.
@@ -27,6 +45,7 @@ def _get_csr_arrays(kmer_index, verbose=True):
     pi = kmer_index._prefix_index
     indices, indptr, data = pi.iterate_all_kmers(verbose=verbose)
     num_cells = kmer_index.n_spatial
+    data = _zero_based_cell_ids(kmer_index, data)
     return indices, indptr.astype(np.int64), data, num_cells
 
 
@@ -48,6 +67,7 @@ def _get_csr_arrays_chunk(kmer_index, chunk_start, chunk_end, verbose=True):
     ip_start = int(all_indptr[chunk_start])
     ip_end = int(all_indptr[actual_end])
     data_chunk = all_data[ip_start:ip_end]
+    data_chunk = _zero_based_cell_ids(kmer_index, data_chunk)
     indptr_chunk = all_indptr[chunk_start : actual_end + 1] - ip_start
 
     return indices_chunk, indptr_chunk.astype(np.int64), data_chunk, num_cells, total_kmers
@@ -142,6 +162,7 @@ def malva_to_filtered_cellxmer_chunked(
         logging.info(f"Reading all {len_indices:,} kmers from index...")
     pi = kmer_index._prefix_index
     all_indices, all_indptr, all_data = pi.iterate_all_kmers(verbose=verbose)
+    all_data = _zero_based_cell_ids(kmer_index, all_data)
     len_indices = len(all_indices)
 
     total_chunks = (len_indices + chunk_size - 1) // chunk_size
