@@ -166,6 +166,34 @@ class TestIndexBuildAndQuery:
         finally:
             index.close()
 
+    def test_chunk_merge_suffix_sentinel_collision(self, tmp_path):
+        """A real 32-bit suffix of 0xFFFFFFFF must not be taken for the empty marker."""
+        k_lo = np.uint64(0x00000005)
+        k_hi = np.uint64(0xFFFFFFFF)
+        chunk_dir = tmp_path / "chunks"
+        builder = PrefixIndexBuilder(str(chunk_dir), kmer_size=24, l_prefix=8)
+        builder.add_pairs(
+            np.array([k_lo, k_hi], dtype=np.uint64),
+            np.array([1, 1], dtype=np.uint32),
+        )
+        chunk = builder.write_chunk()
+        assert chunk is not None
+
+        index_dir = tmp_path / "merged"
+        build_from_sorted_chunks(
+            [chunk], str(index_dir), kmer_size=24, l_prefix=8, n_cells=1, verbose=False
+        )
+
+        index = PrefixIndex()
+        index.open(str(index_dir))
+        try:
+            kmers, _, _ = index.iterate_all_kmers(verbose=False)
+            found = set(kmers.tolist())
+            assert int(k_lo) in found
+            assert int(k_hi) in found
+        finally:
+            index.close()
+
 
 class TestMalvaIndexMetadata:
     def test_new_index_is_not_open(self, tmp_path):

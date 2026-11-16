@@ -761,7 +761,8 @@ cdef class PrefixIndex:
     cdef int _decompress_suffix_bucket(self, uint64_t so, uint32_t* s,
                                         uint64_t* d, uint32_t* l, uint32_t capacity):
         cdef const unsigned char* p = self.suffix_mmap + so
-        cdef uint32_t n, i, prev_suf, delta, cum_offset
+        cdef uint32_t n, i, prev_suf, delta
+        cdef uint64_t cum_offset
         cdef int br
         memcpy(&n, p, 4); p += 4
         if n > capacity: return -<int>n
@@ -1600,7 +1601,8 @@ cdef void _flush_bucket_c(uint64_t pc, vector[pair[uint32_t, uint32_t]]& pairs,
     FILE* sfh, FILE* dfh, uint64_t* swp, uint64_t* dwp,
     uint64_t* pso, uint64_t* pdo, uint32_t* pds, uint64_t* tk, uint64_t* nb):
     cdef size_t n=pairs.size(), i
-    cdef uint32_t cs, ps=0xFFFFFFFF, cc, pc2=0xFFFFFFFF, cnt=0, ne
+    cdef uint32_t cs, ps=0, cc, pc2=0, cnt=0, ne
+    cdef bint have_ps=False, have_pc=False
     cdef vector[uint32_t] su, dl, ac
     cdef uint8_t* vbuf
     cdef int64_t vpos, dpos
@@ -1611,11 +1613,12 @@ cdef void _flush_bucket_c(uint64_t pc, vector[pair[uint32_t, uint32_t]]& pairs,
 
     for i in range(n):
         cs=pairs[i].first; cc=pairs[i].second
-        if cs!=ps:
-            if ps!=0xFFFFFFFF: dl.push_back(cnt); tk[0]+=1
-            su.push_back(cs); cnt=0; ps=cs; pc2=0xFFFFFFFF
-        if cc!=pc2: ac.push_back(cc); cnt+=1; pc2=cc
-    if ps!=0xFFFFFFFF: dl.push_back(cnt); tk[0]+=1
+        if (not have_ps) or cs!=ps:
+            if have_ps: dl.push_back(cnt); tk[0]+=1
+            su.push_back(cs); cnt=0; ps=cs; have_ps=True
+            have_pc=False
+        if (not have_pc) or cc!=pc2: ac.push_back(cc); cnt+=1; pc2=cc; have_pc=True
+    if have_ps: dl.push_back(cnt); tk[0]+=1
     ne=<uint32_t>su.size()
     if ne==0: return
 
