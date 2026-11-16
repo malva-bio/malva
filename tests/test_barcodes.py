@@ -9,6 +9,7 @@ from malva.barcodes import (
     create_singlecell_index,
     create_spatial_index,
 )
+from malva.fastq_processing import process_bam_batch, process_sra_batch
 from malva.kmer_processing import encode_kmer
 
 
@@ -29,6 +30,64 @@ class TestSpatialIndex:
         # First barcode maps to id 0, second to id 1.
         assert sindex.lookup(encode_kmer("ACGTACGT")) == 0
         assert sindex.lookup(encode_kmer("TTTTGGGG")) == 1
+
+        missing = encode_kmer("CCCCAAAA")
+        assert sindex.lookup(missing, 0xFFFFFFFF) == 0xFFFFFFFF
+        # Looking up an absent barcode must not mutate the index.
+        assert sindex.num_items() == 2
+
+    def test_sra_batch_preserves_spatial_cell_zero(self, tmp_path):
+        csv = tmp_path / "spatial.csv"
+        csv.write_text("barcode,x,y\nACGTACGT,1.5,2.5\nTTTTGGGG,3.0,4.0\n")
+        sindex = create_spatial_index(str(csv))
+        ak = np.zeros(8, dtype=np.uint64)
+        ac = np.zeros(8, dtype=np.uint32)
+        seen = np.zeros(2, dtype=np.uint8)
+
+        result = process_sra_batch(
+            ([b"ACGTACGT", b"CCCCAAAA"], [b"ACGTACGT", b"ACGTACGT"]),
+            0,
+            1,
+            sindex,
+            ak,
+            ac,
+            0,
+            0,
+            8,
+            4,
+            4,
+            len(ak),
+            seen,
+        )
+
+        assert result == (2, 2, 1, 16, 8)
+        assert ac[:2].tolist() == [0, 0]
+        assert seen.tolist() == [1, 0]
+
+    def test_bam_batch_preserves_spatial_cell_zero(self, tmp_path):
+        csv = tmp_path / "spatial.csv"
+        csv.write_text("barcode,x,y\nACGTACGT,1.5,2.5\nTTTTGGGG,3.0,4.0\n")
+        sindex = create_spatial_index(str(csv))
+        ak = np.zeros(8, dtype=np.uint64)
+        ac = np.zeros(8, dtype=np.uint32)
+        seen = np.zeros(2, dtype=np.uint8)
+
+        result = process_bam_batch(
+            ["ACGTACGT", "CCCCAAAA"],
+            ["ACGTACGT", "ACGTACGT"],
+            sindex,
+            ak,
+            ac,
+            0,
+            4,
+            4,
+            len(ak),
+            seen,
+        )
+
+        assert result == (2, 2, 1, 16, 8)
+        assert ac[:2].tolist() == [0, 0]
+        assert seen.tolist() == [1, 0]
 
     def test_save_and_load_binary_roundtrip(self, tmp_path):
         csv = tmp_path / "spatial.csv"

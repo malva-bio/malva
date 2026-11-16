@@ -569,8 +569,8 @@ def process_sra_batch(
         r1bc = encode_kmer(bc_ptr + trim_start, bc_len)
         if r1bc == 0:
             continue
-        cid = <uint32_t>spatial_index.lookup(r1bc)
-        if cid == 0:
+        cid = <uint32_t>spatial_index.lookup(r1bc, 0xFFFFFFFF)
+        if cid == 0xFFFFFFFF:
             continue
 
         if cdna_len < kmer_size:
@@ -656,8 +656,8 @@ def process_bam_batch(
         r1bc = encode_kmer(bc_ptr, bc_len)
         if r1bc == 0:
             continue
-        cid = <uint32_t>spatial_index.lookup(r1bc)
-        if cid == 0:
+        cid = <uint32_t>spatial_index.lookup(r1bc, 0xFFFFFFFF)
+        if cid == 0xFFFFFFFF:
             continue
 
         if cdna_obj is None:
