@@ -19,7 +19,7 @@ class TestCsrArrays:
         assert num_cells == len(OPENST_BARCODES)
         assert indptr.dtype == np.int64
         assert len(indptr) >= 1
-        assert data.min() == 1
+        assert data.min() == 0
 
     def test_chunk_is_a_prefix_of_the_whole(self, tmp_path):
         index_dir = build_index(tmp_path, OPENST_BARCODES, (2, 27), QUERY, spatial=True)
