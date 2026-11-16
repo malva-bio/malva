@@ -181,7 +181,7 @@ python-version = "3.11"
 # always "unresolved" to a pure-Python checker. Ignore that single rule; every
 # other diagnostic in the checked subset still fails the gate.
 [tool.ty.rules]
-unresolved-import = "ignore"
+import-not-found = "ignore"
 
 # The compiled .pyx modules have no Python stubs, so a whole-repo ty run is
 # dominated by false "unresolved import/attribute" noise. Check the subset that
